@@ -28,7 +28,7 @@ DocLight 是一款**主要由 Agent 自主开发**的开源文档站引擎。你
 ## 必须遵守的规范（详见 tech-design/12-development-standards.md）
 
 ### 硬性红线（违反即 blocker，不可合入）
-- **不加依赖，除非走审批**：任何新依赖必须说明用途 / 体积 / 许可证 / 替代方案；展示层 < 25KB gzip / Node 内核 < 25KB（ADR-0002 上调）是硬门禁
+- **不加依赖，除非走审批**：任何新依赖必须说明用途 / 体积 / 许可证 / 替代方案；展示层 < 25KB gzip / Node 内核 < 30KB（ADR-0002 修订）是硬门禁
 - **不碰受保护文件**：`packages/runtime/core/`、`contracts/`、视觉基线、`doclight.json` Schema 需显式批准
 - **无测试 = 不完成**：每个功能必须有对应测试（Gherkin + 单测）
 - **Review 是强制环节**：无 review 不得合入

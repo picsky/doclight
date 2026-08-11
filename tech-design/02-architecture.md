@@ -117,9 +117,9 @@ dist/index.html（任一形态的产物入口）
 | marked | ~13KB（实测 gzip） | Markdown 解析 |
 | DOMPurify | ~11KB（实测 gzip） | XSS sanitize（强制，Node 侧需 jsdom） |
 | 内核逻辑（导航/索引/模板） | ~5KB | |
-| **合计（Node 内核）** | **~25KB** | 只在服务端/构建时运行 |
+| **合计（Node 内核）** | **~30KB** | 只在服务端/构建时运行 |
 
-> 预算口径变更见 [ADR-0002](../adr/0002-node-kernel-size-budget.md)：实测 marked+dompurify gzip ≈ 24KB，20KB 估值过于乐观，故上调至 25KB。内核不进浏览器，体积只影响构建/服务端内存，不影响用户体验。
+> 预算口径变更见 [ADR-0002](../adr/0002-node-kernel-size-budget.md)：实测 marked(12.8KB)+dompurify(10.6KB)+逻辑(4KB) = 27.9KB，20KB 估值过于乐观，经两次修订上调至 30KB。内核不进浏览器，体积只影响构建/服务端内存，不影响用户体验。
 
 > 相比原「浏览器动态渲染」方案（~30KB 含 marked），三形态架构让浏览器端更小（~25KB，无 marked），并把安全层（DOMPurify）放到 Node 侧，浏览器端零安全负担。这是本次架构重构的额外收益。
 

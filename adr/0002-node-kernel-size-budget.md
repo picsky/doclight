@@ -1,6 +1,6 @@
-# ADR-0002: Node 渲染内核体积预算 20KB → 25KB
+# ADR-0002: Node 渲染内核体积预算 20KB → 30KB
 
-> 状态：✅ 已接受
+> 状态：✅ 已接受（2026-08-11 二次修订：25KB → 30KB）
 > 日期：2026-08-11
 > 决策者：人类维护者（对齐点 A 确认）+ 开发 Agent
 > 触发：Phase 1 marked 扩展性 spike 实测（`.spike/marked-extensibility.mjs`）
@@ -37,10 +37,26 @@
 
 ## 后果
 
-- 02-architecture §2.2 体积预算表、08-roadmap 性能门禁、12-development-standards、CLAUDE.md 风险提示同步更新为 25KB
-- `scripts/checks/size.mjs` BUDGETS 中 renderer 条目预算改为 `25 * 1024`（Phase 1 产出 `dist/renderer.js` 后启用）
+- 02-architecture §2.2 体积预算表、08-roadmap 性能门禁、12-development-standards、CLAUDE.md 风险提示同步更新为 30KB
+- `scripts/checks/size.mjs` BUDGETS 中 renderer 条目预算改为 `30 * 1024`（Phase 1 产出 `packages/renderer/dist/renderer.js` 后启用）
 - 展示层 25KB、搜索响应、构建速度等其他门禁**不变**
-- 若未来内核体积逼近 25KB，需先走审批说明再调整，不得悄悄超限
+- 若未来内核体积逼近 30KB，需先走审批说明再调整，不得悄悄超限
+
+## 修订（2026-08-11）：25KB → 30KB
+
+REND-001 实现后实测内核足迹（size 门禁口径：内核逻辑 + 运行依赖 gzip）：
+
+| 组成 | gzip | 说明 |
+|---|---|---|
+| marked.esm.js | 12.8KB | 无预压缩版（只有 esm/umd 未压缩）；压缩需引入 esbuild/terser，违反 02 §2.3.4「不引入构建工具链」 |
+| dompurify.min.js | 10.6KB | 已是 min |
+| 内核逻辑 renderer.js | 4.0KB | 转译后单文件 |
+| **合计** | **27.9KB** | 超 25KB 预算 2.9KB |
+
+**决策**：预算上调至 **30KB**。理由：
+- 压缩 marked 的两种途径均有实代价：引入构建工具链违反 02 §2.3.4 设计原则；vendoring 预压缩产物增加维护负担
+- 内核是服务端/构建时产物，体积无用户影响（浏览器展示层 25KB 才是用户侧硬门禁）
+- 30KB 留出余量，Phase 2-5 增加内核逻辑不频繁踩线，同时仍足够小以维持「加依赖需审批」纪律
 
 ## 关联需求
 

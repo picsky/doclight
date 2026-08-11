@@ -42,7 +42,7 @@
 ## 关键决策与约定（换会话勿推翻）
 
 - 包命名 renderer 是 ADR-0001 定案；`packages/renderer/core/` 受保护，改动需显式批准
-- 展示层 < 25KB gzip / Node 内核 < 25KB（ADR-0002 上调）硬门禁；**加依赖走审批**（12 §1.4）
+- 展示层 < 25KB gzip / Node 内核 < 30KB（ADR-0002 修订）硬门禁；**加依赖走审批**（12 §1.4）
 - 渲染统一在 Node 侧（file:// 死穴 + XSS 单点），浏览器不接触原始 Markdown
 - 需求 ID 前缀登记表在 `specs/README.md`；提交信息引用需求 ID（`feat(REND-001): ...`）
 - 中文写作：文档/注释/PR 用中文，代码标识符用英文

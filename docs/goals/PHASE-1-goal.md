@@ -3,7 +3,7 @@
 > 需求 ID 前缀：`REND`（渲染）/ `NAV`（导航）/ `DEV`（dev server）
 > 上游：tech-design/08-roadmap Phase 1、02-architecture §2.2、03-runtime-engine §3.1-3.3
 > 状态：✅ 对齐点 A 已确认（2026-08-11）
-> 决策：① Node 内核预算 20KB → **25KB**（内核不进浏览器，纪律值上调）② dev server 放 **packages/cli/** ③ 展示层骨架 **最简可用**
+> 决策：① Node 内核预算 20KB → **30KB**（ADR-0002 修订，实测 27.9KB）② dev server 放 **packages/cli/** ③ 展示层骨架 **最简可用**
 > 流程：15-development-process §2（目标声明 → 对齐点 A → 拆解）
 
 ---
@@ -27,7 +27,7 @@ Phase 0 已交付 Agent 自迭代环境（`npm run verify` 全绿，CI 修复转
   - 文件变更监听 + SSE 推送（热重载，不刷新整页）
   - 首屏直出（Node 渲染 → 返回完整 HTML）
 - **展示层骨架**（`packages/display/`）：产物内联 JS/CSS、基础路由、事件总线、工具函数（不渲染 Markdown）
-- **体积门禁**：Node 内核 gzip < 25KB（含 marked + DOMPurify，ADR-0002）；展示层 < 25KB
+- **体积门禁**：Node 内核 gzip < 30KB（含 marked + DOMPurify，ADR-0002 修订）；展示层 < 25KB
 
 ## 3. 非目标（明确不做，防 scope 蔓延）
 
@@ -88,4 +88,4 @@ Phase 0 已交付 Agent 自迭代环境（`npm run verify` 全绿，CI 修复转
 1. 本阶段范围（上表非目标）是否合理？尤其：**展示层骨架做到什么程度**（最简可用 vs 含基础导航渲染）？
 2. 优先验证 `doclight dev` 可用（项目从骨架迈入可用），还是优先内核 API 完备？
 3. dev server 放 `packages/cli/`（Phase 3 的 dev 命令）还是独立 `packages/dev-server/`？
-4. **Node 内核体积预算**：~~实测超 20KB 硬门禁~~ → ✅ **已决策：上调至 25KB**（2026-08-11，人确认）。理由：内核是服务端/构建时产物，**不进浏览器**，20KB 是纪律值非用户体验硬线；浏览器展示层 25KB 才是对用户敏感的硬门禁。落地：更新 02/08/12 文档 + `size.mjs` BUDGETS + ADR 记录。
+4. **Node 内核体积预算**：~~实测超 20KB 硬门禁~~ → ✅ **已决策：上调至 30KB**（2026-08-11，人确认；REND-001 实测 27.9KB 后从 25KB 再修订至 30KB）。理由：内核是服务端/构建时产物，**不进浏览器**；压缩 marked 需引入构建工具链（违反 02 §2.3.4）。落地：更新 02/08/12 文档 + `size.mjs` BUDGETS + ADR-0002 修订。

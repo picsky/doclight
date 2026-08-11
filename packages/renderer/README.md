@@ -17,4 +17,4 @@
 
 ## 体积预算
 
-Node 内核 gzip < 25KB（ADR-0002 上调；实测 marked ~13KB + DOMPurify ~11KB），`npm run verify:size` 硬门禁。
+Node 内核 gzip < 30KB（ADR-0002 修订；实测 marked ~13KB + DOMPurify ~11KB + 逻辑 ~4KB = 27.9KB），`npm run verify:size` 硬门禁。
