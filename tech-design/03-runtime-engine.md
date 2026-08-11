@@ -182,40 +182,46 @@ router.afterEach(({ from, to }) => {
 
 ### 3.3.2 自定义 Renderer
 
-基于 marked.Renderer 扩展，保留默认行为的同时增强：
+基于 marked.Renderer 扩展，保留默认行为的同时增强。
+
+> **API 说明（实测，2026-08-11）**：marked v12+（本项目用 v18）的 renderer 方法**接收 token 对象而非位置参数**（旧版字符串签名如 `heading(text, level, raw)` 已废弃）。方法内需用 `this.parser.parseInline(tokens)` 渲染内联内容以保留加粗/斜体/链接等格式。实测见 `.spike/marked-extensibility.mjs`。
 
 ```javascript
 const renderer = {
   // 标题：注入 id，用于锚点和 TOC
-  heading(text, level, raw) {
-    const id = slugify(raw)
-    return `<h${level} id="${id}">${text}</h${level}>`
+  heading({ tokens, depth }) {
+    const id = slugify(tokens.map(t => t.raw ?? t.text ?? "").join(""))
+    return `<h${depth} id="${id}">${this.parser.parseInline(tokens)}</h${depth}>`
   },
 
   // 链接：修正相对路径，判断是否外部链接
-  link(href, title, text) {
+  link({ href, tokens }) {
+    const text = this.parser.parseInline(tokens)
     if (isExternal(href)) {
       return `<a href="${href}" target="_blank" rel="noopener">${text}</a>`
     }
     const corrected = resolveRelativeLink(currentDoc.path, href)
-    return `<a href="#/${corrected}">${text}</a>`
+    return `<a href="${corrected}">${text}</a>`
   },
 
   // 图片：懒加载 + 相对路径修正
-  image(href, title, text) {
+  image({ href, text }) {
     const src = resolveRelativePath(currentDoc.path, href)
     return `<img src="${src}" alt="${text}" loading="lazy" />`
   },
 
   // 代码块：检测语言，调用高亮
-  code(code, lang) {
-    const highlighted = highlight(code, lang)
+  code({ text, lang }) {
+    const highlighted = highlight(text, lang)
     return `<pre><code class="language-${lang}">${highlighted}</code></pre>`
   },
 
-  // 表格：包裹容器，支持横向滚动
-  table(header, body) {
-    return `<div class="table-wrap"><table>${header}${body}</table></div>`
+  // 表格：包裹容器，支持横向滚动（token 含 header / rows / align）
+  table(token) {
+    const cell = (c) => `<td>${this.parser.parseInline(c.tokens)}</td>`
+    const head = `<tr>${token.header.map(c => `<th>${this.parser.parseInline(c.tokens)}</th>`).join("")}</tr>`
+    const body = token.rows.map(r => `<tr>${r.map(cell).join("")}</tr>`).join("")
+    return `<div class="table-wrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`
   },
 }
 ```
