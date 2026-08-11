@@ -5,5 +5,8 @@
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
-  "description": "doclight CLI：init / dev / build / bundle / deploy（Phase 3 实现）"
+  "description": "doclight CLI：init / dev / build / bundle / deploy（dev 已实现，其余 Phase 3）",
+  "dependencies": {
+    "doclight-renderer": "workspace:*"
+  }
 }

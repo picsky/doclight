@@ -6,9 +6,11 @@
  *
  * 需求 ID：REND-001（渲染管线 + sanitize 安全测试集）
  */
-import { parseFrontmatter, type Frontmatter } from "./core/frontmatter.js";
-import { renderMarkdown } from "./core/markdown.js";
-import { sanitizeHtml } from "./core/sanitize.js";
+import { parseFrontmatter, type Frontmatter } from "./core/frontmatter.ts";
+import { renderMarkdown } from "./core/markdown.ts";
+import { sanitizeHtml } from "./core/sanitize.ts";
+export { buildDocsJson, buildNavTree } from "./nav.ts";
+export type { DocsJson, NavFile, NavGroup, NavNode } from "./nav.js";
 
 export const rendererVersion = "0.1.0";
 

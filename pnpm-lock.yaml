@@ -39,7 +39,11 @@ importers:
         specifier: ^3.0.0
         version: 3.2.7(@types/node@24.13.3)(jsdom@30.0.1)
 
-  packages/cli: {}
+  packages/cli:
+    dependencies:
+      doclight-renderer:
+        specifier: workspace:*
+        version: link:../renderer
 
   packages/core: {}
 

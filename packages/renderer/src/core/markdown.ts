@@ -17,7 +17,7 @@
  * - 表格：包裹 .table-wrap 容器（横向滚动）
  */
 import { Marked, type RendererObject, type Tokens } from "marked";
-import { isExternal, resolveRelative, slugify } from "./link.js";
+import { isExternal, resolveRelative, slugify } from "./link.ts";
 
 export interface MarkdownOptions {
   /** 当前文档路径，用于相对链接/图片修正，如 "guide/quickstart.md" */
