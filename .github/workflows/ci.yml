@@ -1,0 +1,38 @@
+# CI（10 §4.4 闭环层）：push/PR 触发，任一步失败即停止并产出结构化反馈
+# Phase 0 启用阶段：build → lint → typecheck → test → size → contract
+# Phase 1 追加：visual / isomorphic / perf / browser-matrix（见 10 §2.1）
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装依赖（锁文件一致）
+        run: pnpm install --frozen-lockfile
+
+      - name: 全量验证（build → lint → typecheck → test → size → contract）
+        run: npm run verify
+
+      - name: 上传结构化报告（反馈层产物，Agent 可消费）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-reports
+          path: artifacts/reports/
