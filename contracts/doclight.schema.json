@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://doclight.dev/schemas/doclight.json",
+  "title": "DocLight 站点配置",
+  "description": "doclight.json 配置 Schema。契约规则（12 §6.2）：只加不改，破坏性变更需 RFC 评审 + 迁移指南。",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "站点标题（SSG 时用于 <title>）"
+    },
+    "description": {
+      "type": "string",
+      "description": "站点描述（SSG 时用于 <meta description>）"
+    },
+    "docsDir": {
+      "type": "string",
+      "default": "docs",
+      "description": "文档目录（相对项目根）"
+    },
+    "theme": {
+      "type": "string",
+      "enum": ["minimal", "serif", "modern", "warm"],
+      "description": "主题模板（见 11-default-themes 的 4 套）"
+    }
+  },
+  "additionalProperties": false
+}
