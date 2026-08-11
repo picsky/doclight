@@ -1,0 +1,9 @@
+{
+  "name": "doclight-display",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "description": "浏览器展示层：路由 / UI / 搜索 / 主题切换，只渲染内核输出的 HTML（gzip < 25KB 硬门禁）"
+}

@@ -1,0 +1,9 @@
+{
+  "name": "doclight-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "description": "公共类型与契约：renderer / display / cli / mcp-server 共享的类型定义与常量"
+}

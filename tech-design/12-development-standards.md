@@ -52,8 +52,8 @@
 
 ### 1.2 项目结构与模块边界
 
-- monorepo 结构（参考 [02-architecture](./02-architecture.md)）：`packages/runtime`、`packages/cli`、`packages/mcp-server`
-- **依赖方向**：runtime 不依赖 cli；cli 可依赖 runtime；公共类型放 `packages/core` 或共享目录
+- monorepo 结构（参考 [02-architecture](./02-architecture.md)）：`packages/renderer`（Node 渲染内核，含 `core/` 子目录）、`packages/cli`、`packages/mcp-server`、`packages/display`（浏览器展示层）、`packages/core`（公共类型）
+- **依赖方向**：renderer 不依赖 cli；cli 可依赖 renderer；公共类型放 `packages/core` 或共享目录
 - 每新增目录必须先在文档中说明归属，禁止「顺手」新建位置不明的目录
 - 模块职责单一：一个文件只做一件事，职责边界模糊 = 设计问题
 
@@ -343,7 +343,7 @@ BREAKING CHANGE: <说明>
 | 范围 | 权限 |
 |---|---|
 | `packages/*/src`（非核心） | Agent 可直接修改 |
-| `packages/runtime/core/` | 需显式批准（RFC 或维护者确认） |
+| `packages/renderer/core/` | 需显式批准（RFC 或维护者确认） |
 | `contracts/` / 基线截图 | 只读，改需专门流程 |
 | 新增依赖 | 必走 1.4 审批 |
 | `doclight.json` Schema | 只加不改，破坏性变更需 RFC |

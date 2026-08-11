@@ -1,0 +1,9 @@
+{
+  "name": "doclight-mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "description": "MCP Server：search_docs / read_doc / list_docs 等读取端工具（Phase 4 实现）"
+}

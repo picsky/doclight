@@ -1,0 +1,35 @@
+{
+  "name": "doclight",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DocLight —— 服务于人阅读、同时 AI 原生友好的零构建开源文档站引擎",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@10.14.0",
+  "scripts": {
+    "verify": "node scripts/verify.mjs",
+    "verify:lint": "eslint . --max-warnings 0",
+    "verify:test": "vitest run",
+    "verify:typecheck": "tsc -p tsconfig.json --noEmit",
+    "verify:size": "node scripts/size-check.mjs",
+    "verify:contract": "node scripts/contract-check.mjs",
+    "spec:check": "node scripts/spec-check.mjs",
+    "build": "node scripts/build.mjs",
+    "build:display": "node scripts/build-display.mjs",
+    "review": "node scripts/review.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@playwright/test": "^1.62.0",
+    "@types/node": "^24.0.0",
+    "@vitest/coverage-v8": "^3.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.3.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.0.0"
+  }
+}
