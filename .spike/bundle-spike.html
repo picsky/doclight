@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>bundle spike</title>
+</head>
+<body>
+<h1>内容内嵌（bundle）方案验证</h1>
+<pre id="out">rendering...</pre>
+<script>
+// 模拟 bundle 形态：所有 Markdown 内容内嵌为 JSON，不依赖任何网络/file 读取
+const DOCS = [
+  { path: "README.md", content: "# 欢迎\n\n这是内嵌的第一篇文档。" },
+  { path: "guide/quickstart.md", content: "# 快速开始\n\n- 步骤一\n- 步骤二\n\n```js\nconsole.log('hi')\n```" },
+  { path: "api/reference.md", content: "# API 参考\n\n| 方法 | 说明 |\n|---|---|\n| get | 读取 |\n| set | 写入 |" },
+];
+
+const out = document.getElementById('out');
+function render(path) {
+  const doc = DOCS.find(d => d.path === path) || DOCS[0];
+  out.textContent = "当前文档: " + doc.path + "\n\n" + doc.content;
+  window.__rendered = doc.path;
+}
+render('guide/quickstart.md');
+</script>
+</body>
+</html>

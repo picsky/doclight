@@ -1,0 +1,21 @@
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+build/
+out/
+
+# 测试与覆盖率
+coverage/
+.playwright/
+test-results/
+
+# 环境与编辑器
+.env
+.env.local
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log

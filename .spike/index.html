@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>file:// protocol spike</title>
+</head>
+<body>
+<h1>file:// protocol spike</h1>
+<pre id="out">running...</pre>
+<script>
+// 目标：验证在 file:// 协议下，能否通过 fetch / XMLHttpRequest 读取本地 Markdown
+// 场景覆盖：同目录子文件夹（./docs/test.md）、相对无 ./ 前缀（docs/test.md）
+const results = {};
+const out = document.getElementById('out');
+
+function logAll() {
+  out.textContent = JSON.stringify(results, null, 2);
+  window.__results = results;
+}
+
+async function testFetch(desc, url) {
+  try {
+    const r = await fetch(url);
+    const text = await r.text();
+    results[desc] = { ok: r.ok, status: r.status, body: text.slice(0, 30) };
+  } catch (e) {
+    results[desc] = { ok: false, error: e.name + ': ' + String(e.message).slice(0, 120) };
+  }
+}
+
+function testXHR(desc, url) {
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.onload = () => {
+      results[desc] = { ok: xhr.status === 0 || (xhr.status >= 200 && xhr.status < 400), status: xhr.status, body: xhr.responseText.slice(0, 30) };
+      resolve();
+    };
+    xhr.onerror = () => {
+      results[desc] = { ok: false, status: xhr.status, error: 'XHR onerror' };
+      resolve();
+    };
+    try { xhr.send(); } catch (e) { results[desc] = { ok: false, error: e.message }; resolve(); }
+  });
+}
+
+(async () => {
+  // 1. fetch 相对路径（./docs/test.md）
+  await testFetch('fetch ./docs/test.md', './docs/test.md');
+  // 2. fetch 相对路径（docs/test.md 无 ./）
+  await testFetch('fetch docs/test.md', 'docs/test.md');
+  // 3. fetch 绝对 file URL（自动解析）
+  await testFetch('fetch absolute file:// URL', new URL('./docs/test.md', location.href).href);
+  // 4. XHR 相对路径
+  await testXHR('XHR ./docs/test.md', './docs/test.md');
+  // 5. XHR 无 ./ 前缀
+  await testXHR('XHR docs/test.md', 'docs/test.md');
+  logAll();
+})();
+</script>
+</body>
+</html>
