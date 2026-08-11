@@ -17,6 +17,9 @@
 ### 目标
 搭好 Agent 自迭代开发环境：让 Agent 有清晰目标、可机器验证、能自动获取高质量反馈并自迭代。
 
+> **状态（2026-08-11）：✅ 主体完成** —— 环境闭环已跑通（`npm run verify` 全绿），交付清单见 `docs/agent-handoffs/PHASE-0-complete.md`。
+> 遗留：视觉基线/同构快照/浏览器矩阵/Golden Master/评审 Agent 逻辑（依赖 Phase 1 代码）；npm 注册与域名（待用户决策）。
+
 ### 任务清单
 
 #### 目标层（Spec）

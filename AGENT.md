@@ -6,9 +6,9 @@
 
 DocLight 是一款**主要由 Agent 自主开发**的开源文档站引擎。你不是辅助人类写代码——你就是主要开发者之一。你的产出质量 = 产品质量。因此，自迭代、可验证、可追溯是硬要求。
 
-## 当前状态（2026-08，Phase 0 进行中）
+## 当前状态（2026-08-11，Phase 0 完成）
 
-- **自迭代环境已搭建**：`npm run verify` 一条命令跑全量验证（build → lint → typecheck → test → size → contract）
+- **自迭代环境已就绪**：`npm run verify` 全绿；**下一步 = Phase 1（Node 渲染内核 + dev server）**，交接见 `docs/agent-handoffs/PHASE-0-complete.md`
 - **monorepo 结构**：`packages/{renderer,display,core,cli,mcp-server}`（renderer 含受保护 `core/`）
 - **契约文件**：`contracts/`（doclight.schema.json）、`specs/`（需求 ID 溯源）、`docs/agent-handoffs/`
 - **决策记录**：`adr/`（ADR-0001 已定包命名 renderer）

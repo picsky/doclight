@@ -4,11 +4,13 @@
 
 **DocLight 是一款服务于人阅读、同时 AI 原生友好的零构建开源文档站引擎。** 一个 `index.html` + `docs/` 文件夹 = 文档站；可选 SSG 静态导出修复 SEO；自带 llms.txt + MCP。
 
-## 当前状态（2026-08）
+## 当前状态（2026-08-11）
 
-- **阶段**：设计阶段，代码尚未开始
-- **产出物**：`research-report.md`（市场调研）+ `tech-design/`（16 份设计文档）
-- **下一步**：Phase 0 —— Agent 自迭代开发环境搭建（`file://` 技术验证已完成，三形态架构已定）
+- **阶段**：Phase 0 ✅ 完成（Agent 自迭代环境就绪，`npm run verify` 全绿）；**下一步 = Phase 1（Node 渲染内核 + dev server，见 08-roadmap）**
+- **已完成（Phase 0）**：monorepo 骨架（renderer/display/core/cli/mcp-server）、工具链、原生构建管线 + gzip 门禁、verify 命令族（JSON 双格式反馈）、契约层（doclight.schema.json / specs / agent-handoffs）、doclight-verify skill、GitHub Actions CI、私有远程仓库 `github.com/picsky/doclight`
+- **Phase 0 遗留（Phase 1 后跟进）**：视觉回归基线 / 同构快照 / 浏览器矩阵 / Golden Master / 评审 Agent 逻辑（依赖 Phase 1 代码）；npm 包名注册与域名（待用户决策）
+- **交接详情**：`docs/agent-handoffs/PHASE-0-complete.md`（换会话先读它）
+- **开工前**：先跑 `npm run verify` 确认从全绿基线出发
 
 ## 最高原则（决定一切决策）
 
@@ -44,15 +46,19 @@
 - **不发明术语**：遵循 `09-appendix` 术语表；新增术语须登记
 - **改动先看文档**：动手前先读相关 design 文档，遵循既有设计，不另起炉灶
 
-## 常用命令（Phase 0 后启用）
+## 常用命令
 
 ```bash
-npm run verify        # 一条命令跑全部验证（lint/test/visual/perf/contract）
-npm run verify:visual # 视觉回归（基线对比）
-npm run verify:perf   # 性能预算门禁
-npm run review        # 评审 Agent
-npm run spec:check    # 需求 ID 可追溯检查
+npm run verify          # 一条命令跑全部验证（build→lint→typecheck→test→size→contract）
+npm run verify:lint     # ESLint 零 error
+npm run verify:test     # Vitest 单测
+npm run verify:size     # 体积预算门禁（展示层 < 25KB gzip）
+npm run verify:contract # 契约校验
+npm run review          # 评审 Agent（契约占位）
+npm run spec:check      # 需求 ID 可追溯检查
 ```
+
+所有 check 双格式输出：终端摘要 + `artifacts/reports/<check>.json`（机器可读，Agent 据此自修）。
 
 ## 风险提示（务必牢记）
 
