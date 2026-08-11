@@ -6,12 +6,13 @@
 
 DocLight 是一款**主要由 Agent 自主开发**的开源文档站引擎。你不是辅助人类写代码——你就是主要开发者之一。你的产出质量 = 产品质量。因此，自迭代、可验证、可追溯是硬要求。
 
-## 当前状态（2026-08-11，Phase 0 完成）
+## 当前状态（2026-08-12，Phase 1 主体完成）
 
-- **自迭代环境已就绪**：`npm run verify` 全绿；**下一步 = Phase 1（Node 渲染内核 + dev server）**，交接见 `docs/agent-handoffs/PHASE-0-complete.md`
-- **monorepo 结构**：`packages/{renderer,display,core,cli,mcp-server}`（renderer 含受保护 `core/`）
-- **契约文件**：`contracts/`（doclight.schema.json）、`specs/`（需求 ID 溯源）、`docs/agent-handoffs/`
-- **决策记录**：`adr/`（ADR-0001 已定包命名 renderer）
+- **Phase 1 主体 ✅**：REND-001 渲染内核（marked+DOMPurify+frontmatter）、NAV-001 导航树、DEV-001 dev server（`doclight dev` 启动）、展示层骨架（主题/SPA 路由/移动端）；`npm run verify` 全绿 + 浏览器端到端 8/8；**下一步 = Phase 1 收尾或 Phase 2（搜索）**，交接见 `docs/agent-handoffs/PHASE-1-complete.md`
+- **monorepo 结构**：`packages/{renderer,display,core,cli,mcp-server}`（renderer 受保护 `src/core/`——markdown/sanitize/frontmatter/link）
+- **契约文件**：`contracts/`（doclight.schema.json）、`specs/features/{render,nav,dev}.feature`（需求 ID 溯源）、`docs/agent-handoffs/`
+- **决策记录**：`adr/`（ADR-0001 包命名 renderer、ADR-0002 内核预算 30KB）
+- **体积门禁**：展示层 < 25KB / Node 内核 < 30KB（ADR-0002）
 - **远程仓库**：`github.com/picsky/doclight`（私有，完备后转公开）
 
 ## 开始工作的流程（每次必走）
