@@ -5,5 +5,13 @@
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
-  "description": "Node 渲染内核：Markdown 渲染 / sanitize / 导航 / 索引 / 主题模板（单一事实来源）"
+  "description": "Node 渲染内核：Markdown 渲染 / sanitize / 导航 / 索引 / 主题模板（单一事实来源）",
+  "dependencies": {
+    "dompurify": "^3.2.4",
+    "jsdom": "^30.0.1",
+    "marked": "^18.0.9"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^21.1.7"
+  }
 }
