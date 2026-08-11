@@ -59,7 +59,11 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!);
 }
 
-/** 组装完整 HTML 页（首屏直出：内容 + 导航服务端渲染，内联 SSE 热重载脚本） */
+/**
+ * 组装完整 HTML 页（首屏直出：内容 + 导航服务端渲染）。
+ * 含：顶栏（站点标题/菜单/主题切换）、防闪烁脚本、亮暗设计令牌、
+ * 移动端侧边栏、SSE 热重载、展示层 bundle（自挂载）。
+ */
 function renderPage(options: { title: string; siteTitle: string; navHtml: string; contentHtml: string }): string {
   return `<!DOCTYPE html>
 <html lang="zh-CN" data-theme="auto">
@@ -67,37 +71,70 @@ function renderPage(options: { title: string; siteTitle: string; navHtml: string
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(options.title)} · ${escapeHtml(options.siteTitle)}</title>
+<script>
+  // 防闪烁（03 §3.6.2）：同步确定主题，在 CSS 前执行
+  (function () {
+    try {
+      var t = localStorage.getItem('doclight-theme');
+      if (!t || t === 'auto') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+  })();
+</script>
 <style>
-  :root { --max-w: 720px; --sidebar-w: 280px; --color-border: #e5e7eb; --color-text: #374151; --color-text-2: #6b7280; }
+  :root {
+    --max-w: 720px; --sidebar-w: 280px; --topbar-h: 52px;
+    --color-bg: #ffffff; --color-bg-soft: #f9fafb; --color-border: #e5e7eb;
+    --color-text: #374151; --color-text-2: #6b7280; --color-primary: #0d9488;
+  }
+  [data-theme="dark"] {
+    --color-bg: #0a0a0a; --color-bg-soft: #171717; --color-border: #262626;
+    --color-text: #d4d4d4; --color-text-2: #a3a3a3;
+  }
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--color-text); line-height: 1.75; }
-  .layout { display: flex; min-height: 100vh; }
+  body { margin: 0; background: var(--color-bg); color: var(--color-text); font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.75; }
+  .topbar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px; height: var(--topbar-h); padding: 0 16px; background: var(--color-bg-soft); border-bottom: 1px solid var(--color-border); }
+  .topbar button { border: 1px solid var(--color-border); background: transparent; color: var(--color-text-2); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  .topbar .site-title { font-weight: 600; }
+  #sidebar-toggle { display: none; }
+  .layout { display: flex; min-height: calc(100vh - var(--topbar-h)); }
   .sidebar { width: var(--sidebar-w); border-right: 1px solid var(--color-border); padding: 20px; font-size: 14px; overflow-y: auto; }
   .sidebar ul { list-style: none; padding-left: 14px; margin: 4px 0; }
   .sidebar > ul { padding-left: 0; }
   .sidebar a { color: var(--color-text-2); text-decoration: none; }
-  .sidebar a:hover { color: var(--color-text); }
-  main { flex: 1; max-width: var(--max-w); margin: 0 auto; padding: 32px 24px; }
-  pre { background: #f6f8fa; padding: 14px; border-radius: 6px; overflow-x: auto; }
-  code { background: #f6f8fa; padding: 2px 4px; border-radius: 4px; }
-  pre code { background: none; padding: 0; }
+  .sidebar a:hover, .sidebar a.active { color: var(--color-primary); }
+  main { flex: 1; max-width: var(--max-w); margin: 0 auto; padding: 32px 24px; min-width: 0; }
+  pre { background: var(--color-bg-soft); border: 1px solid var(--color-border); padding: 14px; border-radius: 6px; overflow-x: auto; }
+  code { background: var(--color-bg-soft); border: 1px solid var(--color-border); padding: 2px 4px; border-radius: 4px; }
+  pre code { background: none; border: none; padding: 0; }
   .table-wrap { overflow-x: auto; }
   table { border-collapse: collapse; }
   th, td { border: 1px solid var(--color-border); padding: 6px 12px; }
+  @media (max-width: 768px) {
+    #sidebar-toggle { display: block; }
+    .sidebar { position: fixed; left: 0; top: var(--topbar-h); bottom: 0; transform: translateX(-100%); transition: transform 0.2s ease; background: var(--color-bg); z-index: 20; }
+    .sidebar.open { transform: translateX(0); box-shadow: 0 0 24px rgba(0,0,0,0.25); }
+  }
 </style>
 </head>
 <body>
+<header class="topbar">
+  <button id="sidebar-toggle" aria-label="菜单">☰</button>
+  <span class="site-title">${escapeHtml(options.siteTitle)}</span>
+  <button id="theme-toggle" aria-label="切换主题">🌓</button>
+</header>
 <div class="layout">
   <aside class="sidebar">${options.navHtml}</aside>
   <main class="paper"><article>${options.contentHtml}</article></main>
 </div>
 <script>
-  // 热重载：SSE 收到变更事件后整页刷新（展示层接管后升级为不刷新的局部更新）
+  // 热重载：SSE 收到变更事件后整页刷新（SPA 导航由展示层接管）
   try {
     var es = new EventSource('/__doclight/events');
     es.onmessage = function (e) { if (e.data === 'reload') location.reload(); };
   } catch (err) { /* SSE 不可用时静默降级为手动刷新 */ }
 </script>
+<script type="module" src="/__doclight/display.js"></script>
 </body>
 </html>`;
 }
@@ -206,6 +243,19 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
     // 导航数据端点（展示层 / 后续形态用）
     if (urlPath === "/__doclight/docs.json") {
       sendJson(res, 200, { version: 1, generatedAt: new Date().toISOString(), nav: buildNavTree(mdFiles) });
+      return;
+    }
+
+    // 展示层 bundle（需先 npm run build 产出 dist/display.js；缺失时页面仍可服务端直出）
+    if (urlPath === "/__doclight/display.js") {
+      const displayPath = join(process.cwd(), "dist", "display.js");
+      try {
+        const data = readFileSync(displayPath);
+        res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8" });
+        res.end(data);
+      } catch {
+        send404(res, "dist/display.js 未构建（先运行 npm run build）");
+      }
       return;
     }
 
