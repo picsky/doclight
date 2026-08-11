@@ -23,6 +23,7 @@ specs/
 - 前缀表：`SRCH`(搜索) / `REND`(渲染) / `NAV`(导航) / `TOC` / `THEME` / `SSG` / `MCP` / `PLUG`(插件) / `SPACE`(内容空间) / `CLI` — 新增前缀须登记
 - Agent 在**提交信息与代码中引用需求 ID**（`feat(SRCH-001): ...`）
 - `npm run spec:check` 校验链路：specs 中的每个 ID 在 `packages/*` 的源码或测试中有引用
+- 只有 `.feature` 与编号 RFC 规格（`NNN-*.md`）承载需求 ID；本 README 中的示例 ID 仅供说明，不计入追溯（spec:check 不扫描约定文档）
 
 ## RFC 式规格格式约定
 

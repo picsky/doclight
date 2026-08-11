@@ -8,11 +8,23 @@ import { mkResult } from "../lib/report.mjs";
 const ID_RE = /\b([A-Z]{2,5}-\d{3})\b/g;
 const IMPL_ROOTS = ["packages"];
 
-function walk(dir, out = []) {
+// 规格来源：只有 .feature 行为规格与编号 RFC 规格（NNN-*.md）承载需求 ID
+// README 等约定文档排除（其中示例 ID 仅供说明，不视为真实需求）
+function walkSpecFiles(dir, out = []) {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
-    if (statSync(p).isDirectory()) walk(p, out);
-    else if (/\.(md|feature)$/.test(name)) out.push(p);
+    if (statSync(p).isDirectory()) walkSpecFiles(p, out);
+    else if (/\.feature$/.test(name) || /^\d{2,3}-.*\.md$/.test(name)) out.push(p);
+  }
+  return out;
+}
+
+// 实现引用：扫描 packages/ 下所有文本类文件（源码/测试/文档均可能引用需求 ID）
+function walkImplFiles(dir, out = []) {
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) walkImplFiles(p, out);
+    else if (/\.(ts|mjs|js|md|json)$/.test(name)) out.push(p);
   }
   return out;
 }
@@ -20,7 +32,7 @@ function walk(dir, out = []) {
 function collectIds(dir) {
   const ids = new Set();
   if (!statSync(dir).isDirectory()) return ids;
-  for (const file of walk(dir)) {
+  for (const file of walkSpecFiles(dir)) {
     const text = readFileSync(file, "utf8");
     for (const m of text.matchAll(ID_RE)) ids.add(m[1]);
   }
@@ -32,7 +44,7 @@ function scanImpl() {
   for (const root of IMPL_ROOTS) {
     const dir = join(process.cwd(), root);
     if (!statSync(dir).isDirectory()) continue;
-    for (const file of walk(dir)) {
+    for (const file of walkImplFiles(dir)) {
       const text = readFileSync(file, "utf8");
       for (const m of text.matchAll(ID_RE)) found.add(m[1]);
     }
