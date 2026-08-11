@@ -1,6 +1,7 @@
 // ESLint 9 flat config（12 §1.1：统一配置，零 error 才可提交）
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
+import globals from "globals";
 
 export default tseslint.config(
   {
@@ -31,6 +32,13 @@ export default tseslint.config(
     files: ["**/*.test.ts", "**/test/**/*.ts", "**/*.spec.ts"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
+  // scripts/ 是 Node 原生构建/验证管线（.mjs），声明 Node 全局
+  {
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: { ...globals.node },
     },
   }
 );

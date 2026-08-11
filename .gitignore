@@ -11,6 +11,9 @@ coverage/
 .playwright/
 test-results/
 
+# 验证产物（结构化报告/截图/diff，可再生成）
+artifacts/
+
 # 环境与编辑器
 .env
 .env.local
