@@ -64,6 +64,6 @@ npm run spec:check      # 需求 ID 可追溯检查
 ## 风险提示（务必牢记）
 
 - **file:// 死穴已解决**：三形态架构（渲染收敛 Node + bundle 内嵌）已在 Chromium/Firefox/WebKit 实测通过；不再依赖浏览器动态读取本地文件
-- 展示层 < 25KB gzip / Node 内核 < 20KB 是硬门禁：**加依赖是最高危操作**（见 12 文档 1.4）
+- 展示层 < 25KB gzip / Node 内核 < 25KB（ADR-0002 上调）是硬门禁：**加依赖是最高危操作**（见 12 文档 1.4）
 - XSS 必须 DOMPurify sanitize（marked 默认不消毒，已实测）
 - 视觉质量靠机器化保障（视觉回归 + 设计合规），不靠主观判断

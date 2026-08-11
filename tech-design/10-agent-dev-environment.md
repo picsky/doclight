@@ -156,7 +156,7 @@ npm run verify:isomorphic
 | 预算项 | 门禁值 | 超限行为 |
 |---|---|---|
 | 展示层（gzip） | < 25KB | CI 直接失败 |
-| Node 渲染内核（gzip，不进入浏览器） | < 20KB | CI 直接失败 |
+| Node 渲染内核（gzip，不进入浏览器） | < 25KB（ADR-0002 上调） | CI 直接失败 |
 | SSG 构建 | 100 页 < 5s | CI 直接失败 |
 | 搜索响应 | < 50ms（100 篇） | CI 直接失败 |
 | 首屏 LCP | < 500ms（SSG，3G） | CI 直接失败 |

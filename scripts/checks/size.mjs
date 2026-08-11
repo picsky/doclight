@@ -5,8 +5,8 @@ import { mkResult } from "../lib/report.mjs";
 
 const BUDGETS = [
   { id: "display", file: "dist/display.js", budget: 25 * 1024, title: "展示层 < 25KB gzip" },
-  // Node 渲染内核 < 20KB：Phase 1 产出真实内核产物后启用
-  // { id: "renderer", file: "dist/renderer.js", budget: 20 * 1024, title: "Node 内核 < 20KB gzip" },
+  // Node 渲染内核 < 25KB（ADR-0002 上调，实测 marked+dompurify ≈ 24KB）：Phase 1 产出真实内核产物后启用
+  // { id: "renderer", file: "dist/renderer.js", budget: 25 * 1024, title: "Node 内核 < 25KB gzip" },
 ];
 
 export function run() {
