@@ -28,4 +28,5 @@
 ## 约定
 
 - 状态为 blocked 的任务**必须**写交接文档，不得静默卡住（AGENT.md 失败处理）
-- 交接文档属于契约层文件（contract check 校验本目录存在）
+- **阶段/里程碑完成必写交接文档**：完成一个阶段（如 Phase 0→1）后必须写 `<phase>-complete.md`（如 `PHASE-0-complete.md`），**同时**同步 CLAUDE.md / AGENT.md 的「当前状态」（阶段/已完成/下一步），并随代码一并提交；未交接 = 阶段未完成（15 文档 §6.2，contract 门禁校验）
+- 交接文档属于契约层文件（contract check 校验本目录存在且至少一份交接文档）

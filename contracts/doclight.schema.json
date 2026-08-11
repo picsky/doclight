@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://doclight.dev/schemas/doclight.json",
+  "$id": "https://doclight.tech/schemas/doclight.json",
   "title": "DocLight 站点配置",
   "description": "doclight.json 配置 Schema。契约规则（12 §6.2）：只加不改，破坏性变更需 RFC 评审 + 迁移指南。",
   "type": "object",

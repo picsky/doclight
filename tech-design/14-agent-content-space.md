@@ -80,7 +80,7 @@
 用户不需要学任何配置。发布一条「魔法咒语」模板，用户复制即用：
 
 ```
-你是 DocLight 助手。请阅读 https://doclight.dev/agent-guide 完成 DocLight 接入：
+你是 DocLight 助手。请阅读 https://doclight.tech/agent-guide 完成 DocLight 接入：
 1) 按指南完成安装与配置
 2) 初始化我的内容空间（先问我要用哪个空间：本地 / GitHub / DocLight Cloud）
 3) 完成后告诉我如何使用（内容放哪、如何发布）

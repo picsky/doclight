@@ -420,7 +420,7 @@ Agent 只要知道域名，就能自动发现并使用 MCP 服务。
 ```javascript
 // DocLight Plugin: my-plugin
 // 生成时间：2026-08-01
-// 完整 API 文档：https://doclight.dev/api/plugin-api
+// 完整 API 文档：https://doclight.tech/api/plugin-api
 //
 // 可用钩子（按执行顺序）：
 //   beforeRender(markdown, context)  → 返回修改后的 markdown

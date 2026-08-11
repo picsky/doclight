@@ -33,6 +33,7 @@ DocLight 是一款**主要由 Agent 自主开发**的开源文档站引擎。你
 - **无测试 = 不完成**：每个功能必须有对应测试（Gherkin + 单测）
 - **Review 是强制环节**：无 review 不得合入
 - **一个 PR 一件事**：混合不相关改动 = blocker
+- **阶段完成必交接**：完成阶段/里程碑后必须同步 CLAUDE.md 与 AGENT.md 的「当前状态」（阶段/已完成/下一步）并写交接文档（`docs/agent-handoffs/<phase>-complete.md`），与代码一并提交；未交接 = 未完成（15 文档 §6.2）
 
 ### 提交规范
 - Conventional Commits：`<type>(<scope>): <subject>` + 需求 ID（如 `feat(SRCH-001): ...`）

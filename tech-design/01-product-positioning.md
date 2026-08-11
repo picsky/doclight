@@ -224,6 +224,6 @@ DocLight 的零配置承诺意味着**默认形态就是产品本身**。因此�
 - **Light** = 轻量、快速、明亮
 - 读音和「doclight」一致，好记好拼
 - ✅ npm 包名 `doclight` 已验证可用（2026-08 实测）；`doclite` 已被占用；`doc-light` / `lightdoc` / `marklight` 可用
-- 域名可用性需后续确认（doclight.dev / doclight.xyz 等）
+- 域名：`doclight.tech`（2026-08 已定；`.dev` 系 Google Registry 无工信部认证，国内注册商不可售）
 
 备选名：DocLite（npm 已占用）、LightDocs、MarkLight
