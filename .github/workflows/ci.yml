@@ -15,9 +15,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # pnpm 版本以 package.json 的 packageManager 为唯一事实来源
+      # （pnpm/action-setup 未指定 version 时会自动读取该字段）
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - uses: actions/setup-node@v4
         with:
