@@ -4,14 +4,15 @@
 
 **DocLight 是一款服务于人阅读、同时 AI 原生友好的零构建开源文档站引擎。** 一个 `index.html` + `docs/` 文件夹 = 文档站；可选 SSG 静态导出修复 SEO；自带 llms.txt + MCP。
 
-## 当前状态（2026-08-12）
+## 当前状态（2026-08-12，晚间）
 
-- **阶段**：Phase 1 ✅ 主体完成（Node 渲染内核 + dev server + 展示层骨架，`npm run verify` 全绿）；**下一步 = Phase 1 收尾（TOC/事件总线）或 Phase 2（搜索），见 08-roadmap 与 PHASE-1 交接**
-- **已完成（Phase 0 + Phase 1 主体）**：自迭代环境（verify 命令族/契约层/CI）+ **REND-001 渲染内核**（marked v18 + DOMPurify+jsdom sanitize + frontmatter，安全测试集全过）+ **NAV-001 导航树**（docs.json）+ **DEV-001 dev server**（`doclight dev` 一条命令启动：首屏直出 + SSE 热重载 + 路径穿越防护）+ **展示层骨架**（主题切换/SPA 路由/移动端侧边栏，Playwright 端到端 8/8）
-- **体积门禁（ADR-0002 修订）**：展示层 < 25KB gzip（实测 2.85KB）/ Node 内核 < 30KB（实测 27.9KB）
-- **遗留**：Phase 1 收尾（TOC/事件总线/完整主题令牌/doclight.json 配置，见 PHASE-1 交接）；原 Phase 0 遗留（视觉回归/同构快照/浏览器矩阵现可解锁，建议 `verify:e2e` 纳入 CI）；npm 包名注册与域名（待用户决策）
-- **交接详情**：`docs/agent-handoffs/PHASE-1-complete.md`（换会话先读它；Phase 0 见 PHASE-0-complete.md）
-- **开工前**：先跑 `npm run verify` 确认从全绿基线出发
+- **阶段**：Phase 1 ✅ 完整收官 + Phase 2 搜索 ✅ 主体完成（`npm run verify` 6/6 全绿，含 e2e 门禁 33/33 × 三浏览器）；**下一步 = Phase 2 剩余体验项（代码高亮/复制/自定义容器等）或进 Phase 3（SSG），见 08-roadmap 与 PHASE-2 交接**
+- **已完成（Phase 0 + Phase 1 全部 + Phase 2 搜索）**：自迭代环境（verify 命令族/契约层/CI）+ **REND-001 渲染内核**（marked v18 + DOMPurify+jsdom sanitize + frontmatter，安全测试集全过）+ **NAV-001 导航树**（docs.json）+ **DEV-001 dev server**（`doclight dev` 启动：首屏直出 + SSE 热重载 + 路径穿越防护）+ **展示层**（主题/SPA 路由+路由钩子 PLUG-002/移动端侧边栏）+ **TOC-001 本页目录**（桌面导轨/移动端面板/滚动高亮）+ **THEME-001 完整主题令牌**（03 §3.6 全量设计令牌）+ **PLUG-001 事件总线** + **SRCH-001 内置搜索**（Cmd/Ctrl+K + 中文 bigram 检索 + 索引懒加载 + 最近搜索）+ **verify:e2e 门禁**（Playwright 三浏览器端到端纳入 `npm run verify`）
+- **体积门禁（ADR-0002 修订）**：展示层 < 25KB gzip（实测 **9.8KB**）/ Node 内核 < 30KB（实测 27.9KB）
+- **决策记录**：搜索未引真实 MiniSearch（零依赖构建约束），以同形状 API 自研落地，Phase 3 可一处替换（见 PHASE-2 交接 §决策记录）
+- **遗留**：Phase 2 剩余体验项（代码高亮/复制按钮/自定义容器/专注模式/字号调节/打印样式）；搜索索引持久化（localStorage+版本校验，SSG 预构建待 Phase 3）；doclight.json 配置系统（02 §2.5）；视觉回归/同构快照（Phase 0 遗留）；npm 包名注册与域名（待用户决策）
+- **交接详情**：`docs/agent-handoffs/PHASE-2-search-complete.md`（换会话先读它；Phase 1 见 PHASE-1-complete.md、Phase 0 见 PHASE-0-complete.md）
+- **开工前**：先跑 `npm run verify` 确认从全绿基线出发（现含 e2e，需本机/CI 已装 Playwright 浏览器）
 
 ## 最高原则（决定一切决策）
 

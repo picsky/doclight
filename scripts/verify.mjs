@@ -4,8 +4,8 @@
 import { writeReport, printSummary } from "./lib/report.mjs";
 import { runBuild } from "./build.mjs";
 
-const CHECKS = ["lint", "typecheck", "test", "size", "contract"];
-// Phase 1 启用：visual / isomorphic / perf / browser-matrix（见 10 §2.1 验证矩阵）
+const CHECKS = ["lint", "typecheck", "test", "size", "contract", "e2e"];
+// Phase 1 启用：visual / isomorphic / perf（见 10 §2.1 验证矩阵）；e2e = 展示层真实浏览器门禁
 
 export async function verify() {
   // 1) 先构建（体积门禁与产物验证的前提）
@@ -25,7 +25,7 @@ export async function verify() {
   return {
     status: failed.length === 0 ? "pass" : "fail",
     check: "verify",
-    title: "全量验证（lint / typecheck / test / size / contract）",
+    title: "全量验证（lint / typecheck / test / size / contract / e2e）",
     total: results.length,
     passed: results.length - failed.length,
     failed: failed.length,

@@ -1,6 +1,6 @@
 # CI（10 §4.4 闭环层）：push/PR 触发，任一步失败即停止并产出结构化反馈
 # Phase 0 启用阶段：build → lint → typecheck → test → size → contract
-# Phase 1 追加：visual / isomorphic / perf / browser-matrix（见 10 §2.1）
+# Phase 1 追加：e2e（展示层真实浏览器，chromium/firefox/webkit）；visual/isomorphic/perf 待启（10 §2.1）
 name: CI
 
 on:
@@ -27,7 +27,10 @@ jobs:
       - name: 安装依赖（锁文件一致）
         run: pnpm install --frozen-lockfile
 
-      - name: 全量验证（build → lint → typecheck → test → size → contract）
+      - name: 安装 Playwright 浏览器（e2e 门禁：chromium/firefox/webkit）
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: 全量验证（build → lint → typecheck → test → size → contract → e2e）
         run: npm run verify
 
       - name: 上传结构化报告（反馈层产物，Agent 可消费）
