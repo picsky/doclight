@@ -6,13 +6,15 @@
 
 DocLight 是一款**主要由 Agent 自主开发**的开源文档站引擎。你不是辅助人类写代码——你就是主要开发者之一。你的产出质量 = 产品质量。因此，自迭代、可验证、可追溯是硬要求。
 
-## 当前状态（2026-08-12，Phase 1 主体完成）
+## 当前状态（2026-08-12，晚间：Phase 1 完整收官 + Phase 2 搜索完成）
 
-- **Phase 1 主体 ✅**：REND-001 渲染内核（marked+DOMPurify+frontmatter）、NAV-001 导航树、DEV-001 dev server（`doclight dev` 启动）、展示层骨架（主题/SPA 路由/移动端）；`npm run verify` 全绿 + 浏览器端到端 8/8；**下一步 = Phase 1 收尾或 Phase 2（搜索）**，交接见 `docs/agent-handoffs/PHASE-1-complete.md`
+- **Phase 1 ✅ 完整收官**：REND-001 渲染内核（marked+DOMPurify+frontmatter）、NAV-001 导航树、DEV-001 dev server、展示层（主题/SPA 路由+钩子 PLUG-002/移动端侧边栏）+ **TOC-001 本页目录** + **THEME-001 完整主题令牌** + **PLUG-001 事件总线**
+- **Phase 2 搜索 ✅ 主体**：**SRCH-001** 内置搜索（Cmd/Ctrl+K、中文 bigram 检索、索引懒加载、最近搜索）；**未引真实 MiniSearch**（零依赖构建约束），同形状 API 自研，Phase 3 可一处替换
+- **verify:e2e 门禁 ✅**：`npm run verify` 6/6 全绿（含 Playwright 三浏览器端到端 33/33）；**下一步 = Phase 2 剩余体验项或 Phase 3（SSG）**，交接见 `docs/agent-handoffs/PHASE-2-search-complete.md`
 - **monorepo 结构**：`packages/{renderer,display,core,cli,mcp-server}`（renderer 受保护 `src/core/`——markdown/sanitize/frontmatter/link）
-- **契约文件**：`contracts/`（doclight.schema.json）、`specs/features/{render,nav,dev}.feature`（需求 ID 溯源）、`docs/agent-handoffs/`
-- **决策记录**：`adr/`（ADR-0001 包命名 renderer、ADR-0002 内核预算 30KB）
-- **体积门禁**：展示层 < 25KB / Node 内核 < 30KB（ADR-0002）
+- **契约文件**：`contracts/`（doclight.schema.json）、`specs/features/{render,nav,dev,toc,theme,plugin,search}.feature`（需求 ID 溯源）、`docs/agent-handoffs/`
+- **决策记录**：`adr/`（ADR-0001 包命名 renderer、ADR-0002 内核预算 30KB）；搜索自研决策见 PHASE-2 交接
+- **体积门禁**：展示层 < 25KB（实测 9.8KB）/ Node 内核 < 30KB（ADR-0002）
 - **远程仓库**：`github.com/picsky/doclight`（私有，完备后转公开）
 
 ## 开始工作的流程（每次必走）

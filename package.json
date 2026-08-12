@@ -16,6 +16,7 @@
     "verify:test": "node scripts/run-check.mjs test",
     "verify:size": "node scripts/run-check.mjs size",
     "verify:contract": "node scripts/run-check.mjs contract",
+    "verify:e2e": "node scripts/run-check.mjs e2e",
     "spec:check": "node scripts/run-check.mjs spec",
     "build": "node scripts/build.mjs",
     "build:display": "node scripts/build-display.mjs",

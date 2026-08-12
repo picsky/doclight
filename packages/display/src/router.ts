@@ -1,11 +1,17 @@
 /**
- * 路由系统（03 §3.2，SPA 导航，最简骨架）
+ * 路由系统（03 §3.2，SPA 导航 + 路由钩子，PLUG-002）
  *
  * 劫持站内链接点击 → fetch 目标页（dev server 首屏直出完整 HTML）→ 提取内容
  * 注入 <article> → history.pushState 更新 URL → 高亮当前导航项。
  * 浏览器只消费已渲染 HTML，不接触 Markdown（架构原则）。
- * DOM 只在函数内访问；纯函数可在 Node 中测试。
+ *
+ * 路由钩子（03 §3.2.4，插件用）：
+ * - beforeEach({ from, to })：返回 false 取消导航 / 返回字符串重定向 / 不返回则继续
+ * - afterEach({ from, to })：导航完成后执行（TOC 重建、统计埋点等）
+ * 导航成功后同步向事件总线发布 doclight:routechange（插件通过 bus 订阅）。
+ * DOM 只在函数内访问；纯逻辑（isInternalLink / resolveBeforeHooks）可在 Node 中测试。
  */
+import { bus, type Unsubscribe } from "./event-bus.ts";
 
 /** 纯函数：判断链接是否为站内链接（同 origin 且非锚点） */
 export function isInternalLink(href: string | null | undefined, base: string): boolean {
@@ -15,6 +21,32 @@ export function isInternalLink(href: string | null | undefined, base: string): b
   } catch {
     return false;
   }
+}
+
+/** 路由上下文（钩子参数） */
+export interface RouteContext {
+  /** 来源路径（首次加载为 null） */
+  from: string | null;
+  /** 目标路径 */
+  to: string;
+  /** 是否 history.replaceState（前进后退为 true） */
+  replace: boolean;
+}
+
+export type BeforeHook = (ctx: RouteContext) => boolean | string | void;
+export type AfterHook = (ctx: RouteContext) => void;
+
+/** 纯函数：依次执行 beforeEach，得出导航决策（可测） */
+export function resolveBeforeHooks(
+  hooks: BeforeHook[],
+  ctx: RouteContext
+): { action: "continue" | "cancel" | "redirect"; to?: string } {
+  for (const hook of hooks) {
+    const r = hook(ctx);
+    if (r === false) return { action: "cancel" };
+    if (typeof r === "string") return { action: "redirect", to: r };
+  }
+  return { action: "continue" };
 }
 
 /** 浏览器专用：从完整 HTML 提取 <article> 内容 */
@@ -44,9 +76,28 @@ export function highlightActive(url: string, navSelector = "aside.sidebar"): voi
   });
 }
 
-/** 导航到站内 URL：fetch → 注入内容 → 更新 URL */
-async function navigate(url: string, replace = false): Promise<void> {
-  const res = await fetch(url);
+/** 路由 API（initRouter 返回值，供 mount 与插件使用） */
+export interface Router {
+  /** 注册 beforeEach 钩子，返回退订函数 */
+  beforeEach(hook: BeforeHook): Unsubscribe;
+  /** 注册 afterEach 钩子，返回退订函数 */
+  afterEach(hook: AfterHook): Unsubscribe;
+  /** 主动导航到站内 URL */
+  navigate(url: string, replace?: boolean): Promise<void>;
+}
+
+/** 导航到站内 URL：beforeEach 决策 → fetch → 注入内容 → 更新 URL → afterEach + 总线事件 */
+async function navigateWithHooks(
+  url: string,
+  replace: boolean,
+  state: { from: string | null; beforeHooks: BeforeHook[]; afterHooks: AfterHook[] }
+): Promise<void> {
+  const decision = resolveBeforeHooks(state.beforeHooks, { from: state.from, to: url, replace });
+  if (decision.action === "cancel") return;
+  let target = url;
+  if (decision.action === "redirect" && decision.to) target = decision.to;
+
+  const res = await fetch(target);
   if (!res.ok) return;
   const html = await res.text();
   const content = document.querySelector<HTMLElement>("article");
@@ -56,14 +107,26 @@ async function navigate(url: string, replace = false): Promise<void> {
     const title = extractTitle(html);
     if (title) document.title = title;
   }
-  if (replace) history.replaceState(null, "", url);
-  else history.pushState(null, "", url);
-  highlightActive(url);
+  if (replace) history.replaceState(null, "", target);
+  else history.pushState(null, "", target);
+
+  const ctx: RouteContext = { from: state.from, to: target, replace };
+  state.from = target;
+  for (const hook of state.afterHooks) {
+    try {
+      hook(ctx);
+    } catch {
+      /* 隔离单个 afterEach 钩子异常 */
+    }
+  }
+  bus.emit("doclight:routechange", ctx);
+  highlightActive(target);
 }
 
-/** 初始化：拦截站内链接点击 + popstate 前进后退 */
-export function initRouter(options: { contentSelector?: string; navSelector?: string } = {}): void {
+/** 初始化：拦截站内链接点击 + popstate 前进后退 + 钩子注册 API */
+export function initRouter(options: { contentSelector?: string; navSelector?: string } = {}): Router {
   const navSelector = options.navSelector ?? "aside.sidebar";
+  const state = { from: null as string | null, beforeHooks: [] as BeforeHook[], afterHooks: [] as AfterHook[] };
 
   document.addEventListener("click", (e) => {
     const target = (e.target as HTMLElement | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
@@ -71,11 +134,29 @@ export function initRouter(options: { contentSelector?: string; navSelector?: st
     const href = target.getAttribute("href");
     if (!isInternalLink(href, location.href)) return;
     e.preventDefault();
-    void navigate(href!);
+    void navigateWithHooks(href!, false, state);
   });
 
-  window.addEventListener("popstate", () => void navigate(location.href, true));
+  window.addEventListener("popstate", () => void navigateWithHooks(location.href, true, state));
 
   // 初次加载高亮（直出页）
   highlightActive(location.href, navSelector);
+
+  return {
+    beforeEach(hook) {
+      state.beforeHooks.push(hook);
+      return () => {
+        state.beforeHooks = state.beforeHooks.filter((h) => h !== hook);
+      };
+    },
+    afterEach(hook) {
+      state.afterHooks.push(hook);
+      return () => {
+        state.afterHooks = state.afterHooks.filter((h) => h !== hook);
+      };
+    },
+    navigate(url, replace = false) {
+      return navigateWithHooks(url, replace, state);
+    },
+  };
 }
