@@ -21,7 +21,13 @@ describe("PLUG-012 mermaid 迁移端到端", () => {
 
     const plugins = loadConfiguredPlugins(join(root, "docs"), root);
     expect(plugins.map((p) => p.name)).toEqual(["mermaid"]);
-    const r = buildSite({ dir: join(root, "docs"), outDir: join(root, "out"), title: "Mermaid 测试站", buildPlugins: plugins });
+    const r = buildSite({
+      dir: join(root, "docs"),
+      outDir: join(root, "out"),
+      title: "Mermaid 测试站",
+      buildPlugins: plugins,
+      pluginConfigs: [{ name: "mermaid" }], // PLUG-014：与 doclight.json 同源
+    });
     const html = readFileSync(join(root, "out", "index.html"), "utf8");
 
     // 围栏 fallback 结构（服务端直出）
@@ -31,6 +37,10 @@ describe("PLUG-012 mermaid 迁移端到端", () => {
     expect(html).toContain("window.doclight.use");
     expect(html).toContain("data-doclight-plugin-css");
     expect(html).toContain(".doclight-mermaid-error");
+    // PLUG-014：运行时配置注入（展示层自动注册接线）+ 插件定义挂注册表
+    expect(html).toContain("window.DOCLIGHT_PLUGIN_CONFIGS");
+    expect(html).toContain('"name":"mermaid"');
+    expect(html).toContain("window.DOCLIGHT_PLUGINS");
     // vendor 按需：mermaid.min.js 拷贝、prism 照旧
     expect(existsSync(join(root, "out", "vendor", "mermaid.min.js"))).toBe(true);
     expect(existsSync(join(root, "out", "vendor", "prism.min.js"))).toBe(true);

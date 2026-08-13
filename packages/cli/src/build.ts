@@ -73,6 +73,9 @@ export interface BuildOptions {
   displayBundle?: string;
   /** PLUG-009：构建时插件列表 */
   buildPlugins?: PluginDef[];
+  /** PLUG-014：插件运行时配置（doclight.json plugins，注入页面供展示层自动注册；
+   *  缺省回退 buildSite 内部 loadConfig 解析结果） */
+  pluginConfigs?: Array<{ name: string; config?: Record<string, unknown>; enabled?: boolean }>;
 }
 
 export interface BuildResult {
@@ -287,6 +290,7 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
         slotContent,
         themeCss,
         pluginCss,
+        pluginConfigs: options.pluginConfigs ?? cfg.plugins, // PLUG-014：doclight.json 插件配置注入（浏览器端自动注册）
       })
     );
     sitePages.push({

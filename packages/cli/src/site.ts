@@ -344,6 +344,9 @@ export interface RenderPageOptions {
   themeCss?: string;
   /** PLUG-012：插件 CSS（合并各插件 styles，<style data-doclight-plugin-css>；缺省空） */
   pluginCss?: string;
+  /** PLUG-014：插件运行时配置（doclight.json plugins 序列化，注入 window.DOCLIGHT_PLUGIN_CONFIGS
+   *  供展示层自动注册 init/onMount——与页面脚本挂载的 DOCLIGHT_PLUGINS 定义表接线） */
+  pluginConfigs?: Array<{ name: string; config?: Record<string, unknown>; enabled?: boolean }>;
 }
 
 /**
@@ -370,6 +373,17 @@ function globalOverridesScript(
     lines.push(`window.__DOCLLIGHT_BUNDLE__ = ${safeJson(bundleData)};`);
   }
   return lines.length ? `  ${lines.join("\n  ")}` : "";
+}
+
+/** PLUG-014：插件运行时配置内联（window.DOCLIGHT_PLUGIN_CONFIGS，展示层自动注册 init/onMount） */
+function pluginConfigsScript(pluginConfigs?: Array<{ name: string; config?: Record<string, unknown>; enabled?: boolean }>): string {
+  if (!pluginConfigs?.length) return "";
+  const safe = pluginConfigs.map((c) => ({
+    name: c.name,
+    ...(c.config && typeof c.config === "object" ? { config: c.config } : {}),
+    ...(c.enabled === false ? { enabled: false } : {}),
+  }));
+  return `  window.DOCLIGHT_PLUGIN_CONFIGS = ${safeJson(safe)};`;
 }
 
 /** 站点根起的绝对 URL：siteUrl + base + path（折叠多余斜杠，不破坏协议双斜杠） */
@@ -478,7 +492,8 @@ export function renderPage(options: RenderPageOptions): string {
   }
 
   const overrides = globalOverridesScript(form, base, options.searchVersion, options.bundleData);
-  const overridesScript = overrides ? `<script>\n${overrides}\n</script>` : "";
+  const pluginCfg = pluginConfigsScript(options.pluginConfigs);
+  const overridesScript = overrides || pluginCfg ? `<script>\n${overrides}${overrides && pluginCfg ? "\n" : ""}${pluginCfg}\n</script>` : "";
   // PLUG-005：插槽内容注入（构建时静态 HTML + data-doclight-slot 标记供运行时追加）
   const slot = (name: string): string => {
     const html = options.slotContent?.[name] ?? "";

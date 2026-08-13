@@ -31,6 +31,34 @@ export interface PluginManagerOptions {
   currentFrontmatter?: () => Record<string, unknown>;
 }
 
+/**
+ * PLUG-014 运行时配置自动注册：按窗口注入的插件配置注册浏览器端钩子
+ * （doclight.json plugins → 构建时注入 window.DOCLIGHT_PLUGIN_CONFIGS →
+ * 页面脚本挂 window.DOCLIGHT_PLUGINS 定义表 → 本函数接线 init/onMount）。
+ *
+ * 规则：
+ * - enabled:false 跳过；无运行时定义（外部 npm 插件包——构建时钩子已生效）静默跳过；
+ * - 定义表命中则 use({ ...def, name, config })，doclight.json 显式 config 覆盖插件默认；
+ * - 返回实际注册的插件名（调试/测试用）。
+ * 纯函数（无 DOM/全局依赖），可单测。
+ */
+export function registerConfiguredPlugins(
+  configs: Array<{ name: string; config?: Record<string, unknown>; enabled?: boolean }> | undefined,
+  defs: Record<string, PluginDef> | undefined,
+  use: (plugin: PluginDef) => void
+): string[] {
+  const registered: string[] = [];
+  if (!Array.isArray(configs)) return registered;
+  for (const cfg of configs) {
+    if (cfg.enabled === false || !cfg.name) continue;
+    const def = defs?.[cfg.name];
+    if (!def) continue;
+    use({ ...def, name: cfg.name, config: cfg.config ?? def.config });
+    registered.push(cfg.name);
+  }
+  return registered;
+}
+
 export class PluginManager {
   private plugins: PluginDef[] = [];
   private appApi: AppApi | null = null;

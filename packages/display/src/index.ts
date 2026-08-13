@@ -16,7 +16,7 @@ import { initSearch, type SearchApi } from "./search.ts";
 import { initExtensions, type ExtensionsApi } from "./extensions.ts";
 import { initUx } from "./ux.ts";
 import { bus } from "./event-bus.ts";
-import { PluginManager } from "./plugin-manager.ts";
+import { PluginManager, registerConfiguredPlugins } from "./plugin-manager.ts";
 import type { PluginDef } from "../../core/src/plugin.ts";
 
 export const displayVersion = "0.1.0";
@@ -27,6 +27,11 @@ const pluginMgr = new PluginManager();
 /** 注册插件（展示层全局入口，供页面脚本或 bundle 内联调用） */
 export function use(plugin: PluginDef): void {
   pluginMgr.use(plugin);
+}
+
+/** 窗口全局读取（PLUG-014：构建时注入的插件配置与页面脚本挂载的插件定义表） */
+function winGlobal(key: string): unknown {
+  return (window as unknown as Record<string, unknown>)[key];
 }
 
 /** 挂载展示层（页面 DOM 就绪后调用） */
@@ -44,6 +49,14 @@ export function mount(): Router & {
   const extensions = initExtensions();
   initSidebar();
   initUx(); // UX-001 体验细节：专注模式 / 字号调节 / Powered by
+
+  // PLUG-014：doclight.json 插件运行时配置自动注册（构建时注入
+  // window.DOCLIGHT_PLUGIN_CONFIGS + 页面脚本挂 window.DOCLIGHT_PLUGINS）
+  registerConfiguredPlugins(
+    winGlobal("DOCLIGHT_PLUGIN_CONFIGS") as Array<{ name: string; config?: Record<string, unknown>; enabled?: boolean }> | undefined,
+    winGlobal("DOCLIGHT_PLUGINS") as Record<string, PluginDef> | undefined,
+    (p) => pluginMgr.use(p)
+  );
 
   // PLUG-004 插件管理器集成
   pluginMgr["opts"] = {

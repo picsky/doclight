@@ -72,8 +72,10 @@ export const mermaidStyles = [
 
 /**
  * 运行时增强脚本（slotContent content:after 注入，同步执行早于展示层 module）：
- * 轮询等待 window.doclight 就绪 → doclight.use 注册（app 初始化前注册则 initApp
- * 统一调 init/onMount；注册晚则 use 立即调 init——两种时序首屏均覆盖）。
+ * 1. PLUG-014：定义挂 window.DOCLIGHT_PLUGINS["mermaid"]——展示层 mount 时按
+ *    window.DOCLIGHT_PLUGIN_CONFIGS 自动注册（doclight.json → init/onMount 接线）；
+ * 2. 兼容兜底：轮询等待 window.doclight 就绪后 doclight.use 自注册（旧产物 / 无
+ *    配置注入形态；PluginManager.use 按 name 防重复，双路径幂等）。
  */
 function runtimeScript(): string {
   return [
@@ -132,7 +134,10 @@ function runtimeScript(): string {
     "    init: function () { renderAll(); },", // 首屏（app 就绪时 DOM 已注入）
     "    onMount: function () { renderAll(); }", // 路由切换后新内容
     "  };",
-    "  // 等展示层就绪后注册（module script 延迟执行，slotContent 同步脚本先行——轮询兜底）",
+    "  // PLUG-014：挂定义表（展示层按 DOCLIGHT_PLUGIN_CONFIGS 自动注册）",
+    "  window.DOCLIGHT_PLUGINS = window.DOCLIGHT_PLUGINS || {};",
+    "  window.DOCLIGHT_PLUGINS['mermaid'] = def;",
+    "  // 兼容兜底：等展示层就绪后自注册（module script 延迟执行，slotContent 同步脚本先行——轮询兜底）",
     "  var tries = 0;",
     "  (function tryUse() {",
     "    if (window.doclight && window.doclight.use) { window.doclight.use(def); return; }",

@@ -50,6 +50,8 @@ export interface DevServerOptions {
   /** PLUG-011：插件重新解析回调（watch 触发后调用；返回 null 表示加载期错误 → 保留旧管线；
    *   PLUG-013：支持异步（ESM/TS 插件经 import 绕过缓存取最新）） */
   reloadPlugins?: () => PluginDef[] | Promise<PluginDef[] | null> | null;
+  /** PLUG-014：插件运行时配置（doclight.json plugins，由 CLI 层注入；注入页面供展示层自动注册） */
+  pluginConfigs?: Array<{ name: string; config?: Record<string, unknown>; enabled?: boolean }>;
 }
 
 export interface DevServer {
@@ -341,7 +343,18 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
 
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(
-        renderPage({ title, siteTitle, navHtml, contentHtml: html, form: "dev", searchVersion: searchIndexCache.version, slotContent, themeCss: options.themeCss })
+        renderPage({
+          title,
+          siteTitle,
+          navHtml,
+          contentHtml: html,
+          form: "dev",
+          searchVersion: searchIndexCache.version,
+          slotContent,
+          themeCss: options.themeCss,
+          pluginCss: pipeline.collectPluginStyles(),
+          pluginConfigs: options.pluginConfigs, // PLUG-014：dev 形态注入运行时配置
+        })
       );
     } catch (err) {
       send404(res, `渲染失败：${doc}（${(err as Error).message}）`);

@@ -236,6 +236,14 @@ onMount(app) {
 },
 ```
 
+**PLUG-014 自动注册**：运行时钩子（init/onMount）随 doclight.json 配置自动接线，无需手写注册脚本：
+
+- 构建时（dev/build/bundle 三形态）把 doclight.json `plugins` 序列化注入 `window.DOCLIGHT_PLUGIN_CONFIGS`；
+- 插件页面脚本把运行时定义挂 `window.DOCLIGHT_PLUGINS["<name>"] = { init, onMount, ... }`（示例见 `@doclight/plugin-mermaid` 的 slotContent 脚本——挂表 + 自注册兜底双路径，按 name 幂等）；
+- 展示层 mount 时 `registerConfiguredPlugins` 自动 `use`——显式 `config` 覆盖插件默认，`enabled:false` 跳过，无运行时定义的外部包插件静默跳过（其构建时钩子已生效）。
+
+> 运行时定义仅官方插件/页面内联插件可提供（浏览器无法加载 Node 插件包）；外部 npm 插件包以构建时钩子（beforeRender/afterRender/onBuild 等）为主。
+
 ---
 
 ## 6. 安全基线（必读）

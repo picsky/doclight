@@ -9,6 +9,7 @@
  *   doclight bundle [--dir] [--out-dir] [--title]              单文件便携包（05 §5.3.4，形态③）
  *   doclight deploy [--dir] [--title]                          一键部署（GitHub Pages 等，05 §5.5）
  */
+import { join, resolve } from "node:path";
 import { startDevServer } from "./dev-server.ts";
 import { buildSite } from "./build.ts";
 import { bundleSite } from "./bundle.ts";
@@ -19,6 +20,7 @@ import { startPreviewServer } from "./preview.ts";
 import { publishSite, type PublishResult } from "./publish.ts";
 import { spaceInit, spaceStatus, spaceSwitch } from "./space.ts";
 import { embedSite } from "./embed.ts";
+import { loadConfig } from "./config.ts";
 import { configuredPluginWatchFiles, loadConfiguredPlugins, reloadConfiguredPluginsAsync } from "./plugin-loader.ts";
 import { pluginList, pluginNew } from "./plugin-new.ts";
 import { loadConfiguredTheme } from "./themes.ts";
@@ -114,17 +116,23 @@ function printHelp(): void {
 export async function runDev(options: Partial<CliOptions> = {}): Promise<{ url: string; port: number; close(): Promise<void> }> {
   const merged: CliOptions = { port: options.port ?? 3000, dir: options.dir ?? "docs", title: options.title, mcp: options.mcp };
   // PLUG-009 接线：doclight.json plugins → 构建管线；THEME-002 主题同步；PLUG-011 插件热重载
+  // PLUG-014：doclight.json 插件配置注入页面（展示层自动注册 init/onMount）
+  const cfg = loadConfig([join(process.cwd(), "doclight.json"), join(resolve(merged.dir), "doclight.json")]);
   return startDevServer({
     ...merged,
     buildPlugins: loadConfiguredPlugins(merged.dir),
     themeCss: loadConfiguredTheme(merged.dir),
     pluginFiles: configuredPluginWatchFiles(merged.dir),
     reloadPlugins: () => reloadConfiguredPluginsAsync(merged.dir),
+    pluginConfigs: cfg.plugins,
   });
 }
 
 /** 执行 SSG 构建（供命令与测试复用） */
 export function runBuild(options: Partial<CliOptions> = {}): ReturnType<typeof buildSite> {
+  const dir = options.dir ?? "docs";
+  // PLUG-014：doclight.json 插件配置注入页面（与 buildPlugins 同源 loadConfig）
+  const cfg = loadConfig([join(process.cwd(), "doclight.json"), join(resolve(dir), "doclight.json")]);
   return buildSite({
     dir: options.dir,
     outDir: options.outDir,
@@ -134,7 +142,8 @@ export function runBuild(options: Partial<CliOptions> = {}): ReturnType<typeof b
     description: options.description,
     author: options.author,
     // PLUG-009 接线：doclight.json plugins → 构建管线
-    buildPlugins: loadConfiguredPlugins(options.dir ?? "docs"),
+    buildPlugins: loadConfiguredPlugins(dir),
+    pluginConfigs: cfg.plugins,
   });
 }
 
@@ -147,6 +156,9 @@ export async function runPreview(
 
 /** 执行 bundle 构建（供命令与测试复用） */
 export function runBundle(options: Partial<CliOptions> = {}): ReturnType<typeof bundleSite> {
+  const dir = options.dir ?? "docs";
+  // PLUG-014：bundle 形态同样注入插件运行时配置
+  const cfg = loadConfig([join(process.cwd(), "doclight.json"), join(resolve(dir), "doclight.json")]);
   return bundleSite({
     dir: options.dir,
     outDir: options.outDir,
@@ -154,7 +166,8 @@ export function runBundle(options: Partial<CliOptions> = {}): ReturnType<typeof 
     qrUrl: options.qrUrl,
     inlineVendor: options.inlineVendor,
     // PLUG-009 接线：doclight.json plugins → 构建管线（bundle 形态补齐）
-    buildPlugins: loadConfiguredPlugins(options.dir ?? "docs"),
+    buildPlugins: loadConfiguredPlugins(dir),
+    pluginConfigs: cfg.plugins,
   });
 }
 

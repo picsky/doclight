@@ -38,6 +38,9 @@ export interface BundleOptions {
   inlineVendor?: boolean;
   /** PLUG-009：构建时插件列表（由 CLI 层从配置解析后注入；bundle 形态补齐） */
   buildPlugins?: PluginDef[];
+  /** PLUG-014：插件运行时配置（doclight.json plugins，注入页面供展示层自动注册；
+   *  缺省回退 bundleSite 内部 loadConfig 解析结果） */
+  pluginConfigs?: Array<{ name: string; config?: Record<string, unknown>; enabled?: boolean }>;
 }
 
 export interface BundleResult {
@@ -159,6 +162,7 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
     slotContent: homeSlotContent,
     themeCss: resolveThemeCss(cfg.theme),
     pluginCss: pipeline.collectPluginStyles(),
+    pluginConfigs: options.pluginConfigs ?? cfg.plugins, // PLUG-014：bundle 形态同样注入运行时配置（展示层自动注册）
   });
 
   const file = join(outDir, options.filename ?? "doclight.html");

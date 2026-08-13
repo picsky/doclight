@@ -5,7 +5,7 @@
  * 无 DOM 依赖（路由钩子 / 事件总线均为纯逻辑对象）。
  */
 import { describe, expect, it, vi } from "vitest";
-import { PluginManager } from "../src/plugin-manager.ts";
+import { PluginManager, registerConfiguredPlugins } from "../src/plugin-manager.ts";
 import type { PluginDef } from "../../core/src/plugin.ts";
 
 describe("PluginManager（PLUG-004 展示层插件管理）", () => {
@@ -105,5 +105,49 @@ describe("PluginManager（PLUG-004 展示层插件管理）", () => {
     expect(mgr.slotMgr.renderHtml("footer", { path: "/" })).toBe("<div>footer content</div>");
     api.removeSlot("footer");
     expect(mgr.slotMgr.renderHtml("footer", { path: "/" })).toBe("");
+  });
+});
+
+describe("registerConfiguredPlugins（PLUG-014 doclight.json → 浏览器端自动注册）", () => {
+  it("配置命中定义表则注册（name/config 透传，显式 config 覆盖插件默认）", () => {
+    const use = vi.fn();
+    const defs = {
+      mermaid: { name: "mermaid", version: "1.0.0", config: { theme: "default" } },
+      other: { name: "other", version: "2.0.0" },
+    };
+    const registered = registerConfiguredPlugins(
+      [
+        { name: "mermaid", config: { theme: "dark" } },
+        { name: "other" },
+      ],
+      defs,
+      use
+    );
+    expect(registered).toEqual(["mermaid", "other"]);
+    expect(use).toHaveBeenCalledTimes(2);
+    expect(use).toHaveBeenNthCalledWith(1, { name: "mermaid", version: "1.0.0", config: { theme: "dark" } });
+    expect(use).toHaveBeenNthCalledWith(2, { name: "other", version: "2.0.0", config: undefined });
+  });
+
+  it("enabled:false 跳过；无运行时定义（外部 npm 插件包）静默跳过", () => {
+    const use = vi.fn();
+    const registered = registerConfiguredPlugins(
+      [
+        { name: "disabled", enabled: false },
+        { name: "external-pkg" }, // 定义表无此插件 → 跳过（构建时钩子已生效）
+        { name: "mermaid" },
+      ],
+      { mermaid: { name: "mermaid" } },
+      use
+    );
+    expect(registered).toEqual(["mermaid"]);
+    expect(use).toHaveBeenCalledTimes(1);
+  });
+
+  it("缺配置/缺定义表返回空", () => {
+    const use = vi.fn();
+    expect(registerConfiguredPlugins(undefined, {}, use)).toEqual([]);
+    expect(registerConfiguredPlugins([], undefined, use)).toEqual([]);
+    expect(use).not.toHaveBeenCalled();
   });
 });

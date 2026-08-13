@@ -1,4 +1,4 @@
-# 验收准则：插件系统（PLUG-001 ~ PLUG-013，07 §7 完整规格）
+# 验收准则：插件系统（PLUG-001 ~ PLUG-014，07 §7 完整规格）
 
 ## PLUG-001 事件总线（Phase 1 已有）
 
@@ -313,6 +313,31 @@ Feature: 加载器同步契约下支持 ESM 与 TypeScript 插件（Node 原生�
     Given Node < 23.6（无 require(esm) / TS strip 默认能力）
     When loadPluginsSync ESM/TS 插件
     Then 插件进 skipped（fatal=true，含原因）
+
+## PLUG-014 插件运行时配置自动注册
+
+Feature: doclight.json 插件 → 浏览器端 init/onMount 自动接线（构建时注入配置 + 页面脚本定义表）
+
+  Scenario: 构建产物注入 DOCLIGHT_PLUGIN_CONFIGS
+    Given doclight.json plugins:[{name:"mermaid"}]
+    When buildSite() / dev server 渲染 / bundleSite()
+    Then 产物 HTML 含 window.DOCLIGHT_PLUGIN_CONFIGS（name/config/enabled 序列化）
+
+  Scenario: 页面脚本挂插件定义表 DOCLIGHT_PLUGINS
+    Given mermaid 插件启用的页面
+    Then 产物 HTML 含 window.DOCLIGHT_PLUGINS["mermaid"]（init/onMount 定义）
+
+  Scenario: 展示层按配置自动注册
+    Given window.DOCLIGHT_PLUGIN_CONFIGS + window.DOCLIGHT_PLUGINS 就绪
+    When mount() 调用 registerConfiguredPlugins
+    Then 配置命中的插件被 use（显式 config 覆盖插件默认；enabled:false 跳过）
+    And 无运行时定义的外部插件包静默跳过（构建时钩子已生效）
+    And 生命周期 init → onMount 正常触发
+
+  Scenario: 兼容旧产物（自注册兜底）
+    Given 页面无 DOCLIGHT_PLUGIN_CONFIGS 注入
+    When 插件脚本轮询等待 window.doclight 就绪后 doclight.use
+    Then 插件仍注册成功（双路径按 name 防重复，幂等）
 
 ## PLUG-011 插件热重载
 
