@@ -96,3 +96,49 @@ describe("dev server（DEV-001）", () => {
     });
   });
 });
+
+describe("dev server MCP 插件模式（MCP-005，dev --mcp）", () => {
+  let mcpDev: DevServer;
+
+  beforeAll(async () => {
+    mcpDev = await startDevServer({ dir: docsDir, port: 0, mcp: true });
+  });
+
+  afterAll(async () => {
+    await mcpDev.close();
+  });
+
+  it("GET /.well-known/mcp → 发现端点（站点快照数据）", async () => {
+    const res = await fetch(`${mcpDev.url}.well-known/mcp`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { name: string; endpoint: string; totalDocs: number; tools: Array<{ name: string }> };
+    expect(body.name).toBe("doclight-mcp");
+    expect(body.endpoint).toBe("/mcp");
+    expect(body.totalDocs).toBe(4); // README + intro + guide/* 2
+    expect(body.tools.map((t) => t.name)).toContain("search_docs");
+  });
+
+  it("POST /mcp tools/call search_docs → 针对 dev 快照检索", async () => {
+    const res = await fetch(`${mcpDev.url}mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "search_docs", arguments: { query: "快速开始" } } }),
+    });
+    const body = (await res.json()) as { result: { content: Array<{ text: string }> } };
+    const parsed = JSON.parse(body.result.content[0]!.text) as { results: Array<{ path: string }> };
+    expect(parsed.results.length).toBeGreaterThan(0);
+    expect(parsed.results[0]!.path).toContain("quickstart");
+  });
+
+  it("站点首页不被 MCP 抢占（capabilitiesAtRoot=false，GET / 仍服务站点）", async () => {
+    const res = await fetch(mcpDev.url);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("欢迎来到测试站");
+  });
+
+  it("GET /health → MCP 能力页", async () => {
+    const res = await fetch(`${mcpDev.url}health`);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("doclight-mcp");
+  });
+});

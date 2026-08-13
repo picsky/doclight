@@ -36,3 +36,10 @@ Feature: DocLight CLI 全命令（init / bundle / deploy / migrate-docsify）
     And 跳过 _sidebar.md / _navbar.md / index.html（自动导航替代）
     And 解析 _sidebar 导航顺序写入报告
     And 幂等（目标已存在不覆盖）
+
+  Scenario: CLI-007 doclight embed 嵌入分发（13 §3.1）
+    Given 构建后的站点产物（dist-site/）
+    When 运行 doclight embed
+    Then 生成 snippet.js（自推导基址：从自身 script src 定位站点目录）
+    And snippet.js 自动注入响应式 iframe（width 100% + 同源高度自适应 + 异源降级 minHeight）
+    And 返回可复制的 <iframe> 代码块（--site-url 时含绝对地址）

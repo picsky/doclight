@@ -35,7 +35,7 @@
 - [ ] 配置测试框架（Vitest + Playwright）
 - [ ] 视觉回归基线：多断点截图 + 像素级 diff（4 套默认模板 × 亮暗 × 桌面/移动）
 - [ ] 性能预算门禁：展示层 < 25KB gzip、Node 内核 < 30KB（ADR-0002 修订，实测 27.9KB）、100 页构建 < 5s、搜索 < 50ms（CI 硬门禁）
-- [ ] 同构快照：运行时渲染 vs SSG 渲染一致性对比测试
+- [x] 同构快照：dev / SSG / bundle 三形态渲染一致性对比测试（SNAP-001）
 - [ ] 设计合规检查：WCAG 对比度、字号节奏、8pt 间距网格自动校验
 
 #### 反馈层（Feedback）
@@ -289,10 +289,10 @@ Node 渲染内核 + dev server 跑起来，实现最基本的文档浏览功能�
 - [ ] 基本自动迁移工具（docsify 目录结构 → DocLight）
 
 #### 一键部署与分发（见 13-deployment-distribution）
-- [ ] `doclight deploy` 命令（GitHub Pages / Cloudflare / Netlify 自动检测）
-- [ ] OG 分享卡片图生成（每页社交预览图，Node 侧生成）
-- [ ] `doclight embed` iframe 嵌入代码
-- [ ] bundle 下载二维码
+- [x] `doclight deploy` 命令（GitHub Pages / Cloudflare / Netlify 自动检测，CLI-003）
+- [x] OG 分享卡片图生成（每页社交预览图，Node 侧生成 og/*.svg，SEO-002）
+- [x] `doclight embed` iframe 嵌入代码（CLI-007：snippet.js + iframe 片段）
+- [ ] bundle 下载二维码（遗留：QR 生成需依赖或手写实现，待决策）
 
 ### 交付物
 - 可用的 CLI 工具
@@ -361,7 +361,8 @@ Node 渲染内核 + dev server 跑起来，实现最基本的文档浏览功能�
   - [x] `find_examples` — 代码示例搜索
 - [x] well-known 发现端点（GET /.well-known/mcp，MCP-003）
 - [x] 独立服务模式（HTTP，MCP-003）
-- [ ] 插件模式（集成到开发服务器，遗留——独立 HTTP 已覆盖部署场景）
+- [x] HTTP SSE 流式（MCP-004：POST Accept: text/event-stream + GET /mcp 长连接流）
+- [x] 插件模式（集成到开发服务器，MCP-005：`doclight dev --mcp` 同端口挂载）
 
 #### 内容写入与接入体验（Agent 内容空间核心，见 14）
 - [x] `doclight publish` CLI（发布到 local / git / space，CLI-005）

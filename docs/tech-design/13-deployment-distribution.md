@@ -100,14 +100,16 @@ doclight deploy --platform netlify
 |---|---|---|---|
 | **链接分发** | 唯一 URL | SSG 天然支持 | ✅ 已有 |
 | **文件分发** | bundle 单文件 | 微信/网盘/邮件直接发 | ✅ 已有（5.3.4） |
-| **嵌入分发** | iframe 代码 | 一键生成 `<iframe>`，嵌进语雀/飞书/博客/官网 | 🆕 需新增 |
-| **社交分发** | OG 分享卡片 | 链接发到微信/X 时显示精美卡片（标题/摘要/预览图） | 🆕 需新增 |
+| **嵌入分发** | iframe 代码 | 一键生成 `<iframe>`，嵌进语雀/飞书/博客/官网 | ✅ 已有（CLI-007 `doclight embed`） |
+| **社交分发** | OG 分享卡片 | 链接发到微信/X 时显示精美卡片（标题/摘要/预览图） | ✅ 已有（SEO-002 og/*.svg） |
 
 ### 3.1 嵌入分发（iframe）
 
-- `doclight embed` 命令：构建后生成 `snippet.js`（自动注入 iframe + 响应式）
+- `doclight embed` 命令：构建后生成 `snippet.js`（自动注入 iframe + 响应式，CLI-007）
 - 或提供可复制的 `<iframe src="...">` 代码块（带尺寸自适应）
 - 场景：嵌入团队 wiki、官网、课程平台、博客正文
+- 实现：`packages/cli/src/embed.ts`——snippet.js 从自身 `<script src>` 推导站点基址
+  （站点搬迁/换域名不失效），同源时按内容高度自适应，异源降级 minHeight
 
 ### 3.2 社交分发（OG 分享卡片）
 

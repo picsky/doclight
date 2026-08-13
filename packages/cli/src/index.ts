@@ -18,6 +18,7 @@ import { migrateDocsify } from "./migrate.ts";
 import { startPreviewServer } from "./preview.ts";
 import { publishSite, type PublishResult } from "./publish.ts";
 import { spaceInit, spaceStatus, spaceSwitch } from "./space.ts";
+import { embedSite } from "./embed.ts";
 
 export const cliVersion = "0.1.0";
 
@@ -32,6 +33,8 @@ export interface CliOptions {
   author?: string;
   platform?: "gh-pages" | "cloudflare-pages" | "netlify";
   remoteUrl?: string;
+  /** dev --mcp：MCP 插件模式（嵌入 dev server，MCP-005） */
+  mcp?: boolean;
 }
 
 /** 解析命令行参数（支持 --key value 与 --key=value）。无值 flag（如 --json）记为 "true"。 */
@@ -73,6 +76,7 @@ function printHelp(): void {
   migrate-docsify  从 docsify 站点迁移内容到 DocLight 约定
   publish   发布到内容空间（local / git / space，14 §4.3）
   space     内容空间管理（init / switch / status，14 §3.4）
+  embed     生成嵌入代码（snippet.js + iframe 片段，13 §3.1）
 
 选项:
   --port <n>      监听端口（默认 3000）
@@ -90,12 +94,13 @@ function printHelp(): void {
   --endpoint <u>  publish --to space 的 API 端点
   --root <path>   publish / space 的项目根目录（缺省当前目录）
   --json          publish / space 输出纯 JSON（Agent 直接解析）
+  --mcp           dev 模式启用 MCP 插件（同端口 /mcp + /.well-known/mcp）
   --help, -h      显示帮助`);
 }
 
 /** 启动 dev server（供命令与测试复用） */
 export async function runDev(options: Partial<CliOptions> = {}): Promise<{ url: string; port: number; close(): Promise<void> }> {
-  const merged: CliOptions = { port: options.port ?? 3000, dir: options.dir ?? "docs", title: options.title };
+  const merged: CliOptions = { port: options.port ?? 3000, dir: options.dir ?? "docs", title: options.title, mcp: options.mcp };
   return startDevServer(merged);
 }
 
@@ -122,6 +127,11 @@ export async function runPreview(
 /** 执行 bundle 构建（供命令与测试复用） */
 export function runBundle(options: Partial<CliOptions> = {}): ReturnType<typeof bundleSite> {
   return bundleSite({ dir: options.dir, outDir: options.outDir, title: options.title });
+}
+
+/** 执行嵌入分发（供命令与测试复用） */
+export function runEmbed(options: Partial<CliOptions> = {}): ReturnType<typeof embedSite> {
+  return embedSite({ dir: options.dir, outDir: options.outDir, title: options.title, siteUrl: options.siteUrl });
 }
 
 /** 执行部署（供命令与测试复用） */
@@ -152,10 +162,14 @@ if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
         port: numOption(opts, "port", 3000),
         dir: opts["dir"] ?? "docs",
         title: opts["title"],
+        mcp: opts["mcp"] === "true",
       });
       console.log(`\n  DocLight dev server 已启动\n`);
       console.log(`  本地预览:  ${dev.url}`);
       console.log(`  文档目录:  ${opts["dir"] ?? "docs"}`);
+      if (opts["mcp"] === "true") {
+        console.log(`  MCP 插件:  ${dev.url}mcp（POST JSON-RPC）+ ${dev.url}.well-known/mcp`);
+      }
       console.log(`  按 Ctrl+C 停止\n`);
     } else if (command === "build") {
       const result = runBuild({
@@ -298,8 +312,20 @@ if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
         console.error(`未知 space 子命令：${sub || "(空)"}（支持 init / switch / status）`);
         process.exit(1);
       }
+    } else if (command === "embed") {
+      const result = runEmbed({
+        dir: opts["dir"],
+        outDir: opts["out-dir"],
+        title: opts["title"],
+        siteUrl: opts["site-url"],
+      });
+      console.log(`\n  DocLight 嵌入代码已生成 ✓\n`);
+      console.log(`  脚本: ${result.snippetFile}（与站点同目录部署，宿主页加一行 <script src="snippet.js">）`);
+      console.log(`\n  或复制以下 <iframe> 代码（嵌入语雀/飞书/博客/官网）：\n`);
+      for (const line of result.iframeHtml.split("\n")) console.log(`  ${line}`);
+      console.log(`\n  示例 URL: ${result.url}\n`);
     } else {
-      console.error(`未知命令：${command ?? "(空)"}（支持 dev / build / preview / init / bundle / deploy / migrate-docsify / publish / space）`);
+      console.error(`未知命令：${command ?? "(空)"}（支持 dev / build / preview / init / bundle / deploy / migrate-docsify / publish / space / embed）`);
       process.exit(1);
     }
   } catch (err) {

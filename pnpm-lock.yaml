@@ -41,6 +41,9 @@ importers:
 
   packages/cli:
     dependencies:
+      doclight-mcp-server:
+        specifier: workspace:*
+        version: link:../mcp-server
       doclight-renderer:
         specifier: workspace:*
         version: link:../renderer

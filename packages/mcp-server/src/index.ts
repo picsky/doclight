@@ -17,7 +17,7 @@ import { loadSite, parseLlmsFull } from "./site.ts";
 import type { SiteData, SiteDocMeta } from "./site.ts";
 import { McpServer, MCP_PROTOCOL_VERSION, MCP_SERVER_NAME, MCP_SERVER_VERSION } from "./protocol.ts";
 import { runStdio } from "./stdio.ts";
-import { startHttpServer } from "./http.ts";
+import { startHttpServer, mcpHttpHandler } from "./http.ts";
 import { TOOLS, findTool, McpError, toolDescriptors } from "./tools.ts";
 
 export const mcpServerVersion = MCP_SERVER_VERSION;
@@ -27,7 +27,7 @@ export function createMcpServer(siteDir: string): McpServer {
   return new McpServer(loadSite(siteDir));
 }
 
-export { loadSite, parseLlmsFull, McpServer, runStdio, startHttpServer, TOOLS, findTool, McpError, toolDescriptors };
+export { loadSite, parseLlmsFull, McpServer, runStdio, startHttpServer, mcpHttpHandler, TOOLS, findTool, McpError, toolDescriptors };
 export type { SiteData, SiteDocMeta };
 export { MCP_PROTOCOL_VERSION, MCP_SERVER_NAME, MCP_SERVER_VERSION };
 

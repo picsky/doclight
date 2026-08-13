@@ -72,6 +72,20 @@
 > 配套：space provider 抽象（14 §3.1 可插拔）、`--json` 布尔 flag 解析修正（index.ts parseArgs）。
 > 云端 Space（托管）未开通：`--to space` 无端点时结构化引导（不伪造成功），可指向自建兼容 API。
 
+## Phase 4 遗留补强（MCP-004/005 + CLI-007 embed + SNAP-001，2026-08-13 已落地）
+
+> 对应 08-roadmap Phase 4 遗留 + 13-deployment-distribution §3.1（分发四触点③）+ Phase 0 同构快照。
+> 纯实现、零新依赖、无需用户决策的补强项：MCP 流式与插件模式、嵌入分发、三形态一致性验证。
+
+| 需求 ID | 名称 | 说明 | 状态 |
+|---|---|---|---|
+| MCP-004 | HTTP SSE 流式 | POST /mcp 支持 Accept: text/event-stream（SSE 帧响应）+ GET /mcp 长连接流（心跳保活）；well-known 标 streamable-http | 已实现 |
+| MCP-005 | 插件模式（嵌入 dev server） | `doclight dev --mcp`：同端口 /mcp + /.well-known/mcp，懒构建快照（文件变更置脏重建），capabilitiesAtRoot=false 不抢站点首页 | 已实现 |
+| CLI-007 | doclight embed | 分发四触点③嵌入分发：生成 snippet.js（自推导基址 + 响应式 iframe）+ 可复制 iframe 片段 | 已实现 |
+| SNAP-001 | 同构快照 | 三形态（dev/SSG/bundle）同一 docs 渲染内容一致（仅链接后缀差异归一，决策⑤）；Phase 0 遗留闭环 | 已实现 |
+
+> 配套：`mcpHttpHandler` 从独立服务抽出为可挂载 handler（cli 引入 workspace 依赖 doclight-mcp-server，零外部依赖）。
+
 ## 目录结构约定
 
 ```
@@ -85,7 +99,7 @@ specs/
 ## 需求 ID 与追溯（10 §1.4）
 
 - 每个需求项有唯一 ID：`<前缀>-<序号>`（如 `SRCH-001`）
-- 前缀表：`SRCH`(搜索) / `REND`(渲染) / `NAV`(导航) / `TOC` / `THEME` / `SSG` / `MCP` / `PLUG`(插件) / `SPACE`(内容空间) / `CLI` / `SEO`(搜索优化，Phase 3 新增) / `DEV`(dev server，Phase 1 新增) / `LLMS`(llms.txt，Phase 4 新增) / `FRONT`(语义 frontmatter，Phase 4 新增) — 新增前缀须登记
+- 前缀表：`SRCH`(搜索) / `REND`(渲染) / `NAV`(导航) / `TOC` / `THEME` / `SSG` / `MCP` / `PLUG`(插件) / `SPACE`(内容空间) / `CLI` / `SEO`(搜索优化，Phase 3 新增) / `DEV`(dev server，Phase 1 新增) / `LLMS`(llms.txt，Phase 4 新增) / `FRONT`(语义 frontmatter，Phase 4 新增) / `SNAP`(同构快照，Phase 4 补强新增) — 新增前缀须登记（注：ID 正则限 2-5 大写字母，过长前缀不被 spec:check 识别）
 - Agent 在**提交信息与代码中引用需求 ID**（`feat(SRCH-001): ...`）
 - `npm run spec:check` 校验链路：specs 中的每个 ID 在 `packages/*` 的源码或测试中有引用
 - 只有 `.feature` 与编号 RFC 规格（`NNN-*.md`）承载需求 ID；本 README 中的示例 ID 仅供说明，不计入追溯（spec:check 不扫描约定文档）

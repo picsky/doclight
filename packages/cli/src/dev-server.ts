@@ -7,9 +7,12 @@
  * 安全：路径穿越防护——任何请求路径解析后必须落在文档根目录内，否则 404。
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { readFileSync, statSync, watch } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, statSync, watch } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { buildNavTree, render } from "doclight-renderer";
+import { loadSite, McpServer, mcpHttpHandler } from "doclight-mcp-server";
+import { buildSite } from "./build.ts";
 import { buildSearchData, displayBundlePath, mimeFor, nodeModulesBase, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
 
 export interface DevServerOptions {
@@ -18,6 +21,8 @@ export interface DevServerOptions {
   port?: number;
   host?: string;
   title?: string;
+  /** MCP 插件模式（MCP-005）：同端口挂载 /mcp + /.well-known/mcp，开发中的站点可被 Agent 读取 */
+  mcp?: boolean;
 }
 
 export interface DevServer {
@@ -115,7 +120,22 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
   const sseClients = new Set<ServerResponse>();
   /** 搜索索引缓存（启动即建 + 文件变更后重建；version 内联进页面供持久化校验，03 §3.8.5） */
   let searchIndexCache: ReturnType<typeof buildSearchData> = buildSearchData(docsDir, mdFiles);
-  /** 文件变更：重建导航 + 搜索索引 + 推送 reload */
+
+  // MCP 插件模式（MCP-005）：懒构建快照到临时目录，文件变更置脏后下次 MCP 请求重建。
+  // 首次请求才 build（不拖慢 dev 启动）；与页面热重载解耦（MCP 面向 Agent 查询，容忍秒级滞后）。
+  let mcpSiteDir: string | null = null;
+  let mcpDirty = true;
+  function getMcpSite(): ReturnType<typeof loadSite> {
+    if (!mcpSiteDir) mcpSiteDir = mkdtempSync(join(tmpdir(), "doclight-mcp-dev-"));
+    if (mcpDirty) {
+      rmSync(mcpSiteDir, { recursive: true, force: true });
+      buildSite({ dir: docsDir, outDir: mcpSiteDir, title: siteTitle });
+      mcpDirty = false;
+    }
+    return loadSite(mcpSiteDir);
+  }
+
+  /** 文件变更：重建导航 + 搜索索引 + 推送 reload +（MCP 模式）置脏快照 */
   function onFsChange() {
     try {
       mdFiles = walkMd(docsDir);
@@ -124,6 +144,7 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
     } catch {
       /* 扫描失败（目录临时不可读）时保留旧导航 */
     }
+    mcpDirty = true;
     for (const res of sseClients) res.write("data: reload\n\n");
   }
 
@@ -183,6 +204,12 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
     if (urlPath.startsWith("/__doclight/vendor/")) {
       serveVendor(urlPath, res);
       return;
+    }
+
+    // MCP 插件模式（MCP-005）：/mcp + /.well-known/mcp + /health 交给 MCP handler（capabilitiesAtRoot=false 不抢站点首页）
+    if (options.mcp) {
+      const site = getMcpSite();
+      if (await mcpHttpHandler(site, new McpServer(site), { capabilitiesAtRoot: false })(req, res)) return;
     }
 
     const rel = safeRelPath(urlPath);
@@ -248,6 +275,7 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
         sseClients.forEach((c) => c.end());
         sseClients.clear();
         if (watcher) watcher.close();
+        if (mcpSiteDir) rmSync(mcpSiteDir, { recursive: true, force: true });
         server.close(() => done());
       }),
   };

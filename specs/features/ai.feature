@@ -59,3 +59,15 @@ Feature: AI 就绪（llms.txt / 语义 frontmatter / MCP Server，Phase 4）
     Then POST /mcp 处理 JSON-RPC（initialize/tools/list/tools/call）
     And GET /.well-known/mcp 返回发现端点（能力 + 工具列表 + endpoint）
     And GET / 返回双读能力页（人 + Agent 可读）
+
+  Scenario: MCP-004 HTTP SSE 流式（Streamable HTTP）
+    Given 以 Accept: text/event-stream POST /mcp
+    Then 响应为 text/event-stream 且含 event: message + data 帧（JSON-RPC 结果）
+    Given GET /mcp（Accept: text/event-stream）
+    Then 返回长连接流（心跳注释帧，只读服务无主动通知）
+
+  Scenario: MCP-005 插件模式（嵌入 dev server）
+    Given 以 doclight dev --mcp 启动开发服务器
+    Then 同端口提供 POST /mcp（JSON-RPC）与 GET /.well-known/mcp（发现）
+    And 站点快照来自 docs/（懒构建，文件变更后重建）
+    And GET / 仍服务站点（capabilitiesAtRoot=false 不抢占首页）

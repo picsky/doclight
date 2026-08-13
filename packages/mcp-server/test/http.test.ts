@@ -18,13 +18,14 @@ afterAll(async () => {
   rmSync(siteDir, { recursive: true, force: true });
 });
 
-describe("MCP HTTP 传输（MCP-003）", () => {
-  it("GET /.well-known/mcp → 发现端点（工具列表 + endpoint）", async () => {
+describe("MCP HTTP 传输（MCP-003 + MCP-004 SSE 流式）", () => {
+  it("GET /.well-known/mcp → 发现端点（工具列表 + endpoint + 传输能力）", async () => {
     const res = await fetch(`${handle.url}.well-known/mcp`);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { name: string; endpoint: string; tools: Array<{ name: string }>; totalDocs: number };
+    const body = (await res.json()) as { name: string; endpoint: string; tools: Array<{ name: string }>; transports: string[]; totalDocs: number };
     expect(body.name).toBe("doclight-mcp");
     expect(body.endpoint).toBe("/mcp");
+    expect(body.transports).toContain("streamable-http");
     expect(body.tools.map((t) => t.name)).toContain("search_docs");
     expect(body.totalDocs).toBe(2);
   });
@@ -66,6 +67,40 @@ describe("MCP HTTP 传输（MCP-003）", () => {
       body: "{not-json",
     });
     expect(res.status).toBe(400);
+  });
+
+  it("POST /mcp Accept: text/event-stream → SSE 帧（event: message + data）", async () => {
+    const res = await fetch(`${handle.url}mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 5, method: "tools/list" }),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+    const text = await res.text();
+    expect(text).toContain("event: message");
+    const dataLine = text.split("\n").find((l) => l.startsWith("data: "));
+    expect(dataLine).toBeTruthy();
+    const payload = JSON.parse(dataLine!.slice(6)) as { result: { tools: unknown[] } };
+    expect(payload.result.tools.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it("GET /mcp Accept: text/event-stream → SSE 长连接流（心跳帧 + 保持打开）", async () => {
+    const ac = new AbortController();
+    const res = await fetch(`${handle.url}mcp`, {
+      method: "GET",
+      headers: { Accept: "text/event-stream" },
+      signal: ac.signal,
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+    // 读取首块：connected 注释帧
+    const reader = res.body!.getReader();
+    const first = await reader.read();
+    const text = new TextDecoder().decode(first.value);
+    expect(text).toContain(": connected");
+    ac.abort(); // 关闭长连接
+    reader.cancel().catch(() => {});
   });
 
   it("未知路径 → 404", async () => {
