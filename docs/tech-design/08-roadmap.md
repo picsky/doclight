@@ -441,18 +441,89 @@ Node 渲染内核 + dev server 跑起来，实现最基本的文档浏览功能�
 
 ---
 
+## Phase 6：v1.0 收尾——表现层主线（v3 定位落地，2026-08-13 规划）
+
+> **定位依据（ADR-0004）**：v3 定位「把 Markdown 变成作品」——DocLight 是 Markdown 的
+> 表现层，一切能力围绕「同样的 md 内容，经 DocLight 呈现后视觉质量显著更高」。
+> 差距盘点见 `research/product-vision-validation.md` §五 与 01-product-positioning v3。
+> 本 Phase 不新增"内容"能力，全部投入**表现力 + Agent 接口**。
+
+### 目标
+
+- **P0：能力协议**——Agent 写内容前知道"这个站支持哪些渲染能力"（capabilities + AGENTS.md + MCP get_capabilities）
+- **P0：发布产物 Agent 友好**——发布后的站点 Agent 读取最优（每页 markdown 版 + llms.txt v2 Link 关系 + token 计数）
+- **P1：表现层设计系统化**——兑现 4 套设计语言 + 组件 + swizzle + 前端打磨 + 视觉回归门禁（**最大投入，当前最大短板**）
+- **P1：预览-确认-发布工作流**——Agent 写入先进预览态，人确认后才发布（增量渲染 + 版本快照 + 确认门）
+- **P1：MCP 写入端**——write_doc/update_doc，补全"Agent 实时输出实时渲染"闭环
+- **P2：演示形态**——演示专用视觉设计系统（布局/组件/动效/封面模板）+ doclight-slides；与文档同源不同形
+- **并行：开源化准备**——LICENSE / README 重写（v3 定位）/ npm 包名注册（待用户决策）
+
+### 任务清单
+
+#### P0 · 能力协议（CAP-001）
+- [ ] `capabilities.json`（或 docs.json 扩展）：声明站点支持的渲染能力（mermaid/tip/KaTeX/插件语法/frontmatter 约定）
+- [ ] 构建产物输出能力清单（三形态一致）
+- [ ] MCP 新增 `get_capabilities` 工具（读取端扩展）
+- [ ] AGENTS.md 生成（Agent 入口：语法/约定/发布链，dogfood 用本仓库）
+
+#### P0 · 发布产物 Agent 友好（AEO-001，对齐 llms.txt v2 / AEO 实践）
+- [ ] 每页 markdown 版本（`.md` URL 或 `<link rel="alternate" type="text/markdown">`）
+- [ ] llms.txt v2 Link 关系（rel="describedby" 指向 llms.txt）
+- [ ] token 计数（llms.txt 条目 + 页面 meta）
+
+#### P1 · 表现层设计系统化（VIS-001）
+- [ ] 4 套设计语言兑现（Minimal/Serif/Modern/Warm——当前仅 minimal/warm）
+- [ ] 组件库（Astryx 式：可 swizzle、CSS 变量主题、Agent/人同构）
+- [ ] 主题预览对比页 + 视觉回归 + 设计合规门禁（verify 增 visual check）
+- [ ] 前端设计打磨（当前最大短板，用户反馈③）
+
+#### P1 · 预览-确认-发布（WORK-001）
+- [ ] 增量渲染（dev 只重渲染变更文档）
+- [ ] 版本快照 + 回滚（publish 前快照，可恢复）
+- [ ] `doclight publish --preview` / 确认门（Agent 写入不自动发布）
+
+#### P1 · MCP 写入端（MCP-006）
+- [ ] `write_doc` / `update_doc` / `delete_doc` 工具
+- [ ] 写入后触发增量重渲染（与 WORK-001 联动）
+
+#### P2 · 演示形态（DEMO-001）
+- [ ] 演示专用视觉设计系统（布局/图表/动效/封面模板组件）
+- [ ] `doclight slides`（或插件形态）——同一内容源，独立演示输出
+- [ ] doclight-slides Skill（教 Agent 编排演示）
+
+#### 并行 · 开源化准备（OSS-001）
+- [ ] LICENSE 文件（MIT/Apache-2.0，待用户确认）
+- [ ] README 重写（v3 定位 + 快速开始 + 示例）
+- [ ] npm 包名注册（待用户决策）
+
+### 交付物
+- Agent 写内容前可读能力协议、写后发布产物 Agent 最优
+- 视觉表现力显著提升（4 套设计语言 + 组件 + 打磨 + 回归门禁）
+- 预览-确认-发布闭环 + MCP 写入端
+- 演示形态（与文档同源不同形）
+- 开源化就绪（可对外发布）
+
+### 验收标准
+- `npm run verify` 全绿 + 新增 visual check
+- Agent 从零写一篇含 mermaid/容器的文档：读 capabilities → 写 → 预览 → 发布，全流程无人工解释
+- 发布后的站点：每页有 markdown 版 + llms.txt Link 关系 + token 计数
+- `doclight slides` 演示视觉质量达标（演示模板 + 视觉回归）
+
+---
+
 ## 时间线总览
 
 | 阶段 | 时间 | 里程碑 | 核心产出 |
 |---|---|---|---|
 | Phase 0 | 5 天 | 项目启动 | Agent 自迭代环境 + 基础设施 + 规范 |
 | Phase 1 | 2 周 | M1 - 内核可用 | Node 渲染内核 + dev server + 展示层 |
-| Phase 2 | 2 周 | M2 - 体验完善 | 内置搜索 + **扩展语法渲染**（Mermaid 容错/代码高亮+复制/自定义容器/KaTeX）+ 双读验证 |
-| Phase 3 | 1.5 周 | M3 - SEO 就绪 | SSG + bundle + 一键部署 + docsify 迁移工具（与 Phase 2 扩展渲染并行小步推进） |
-| Phase 4 | 1 周 | M4 - AI 原生 | llms.txt + MCP + **Agent 内容空间**（publish/Skill/魔法咒语） |
-| Phase 5 | 持续 | v1.0 | 插件系统 + 生态 + 演示形态（视 Phase 2 spike 评估） |
+| Phase 2 | 2 周 | M2 - 体验完善 | 内置搜索 + **扩展语法渲染** + 双读验证 |
+| Phase 3 | 1.5 周 | M3 - SEO 就绪 | SSG + bundle + 一键部署 + 迁移工具 |
+| Phase 4 | 1 周 | M4 - AI 原生 | llms.txt + MCP + **Agent 内容空间** |
+| Phase 5 | 持续 | v1.0 | 插件系统 + 生态 + PLUG-012/013/014（✅ 完成） |
+| **Phase 6** | 2-3 周 | **v1.0 收尾** | **表现层主线**：能力协议(P0) → 发布友好(P0) → 设计系统(P1) → 工作流+写入(P1) → 演示(P2) + 开源化 |
 
-**总计**：约 6-7 周到 v0.4（AI 就绪），v1.0 视社区反馈而定。
+**总计**：v1.0 收尾约 2-3 周（按 P0→P2 顺序，每周期一个可验证产出）。
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## 项目一句话
 
-**DocLight 是一款服务于人阅读、同时 AI 原生友好的零构建开源文档站引擎。** 一个 `index.html` + `docs/` 文件夹 = 文档站；可选 SSG 静态导出修复 SEO；自带 llms.txt + MCP。
+**DocLight 把 Markdown 变成作品。** Agent 写，DocLight 渲染成专业的文档与演示——无需构建、开箱即用、随时可定制。技术本质：零构建开源文档站引擎（一个 `index.html` + `docs/` 文件夹 = 文档站；可选 SSG 静态导出修复 SEO；自带 llms.txt + MCP），核心价值在**表现层**——内容质量是 Agent/人的领域，DocLight 负责把纯 Markdown 的视觉表现力拉到顶级。
 
 ## 当前状态（2026-08-13，Phase 5 插件生态全量完成 + PLUG-012/013/014 完成）
 
