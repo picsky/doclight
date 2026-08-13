@@ -104,6 +104,22 @@ module.exports = function createPlugin(config = {}) {
 
 **AppApi**（运行时钩子参数）：`insertSlot / removeSlot / navigate / currentPath / currentFrontmatter / on / emit`
 
+### 3.4 资源声明（vendor / styles，PLUG-012）
+
+重 vendor 依赖（如 mermaid.min.js ≈ 2.4MB）**不进默认产物**——插件在 PluginDef 上声明构建期资源，CLI 三形态按需接线（dev 端点按需服务 / SSG 按需拷贝 / bundle `--inline-vendor` 按需内联）：
+
+```javascript
+{
+  name: "mermaid",
+  vendor: [{ file: "mermaid.min.js", pkg: "mermaid", rel: "dist/mermaid.min.js" }],
+  styles: ".doclight-mermaid { text-align: center; }",  // 注入 <style data-doclight-plugin-css>
+}
+```
+
+- `vendor`：`Array<{ file, pkg, rel }>`——file 为 vendor 端点路径尾段（`/__doclight/vendor/<file>`），pkg/rel 从 node_modules 定位；构建管线 `collectVendorFiles()` 合并去重（同名首个命中胜出）。
+- `styles`：插件 CSS 字符串，注入页面主样式之后（`<style data-doclight-plugin-css>`），可引用 THEME-001 设计令牌变量（`var(--color-error)` 等）。
+- 未启用插件时其 vendor 不服务/不拷贝/不内联（诚实降级，不伪造资源）。
+
 ### 3.3 十一个插槽
 
 | 插槽 | 位置 |
@@ -132,7 +148,8 @@ module.exports = function createPlugin(config = {}) {
     { "name": "plausible", "config": { "domain": "docs.example.com" } },
     { "name": "rss", "config": { "limit": 20 } },
     { "name": "pwa", "config": { "name": "我的文档" } },
-    { "name": "ai-chat", "config": { "endpoint": "https://proxy.example.com/ask" } }
+    { "name": "ai-chat", "config": { "endpoint": "https://proxy.example.com/ask" } },
+    { "name": "mermaid" }
   ]
 }
 ```
@@ -144,6 +161,9 @@ module.exports = function createPlugin(config = {}) {
 | rss | rss.xml 订阅源 | siteUrl（顶层） | 无 siteUrl → 跳过并提示 |
 | pwa | 可安装 + 离线可读 | 无 | — |
 | ai-chat | BYO-LLM 文档问答 | `endpoint`（代理端点） | 缺配置 → 禁用 |
+| **mermaid** | Mermaid 图表（容错渲染，PLUG-012 迁移） | 无 | 未启用 → 围栏按普通代码块；启用后渲染失败 → 保留源码 + 提示（不白屏） |
+
+> **Mermaid 迁移说明（PLUG-012）**：Mermaid 原为内置默认扩展，已迁移为官方插件——重 vendor 依赖按需启用。启用后行为与内置时期一致（` ```mermaid ` 围栏 → `.doclight-mermaid` fallback + 运行时懒加载渲染 + 错误降级）；不配置即按普通代码块渲染，产物不含 mermaid.min.js。
 
 ---
 

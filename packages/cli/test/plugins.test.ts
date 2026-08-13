@@ -267,3 +267,49 @@ describe("setPlugins（PLUG-011 热重载整体替换）", () => {
     expect(pipeline.runAfterRender("<p>x</p>", ctx)).toBe("<p>x</p>");
   });
 });
+
+describe("collectVendorFiles / collectPluginStyles（PLUG-012 按需 vendor + 插件 CSS）", () => {
+  it("合并各插件 vendor 声明为 file → {pkg, rel} 映射（按文件名去重，首个命中胜出）", () => {
+    const p1: PluginDef = {
+      name: "mermaid",
+      vendor: [{ file: "mermaid.min.js", pkg: "mermaid", rel: "dist/mermaid.min.js" }],
+    };
+    const p2: PluginDef = {
+      name: "dup",
+      vendor: [{ file: "mermaid.min.js", pkg: "other", rel: "x.js" }, { file: "chart.min.js", pkg: "chart", rel: "dist/chart.min.js" }],
+    };
+    const pipeline = new BuildPluginPipeline([p1, p2]);
+    expect(pipeline.collectVendorFiles()).toEqual({
+      "mermaid.min.js": { file: "mermaid.min.js", pkg: "mermaid", rel: "dist/mermaid.min.js" },
+      "chart.min.js": { file: "chart.min.js", pkg: "chart", rel: "dist/chart.min.js" },
+    });
+  });
+
+  it("非法 vendor 项过滤（缺字段 / 非字符串 / 重复名）", () => {
+    const dirty: PluginDef = {
+      name: "dirty",
+      vendor: [
+        { file: "ok.js", pkg: "p", rel: "ok.js" },
+        { file: 123, pkg: "p", rel: "x" },
+        { file: "no-pkg.js", rel: "x" },
+      ] as never,
+    };
+    const pipeline = new BuildPluginPipeline([dirty]);
+    expect(pipeline.collectVendorFiles()).toEqual({ "ok.js": { file: "ok.js", pkg: "p", rel: "ok.js" } });
+  });
+
+  it("无 vendor 声明返回空表", () => {
+    const pipeline = new BuildPluginPipeline([{ name: "plain" }]);
+    expect(pipeline.collectVendorFiles()).toEqual({});
+  });
+
+  it("collectPluginStyles 按注册顺序拼接各插件 styles", () => {
+    const p1: PluginDef = { name: "a", styles: ".a { color: red; }" };
+    const p2: PluginDef = { name: "b", styles: ".b { color: blue; }" };
+    const pipeline = new BuildPluginPipeline([p1, p2]);
+    expect(pipeline.collectPluginStyles()).toBe(".a { color: red; }\n.b { color: blue; }");
+    // 空/缺省 styles 跳过
+    const plain = new BuildPluginPipeline([{ name: "x" }, { name: "y", styles: "  " }]);
+    expect(plain.collectPluginStyles()).toBe("");
+  });
+});

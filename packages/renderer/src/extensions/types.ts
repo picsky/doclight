@@ -20,8 +20,8 @@ export interface ClientDependency {
   scripts?: string[];
   /** vendor 样式（同上） */
   styles?: string[];
-  /** 增强类型：展示层据此分派 */
-  enhance: "code" | "mermaid" | "katex" | "none";
+  /** 增强类型：展示层据此分派（Mermaid 已迁移为插件，不在内置注册表分派） */
+  enhance: "code" | "katex" | "none";
 }
 
 /** 扩展定义（注册表主键 = id） */

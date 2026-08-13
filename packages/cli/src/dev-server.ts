@@ -70,9 +70,11 @@ function send404(res: ServerResponse, message: string): void {
 
 /**
  * REND-002 扩展 vendor 静态资源端点（/__doclight/vendor/*）。
- * 展示层按需懒加载的扩展库（Prism / Mermaid / KaTeX）由 dev server 从 node_modules
+ * 展示层按需懒加载的扩展库（Prism / KaTeX）由 dev server 从 node_modules
  * 提供——不进展示层 bundle（守 <25KB gzip 门禁，ADR-0002）；SSG 形态由 doclight build
  * 拷贝进产物（site.ts copyVendor，window.DOCLIGHT_VENDOR_BASE 指到 /vendor/）。
+ * PLUG-012：插件声明的 vendor（如 mermaid.min.js）同样按需服务——仅启用插件时
+ * 端点可命中，未启用则 404（诚实降级：不伪造资源）。
  * KaTeX 字体走 fonts/* 子路径（katex.min.css 内相对引用）。全程路径穿越防护。
  */
 
@@ -93,9 +95,18 @@ function serveNodeModulesFile(pkg: string, rel: string, res: ServerResponse): vo
   }
 }
 
-function serveVendor(urlPath: string, res: ServerResponse): void {
+/**
+ * 组装 vendor 文件表：内置扩展（VENDOR_FILES）+ 启用插件声明（PLUG-012，按需）。
+ * dev server 启动时从 buildPlugins 收集——仅启用插件的 vendor 可被端点命中。
+ */
+function resolveVendorFiles(buildPlugins: PluginDef[]): Record<string, { pkg: string; rel: string }> {
+  const pipeline = new BuildPluginPipeline(buildPlugins);
+  return { ...VENDOR_FILES, ...pipeline.collectVendorFiles() };
+}
+
+function serveVendor(vendorFiles: Record<string, { pkg: string; rel: string }>, urlPath: string, res: ServerResponse): void {
   const rest = urlPath.slice("/__doclight/vendor/".length);
-  const entry = VENDOR_FILES[rest];
+  const entry = vendorFiles[rest];
   if (entry) {
     serveNodeModulesFile(entry.pkg, entry.rel, res);
     return;
@@ -119,6 +130,8 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
   // PLUG-009：构建管线（插件由 CLI 层从配置解析后注入）
   const buildPlugins: PluginDef[] = options.buildPlugins ?? [];
   const pipeline = new BuildPluginPipeline(buildPlugins);
+  // PLUG-012：vendor 按需表（内置 + 启用插件声明）
+  const vendorFiles = resolveVendorFiles(buildPlugins);
 
   // PLUG-011：插件热重载——监听插件源文件/配置变更 → 重新解析 → 替换管线 → SSE reload。
   // 运行时侧（浏览器）由整页刷新完成全清理（PluginManager 全新实例，destroy/插槽全部归零）。
@@ -263,9 +276,9 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
       return;
     }
 
-    // REND-002 扩展 vendor 端点（Prism / Mermaid / KaTeX 按需懒加载）
+    // REND-002/PLUG-012 扩展 vendor 端点（内置 + 插件按需懒加载）
     if (urlPath.startsWith("/__doclight/vendor/")) {
-      serveVendor(urlPath, res);
+      serveVendor(vendorFiles, urlPath, res);
       return;
     }
 

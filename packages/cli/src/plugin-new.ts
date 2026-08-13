@@ -82,6 +82,7 @@ export function pluginList(): Array<{ name: string; description: string }> {
     rss: "RSS 订阅源（rss.xml，需 doclight.json siteUrl）",
     pwa: "PWA 支持（manifest.json + sw.js，可安装离线可读）",
     "ai-chat": "BYO-LLM 文档问答（config.endpoint 代理端点，密钥不进页面）",
+    mermaid: "Mermaid 图表（容错渲染，```mermaid 围栏 + 运行时懒加载，按需 vendor）",
   };
   return OFFICIAL_PLUGIN_NAMES.map((name) => ({ name, description: desc[name] ?? "" }));
 }

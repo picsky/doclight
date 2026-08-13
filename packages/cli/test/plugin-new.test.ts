@@ -63,9 +63,9 @@ describe("pluginNew（PLUG-007 插件脚手架）", () => {
 });
 
 describe("pluginList（PLUG-007 官方插件清单）", () => {
-  it("含 5 个官方插件及简介", () => {
+  it("含 6 个官方插件及简介", () => {
     const list = pluginList();
-    expect(list.map((p) => p.name)).toEqual(["giscus", "plausible", "rss", "pwa", "ai-chat"]);
+    expect(list.map((p) => p.name)).toEqual(["giscus", "plausible", "rss", "pwa", "ai-chat", "mermaid"]);
     for (const p of list) expect(p.description).toBeTruthy();
   });
 });

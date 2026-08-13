@@ -10,6 +10,7 @@
 import type { PluginDef } from "../../../core/src/plugin.ts";
 import { createAiChatPlugin } from "./ai-chat.ts";
 import { createGiscusPlugin } from "./giscus.ts";
+import { createMermaidPlugin } from "./mermaid.ts";
 import { createPlausiblePlugin } from "./plausible.ts";
 import { createPwaPlugin } from "./pwa.ts";
 import { createRssPlugin } from "./rss.ts";
@@ -26,7 +27,9 @@ export const OFFICIAL_PLUGINS: Record<string, (config?: Record<string, unknown>)
   "@doclight/plugin-pwa": createPwaPlugin,
   "ai-chat": createAiChatPlugin,
   "@doclight/plugin-ai-chat": createAiChatPlugin,
+  mermaid: createMermaidPlugin,
+  "@doclight/plugin-mermaid": createMermaidPlugin,
 };
 
 /** 官方插件短名清单（help / 文档展示用） */
-export const OFFICIAL_PLUGIN_NAMES = ["giscus", "plausible", "rss", "pwa", "ai-chat"] as const;
+export const OFFICIAL_PLUGIN_NAMES = ["giscus", "plausible", "rss", "pwa", "ai-chat", "mermaid"] as const;

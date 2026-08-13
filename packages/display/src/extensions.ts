@@ -1,11 +1,14 @@
 /**
- * 扩展语法增强器（REND-002 客户端懒加载映射 + REND-003 Mermaid 容错 + 复制/高亮/KaTeX）
+ * 扩展语法增强器（REND-002 客户端懒加载映射 + 复制/高亮/KaTeX）
  *
  * 职责：扫描渲染内核输出的 class 标记（packages/renderer extensions/registry），
  * 按注册表懒加载映射从 vendor 端点注入资源并增强：
  * - code-block：复制按钮（零依赖，同步注入）+ Prism 懒加载高亮
- * - mermaid：懒加载 mermaid.js → 渲染 SVG；错误降级保留源码 + 提示（100% 不白屏）
  * - katex：懒加载 katex.js/css → renderToString 替换
+ *
+ * PLUG-012（Mermaid 迁移）：Mermaid 容错渲染（REND-003）已迁出展示层，
+ * 由 @doclight/plugin-mermaid 官方插件提供（运行时 init/onMount 钩子 + 自带
+ * vendor/styles 声明）——启用插件后与内置时期行为一致。
  *
  * 体积门禁（ADR-0002）：vendor 资源全部按需注入（script/link 动态创建），不进
  * 展示层 bundle——dist/display.js 体积不因扩展而增长。
@@ -35,7 +38,6 @@ const loadedStyles = new Set<string>();
 /** 脚本文件 → 其暴露的全局名：bundle 内联 vendor 后全局已存在，跳过 fetch（file:// 下无网络） */
 const VENDOR_SCRIPT_GLOBALS: Array<[string, string]> = [
   ["prism.min.js", "Prism"],
-  ["mermaid.min.js", "mermaid"],
   ["katex.min.js", "katex"],
 ];
 
@@ -154,49 +156,6 @@ async function highlightCode(scope: HTMLElement): Promise<void> {
   });
 }
 
-/* ===== REND-003 Mermaid 容错渲染 ===== */
-
-let mermaidSeq = 0;
-
-async function renderMermaid(scope: HTMLElement): Promise<void> {
-  const nodes = scope.querySelectorAll<HTMLElement>(".doclight-mermaid");
-  if (nodes.length === 0) return;
-  try {
-    await loadScript(vendorBase() + "mermaid.min.js");
-  } catch {
-    return; // 降级：保留源码 fallback（不白屏）
-  }
-  const mermaid = winGlobal("mermaid") as
-    | { initialize(cfg: Record<string, unknown>): void; render(id: string, src: string): Promise<{ svg: string }> }
-    | undefined;
-  if (!mermaid) return;
-  // 主题同步（REND-003）：跟随 data-theme（dark → mermaid dark）
-  const theme = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "default";
-  try {
-    mermaid.initialize({ startOnLoad: false, theme, securityLevel: "strict" });
-  } catch {
-    /* 已初始化则忽略 */
-  }
-  for (const node of nodes) {
-    const srcEl = node.querySelector<HTMLElement>(".doclight-mermaid-src code") ?? node.querySelector("code");
-    const src = srcEl?.textContent ?? "";
-    if (!src.trim()) continue;
-    try {
-      const { svg } = await mermaid.render(`doclight-mermaid-${++mermaidSeq}`, src);
-      node.innerHTML = svg;
-      node.classList.add("doclight-mermaid-rendered");
-    } catch {
-      // REND-003 容错：保留源码 + 提示，100% 不白屏
-      if (!node.querySelector(".doclight-mermaid-error")) {
-        const hint = document.createElement("p");
-        hint.className = "doclight-mermaid-error";
-        hint.textContent = "⚠ 图表渲染失败（可能是 Mermaid 语法错误），以下为图表源码：";
-        node.insertBefore(hint, node.querySelector(".doclight-mermaid-src"));
-      }
-    }
-  }
-}
-
 /* ===== KaTeX 公式 ===== */
 
 async function renderKatex(scope: HTMLElement): Promise<void> {
@@ -239,7 +198,6 @@ export function initExtensions(root?: HTMLElement): ExtensionsApi {
     addCopyButtons(target);
     // 异步：懒加载增强（各扩展内部自判断是否有标记，无则零开销返回）
     void highlightCode(target);
-    void renderMermaid(target);
     void renderKatex(target);
   }
 

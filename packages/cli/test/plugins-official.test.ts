@@ -7,13 +7,16 @@ import { describe, expect, it } from "vitest";
 import { createAiChatPlugin } from "../src/plugins-official/ai-chat.ts";
 import { createGiscusPlugin } from "../src/plugins-official/giscus.ts";
 import { OFFICIAL_PLUGIN_NAMES, OFFICIAL_PLUGINS } from "../src/plugins-official/index.ts";
+import { createMermaidPlugin, mermaidExtension, mermaidStyles } from "../src/plugins-official/mermaid.ts";
 import { createPlausiblePlugin } from "../src/plugins-official/plausible.ts";
 import { createPwaPlugin } from "../src/plugins-official/pwa.ts";
 import { createRssPlugin } from "../src/plugins-official/rss.ts";
+import { loadPluginsSync } from "../src/plugin-loader.ts";
+import { render } from "doclight-renderer";
 
-describe("官方插件注册表（PLUG-007）", () => {
-  it("含 5 个官方插件且短名/包名均可解析", () => {
-    expect(OFFICIAL_PLUGIN_NAMES).toEqual(["giscus", "plausible", "rss", "pwa", "ai-chat"]);
+describe("官方插件注册表（PLUG-007/012）", () => {
+  it("含 6 个官方插件且短名/包名均可解析", () => {
+    expect(OFFICIAL_PLUGIN_NAMES).toEqual(["giscus", "plausible", "rss", "pwa", "ai-chat", "mermaid"]);
     for (const name of OFFICIAL_PLUGIN_NAMES) {
       expect(OFFICIAL_PLUGINS[name]).toBeTypeOf("function");
       expect(OFFICIAL_PLUGINS[`@doclight/plugin-${name}`]).toBe(OFFICIAL_PLUGINS[name]);
@@ -141,5 +144,68 @@ describe("@doclight/plugin-ai-chat", () => {
     expect(slot).toContain('class="doclight-ai-chat-form"');
     expect(slot).toContain('"https://proxy.example.com/ask"');
     expect(slot).toContain("textContent"); // 纯文本注入（LLM 输出不进 innerHTML）
+  });
+});
+
+describe("@doclight/plugin-mermaid（PLUG-012 从内置迁移为官方插件）", () => {
+  it("无必填配置：空配置即启用（工厂不返回 null）", () => {
+    const plugin = createMermaidPlugin();
+    expect(plugin).not.toBeNull();
+    expect(createMermaidPlugin({})).not.toBeNull();
+  });
+
+  it("extendMarked：mermaid 围栏 → .doclight-mermaid fallback（源码转义保留，sanitize 后不白屏）", () => {
+    const plugin = createMermaidPlugin()!;
+    const extender = { use: () => {} };
+    const { html } = render("```mermaid\ngraph TD\n  A-->B\n```", {
+      extraMarkedExtensions: [plugin.extendMarked!(extender) as unknown[]],
+    });
+    expect(html).toContain('<div class="doclight-mermaid">');
+    expect(html).toContain('<pre class="doclight-mermaid-src"><code>');
+    expect(html).toContain("A--&gt;B");
+    // XSS：源码注入脚本被转义清除
+    const evil = render("```mermaid\n<script>alert(1)</script>\n```", {
+      extraMarkedExtensions: [plugin.extendMarked!(extender) as unknown[]],
+    });
+    expect(evil.html).not.toContain("<script>");
+    expect(evil.html).toContain("&lt;script&gt;");
+  });
+
+  it("mermaidExtension 是独立 marked 扩展（tokenizer/renderer 可单独断言）", () => {
+    expect(mermaidExtension.name).toBe("doclightMermaid");
+    expect(mermaidExtension.level).toBe("block");
+    // tokenizer：匹配 ```mermaid 围栏，返回 { type, raw, text }
+    const token = mermaidExtension.tokenizer!.call({ lexer: { blockTokens: (s: string) => [s] } } as never, "```mermaid\nflowchart LR\n  a-->b\n```\n");
+    expect(token).toMatchObject({ type: "doclightMermaid", text: "flowchart LR\n  a-->b" });
+    // 非 mermaid 围栏不匹配（交给内置 tokenizer）
+    expect(mermaidExtension.tokenizer!("```js\nx\n```\n")).toBeUndefined();
+  });
+
+  it("vendor 声明：mermaid.min.js（按需服务/拷贝/内联）", () => {
+    const plugin = createMermaidPlugin()!;
+    expect(plugin.vendor).toEqual([{ file: "mermaid.min.js", pkg: "mermaid", rel: "dist/mermaid.min.js" }]);
+  });
+
+  it("styles：mermaid 渲染样式（.doclight-mermaid 等，注入页面）", () => {
+    const plugin = createMermaidPlugin()!;
+    expect(plugin.styles).toBe(mermaidStyles);
+    expect(mermaidStyles).toContain(".doclight-mermaid");
+    expect(mermaidStyles).toContain(".doclight-mermaid-error");
+  });
+
+  it("运行时脚本：content:after 注入懒加载 + 容错渲染 + doclight.use 注册（init/onMount）", () => {
+    const plugin = createMermaidPlugin()!;
+    const slot = plugin.slotContent!["content:after"] as string;
+    expect(slot).toContain("mermaid.min.js");
+    expect(slot).toContain("window.doclight.use");
+    expect(slot).toContain("doclight-mermaid-error");
+    expect(slot).toContain("securityLevel");
+    expect(slot).toContain("onMount");
+  });
+
+  it("加载器全链路：doclight.json plugins: [\"mermaid\"] → PluginDef（skipped 空）", () => {
+    const result = loadPluginsSync([{ name: "mermaid" }], process.cwd());
+    expect(result.skipped).toEqual([]);
+    expect(result.plugins.map((p) => p.name)).toEqual(["mermaid"]);
   });
 });

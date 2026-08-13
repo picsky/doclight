@@ -13,7 +13,8 @@
  * - 标题：注入锚点 id（供 TOC / 跳转）
  * - 链接：区分外部链接（新标签打开）与站内相对链接（路径修正）
  * - 图片：相对路径修正 + 懒加载
- * - 代码块：renderCodeBlock 分流（mermaid 围栏 → .doclight-mermaid fallback；普通 → 高亮+复制标记）
+ * - 代码块：renderCodeBlock 分流（普通 → 高亮+复制标记；Mermaid 围栏由
+ *   @doclight/plugin-mermaid 的 extendMarked 扩展接管，PLUG-012 迁移）
  * - 表格：包裹 .table-wrap 容器（横向滚动）
  * - 扩展语法：从注册表（getExtensions）挂载容器 / KaTeX 等 marked 扩展
  */
@@ -55,7 +56,7 @@ export function renderMarkdown(md: string, options: MarkdownOptions = {}): strin
       return `<img src="${src}" alt="${text}" loading="lazy" />`;
     },
     code({ text, lang }: Tokens.Code) {
-      // REND-002：mermaid 围栏 / 普通代码块分流（含转义，纵深防御）
+      // REND-002：普通代码块分流（含转义，纵深防御）；Mermaid 围栏由插件扩展接管
       return renderCodeBlock(text, lang);
     },
     table(token: Tokens.Table) {

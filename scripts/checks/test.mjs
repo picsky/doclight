@@ -19,7 +19,7 @@ export function run() {
 
   if (!existsSync(outFile)) {
     return mkResult("test", "Vitest 全绿", 1, [
-      { id: "vitest", message: "未生成 JSON 报告", evidence: (r.stderr || r.stdout).slice(0, 500) },
+      { id: "vitest", message: "未生成 JSON 报告", evidence: `${r.stderr ?? ""}${r.stdout ?? ""}`.slice(0, 500) },
     ]);
   }
 
@@ -38,7 +38,7 @@ export function run() {
   }
   // status 非 0 说明有测试文件崩溃/超时
   if (r.status !== 0 && failures.length === 0) {
-    failures.push({ id: "vitest", message: `vitest 异常退出（${r.status}）`, evidence: (r.stderr || r.stdout).slice(0, 500) });
+    failures.push({ id: "vitest", message: `vitest 异常退出（${r.status}）`, evidence: `${r.stderr ?? ""}${r.stdout ?? ""}`.slice(0, 500) });
   }
   return mkResult("test", "Vitest 全绿", report.numTotalTests ?? 0, failures);
 }

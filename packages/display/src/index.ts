@@ -3,7 +3,7 @@
  *
  * 只消费渲染内核输出的 HTML（服务端直出/SSG/bundle），不接触原始 Markdown。
  * mount() 挂载：主题切换 + SPA 导航（含路由钩子）+ TOC + 内置搜索 + 移动端侧边栏
- * + 扩展语法增强器（REND-002：复制/高亮/Mermaid 容错/KaTeX，vendor 懒加载）
+ * + 扩展语法增强器（REND-002：复制/高亮/KaTeX，vendor 懒加载；Mermaid 已迁移为插件）
  * + 插件管理器（PLUG-004：init → onMount → onRouteChange → destroy）
  * + 体验细节（UX-001：专注模式 / 字号调节 / Powered by）。
  * 构建产物 dist/display.js 由 dev server / SSG 页面引用。

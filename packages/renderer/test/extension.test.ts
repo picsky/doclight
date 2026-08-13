@@ -18,20 +18,20 @@ import {
 describe("REND-002 扩展语法注册表", () => {
   afterEach(() => setExtensions(DEFAULT_EXTENSIONS));
 
-  it("默认白名单含 4 个扩展（code-block / mermaid / container / katex）", () => {
+  it("默认白名单含 3 个扩展（code-block / container / katex；mermaid 已迁移为插件，PLUG-012）", () => {
     const ids = getExtensions().map((e) => e.id);
     expect(ids).toContain("code-block");
-    expect(ids).toContain("mermaid");
     expect(ids).toContain("container");
     expect(ids).toContain("katex");
-    expect(isEnabled("mermaid")).toBe(true);
+    expect(ids).not.toContain("mermaid");
+    expect(isEnabled("mermaid")).toBe(false);
     expect(isEnabled("unknown")).toBe(false);
   });
 
   it("collectExtensionClasses 汇聚全部 class 标记（sanitize 白名单断言依据）", () => {
     const classes = collectExtensionClasses();
     expect(classes).toContain("doclight-code");
-    expect(classes).toContain("doclight-mermaid");
+    expect(classes).not.toContain("doclight-mermaid");
     expect(classes).toContain("doclight-tip");
     expect(classes).toContain("doclight-katex-inline");
     expect(classes).toContain("doclight-katex-block");
@@ -45,7 +45,7 @@ describe("REND-002 扩展语法注册表", () => {
   });
 });
 
-describe("REND-002 代码块标记（高亮 + 复制 + Mermaid 分流）", () => {
+describe("REND-002 代码块标记（高亮 + 复制）", () => {
   it("普通代码块带 doclight-code 与 language-* 标记", () => {
     const { html } = render("```ts\nconst a: number = 1;\n```");
     expect(html).toContain('<pre class="doclight-code"><code class="language-ts">');
@@ -61,27 +61,13 @@ describe("REND-002 代码块标记（高亮 + 复制 + Mermaid 分流）", () =>
     expect(html).not.toContain("<script>alert");
     expect(html).toContain("&lt;script&gt;");
   });
-});
 
-describe("REND-003 Mermaid 容错渲染（Node 侧标记 + fallback）", () => {
-  it("mermaid 围栏 → .doclight-mermaid + 源码 fallback 子元素", () => {
+  it("PLUG-012：未启用 mermaid 插件时 mermaid 围栏按普通代码块渲染（源码可见可复制）", () => {
+    // mermaid 已从内置扩展迁移为官方插件——渲染内核不再分流，默认降级为普通代码块
     const { html } = render("```mermaid\ngraph TD\n  A-->B\n```");
-    expect(html).toContain('<div class="doclight-mermaid">');
-    expect(html).toContain('<pre class="doclight-mermaid-src"><code>');
-    // 源码作为 fallback 文本保留（降级不白屏的关键）
+    expect(html).toContain('<pre class="doclight-code"><code class="language-mermaid">');
+    expect(html).not.toContain("doclight-mermaid");
     expect(html).toContain("A--&gt;B");
-  });
-
-  it("Mermaid 源码含 > 时 sanitize 后仍保留（spike：data-* 不可依赖，子元素方案稳定）", () => {
-    const { html } = render("```mermaid\nflowchart LR\n  a-->b-->c\n```");
-    expect(html).toContain("doclight-mermaid");
-    expect(html).toContain("a--&gt;b");
-  });
-
-  it("Mermaid 源码注入脚本被转义清除（sanitize 白名单）", () => {
-    const { html } = render("```mermaid\n<script>alert(1)</script>\n```");
-    expect(html).not.toContain("<script>");
-    expect(html).toContain("&lt;script&gt;");
   });
 });
 

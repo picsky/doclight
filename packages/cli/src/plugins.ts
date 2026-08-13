@@ -13,7 +13,15 @@
  *
  * 纯函数 + 状态无关：可在 Node 测试中直接断言。
  */
-import type { BuildContext, BuildFile, MarkedExtender, PluginDef, RenderContext, SearchDoc } from "../../core/src/plugin.ts";
+import type {
+  BuildContext,
+  BuildFile,
+  MarkedExtender,
+  PluginDef,
+  PluginVendorFile,
+  RenderContext,
+  SearchDoc,
+} from "../../core/src/plugin.ts";
 
 export class BuildPluginPipeline {
   constructor(private plugins: PluginDef[] = []) {}
@@ -115,6 +123,32 @@ export class BuildPluginPipeline {
       }
     }
     return merged;
+  }
+
+  /**
+   * 收集插件 vendor 资源声明（PLUG-012 按需策略）。
+   * 合并各插件 vendor 数组为 file → {pkg, rel} 映射（按文件名去重，首个命中胜出），
+   * 供 dev server 端点 / SSG copyVendor / bundle --inline-vendor 三形态按需接线。
+   */
+  collectVendorFiles(): Record<string, PluginVendorFile> {
+    const merged: Record<string, PluginVendorFile> = {};
+    for (const p of this.plugins) {
+      for (const v of p.vendor ?? []) {
+        if (v && typeof v.file === "string" && typeof v.pkg === "string" && typeof v.rel === "string" && !(v.file in merged)) {
+          merged[v.file] = v;
+        }
+      }
+    }
+    return merged;
+  }
+
+  /** 收集插件 CSS（合并各插件 styles 字符串，按注册顺序拼接；renderPage 注入 <style data-doclight-plugin-css>） */
+  collectPluginStyles(): string {
+    const parts: string[] = [];
+    for (const p of this.plugins) {
+      if (typeof p.styles === "string" && p.styles.trim()) parts.push(p.styles);
+    }
+    return parts.join("\n");
   }
 
   /** 收集构建时插槽内容（合并各插件 slotContent） */

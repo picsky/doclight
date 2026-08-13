@@ -109,10 +109,11 @@ describe("doclight build（SSG-001 静态导出）", () => {
     // 静态资源（非 md）拷贝
     expect(readFileSync(join(d, "assets", "logo.txt"), "utf8")).toBe("not-an-image");
     expect(result.assets).toBe(1);
-    // vendor 拷贝（SSG-002 自包含）
-    for (const f of ["mermaid.min.js", "prism.min.js", "katex.min.js", "katex.min.css"]) {
+    // vendor 拷贝（SSG-002 自包含；PLUG-012：mermaid.min.js 仅启用插件时拷贝）
+    for (const f of ["prism.min.js", "katex.min.js", "katex.min.css"]) {
       expect(existsSync(join(d, "vendor", f))).toBe(true);
     }
+    expect(existsSync(join(d, "vendor", "mermaid.min.js"))).toBe(false); // 未启用插件 → 不拷贝
     expect(readdirSync(join(d, "vendor", "fonts")).length).toBeGreaterThan(0); // KaTeX 字体
     rmSync(d, { recursive: true, force: true });
   });

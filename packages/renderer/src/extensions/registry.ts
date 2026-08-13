@@ -5,6 +5,10 @@
  * （02 §2.5）可在 render 选项里裁剪（preferRegistries 扩展点）。
  * 渲染管线（markdown.ts）从这里挂载 marked 扩展；展示层（extensions.ts）从这里
  * 读取懒加载映射；单测从这里断言 sanitize 白名单。
+ *
+ * PLUG-012（mermaid 迁移）：Mermaid 不再内置默认——重 vendor 依赖（mermaid.min.js）
+ * 的扩展按需启用，由 @doclight/plugin-mermaid 官方插件提供（extendMarked 围栏 +
+ * 运行时容错渲染 + vendor/styles 声明）。默认白名单仅保留零/轻依赖扩展。
  */
 import type { ExtensionDef } from "./types.ts";
 import { containerExtension } from "./container.ts";
@@ -18,13 +22,6 @@ export const DEFAULT_EXTENSIONS: ExtensionDef[] = [
     classes: ["doclight-code"],
     client: { scripts: ["prism.min.js"], enhance: "code" },
     degradation: "无 Prism 时保留纯代码块（可读 + 可复制）",
-  },
-  {
-    id: "mermaid",
-    title: "Mermaid 图表（容错渲染）",
-    classes: ["doclight-mermaid", "doclight-mermaid-src"],
-    client: { scripts: ["mermaid.min.js"], enhance: "mermaid" },
-    degradation: "渲染失败/未加载 → 保留图表源码 + 提示，100% 不白屏（REND-003）",
   },
   {
     id: "container",

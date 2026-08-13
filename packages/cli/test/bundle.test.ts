@@ -91,7 +91,7 @@ describe("doclight bundle（CLI-002 单文件便携包，05 §5.3.4）", () => {
     rmSync(out, { recursive: true, force: true });
   });
 
-  it("--inline-vendor：内联 Prism/Mermaid/KaTeX（C3，file:// 下扩展可用；默认不内联）", async () => {
+  it("--inline-vendor：内联内置扩展（Prism/KaTeX）+ 启用插件 vendor（C3，file:// 下扩展可用；默认不内联）", async () => {
     // 默认：不内联 vendor（保持体积小）
     const outPlain = tmpOut();
     const displayPlain = tmpDisplay();
@@ -100,13 +100,14 @@ describe("doclight bundle（CLI-002 单文件便携包，05 §5.3.4）", () => {
     expect(plain).not.toContain("data-doclight-vendor");
     rmSync(outPlain, { recursive: true, force: true });
 
-    // opt-in：内联 + 标记（展示层据此跳过 fetch）
+    // opt-in：内联 + 标记（展示层据此跳过 fetch）。PLUG-012：mermaid.min.js 仅
+    // 启用 @doclight/plugin-mermaid 时才内联（默认不在内置清单）
     const out = tmpOut();
     const display = tmpDisplay();
     const result = await bundleSite({ dir: docsDir, outDir: out, title: "测试站", displayBundle: display, inlineVendor: true });
     const html = readFileSync(result.file, "utf8");
     expect(html).toContain('data-doclight-vendor="prism.min.js"');
-    expect(html).toContain('data-doclight-vendor="mermaid.min.js"');
+    expect(html).not.toContain('data-doclight-vendor="mermaid.min.js"');
     expect(html).toContain('data-doclight-vendor="katex.min.js"');
     expect(html).toContain('data-doclight-vendor="katex.min.css"');
     // CSS 在 JS 之前

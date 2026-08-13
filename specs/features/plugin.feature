@@ -1,4 +1,4 @@
-# 验收准则：插件系统（PLUG-001 ~ PLUG-009，07 §7 完整规格）
+# 验收准则：插件系统（PLUG-001 ~ PLUG-012，07 §7 完整规格）
 
 ## PLUG-001 事件总线（Phase 1 已有）
 
@@ -212,11 +212,11 @@ Feature: onBuild 产出站点级构建文件（rss.xml / manifest.json / sw.js �
 
 ## PLUG-007 官方插件样例
 
-Feature: 内置官方插件注册表与加载（giscus / plausible / rss / pwa / ai-chat）
+Feature: 内置官方插件注册表与加载（giscus / plausible / rss / pwa / ai-chat / mermaid）
 
-  Scenario: 官方插件注册表含 5 个插件
+  Scenario: 官方插件注册表含 6 个插件
     Given doclight-cli 的 plugins-official 注册表
-    Then 含 giscus / plausible / rss / pwa / ai-chat
+    Then 含 giscus / plausible / rss / pwa / ai-chat / mermaid
     And 短名与 @doclight/plugin-* 包名均可解析
 
   Scenario: 插件加载器解析内置插件名
@@ -245,8 +245,43 @@ Feature: 内置官方插件注册表与加载（giscus / plausible / rss / pwa /
 
   Scenario: 官方插件清单（plugin list）
     Given 执行 doclight plugin list
-    Then 列出 5 个官方插件（giscus / plausible / rss / pwa / ai-chat）
+    Then 列出 6 个官方插件（giscus / plausible / rss / pwa / ai-chat / mermaid）
     And 每个插件含一句话简介
+
+## PLUG-012 插件 vendor/styles 声明与 Mermaid 迁移
+
+Feature: 重 vendor 扩展插件化（mermaid 从内置迁移）——PluginDef 声明构建期资源，三形态按需接线
+
+  Scenario: PluginDef 支持 vendor 与 styles 声明
+    Given 一个 PluginDef 对象声明 vendor:[{file,pkg,rel}] 与 styles 字符串
+    Then TypeScript 编译通过
+    And collectVendorFiles() 合并为 file → {pkg,rel} 映射（同名去重，首个命中胜出）
+    And collectPluginStyles() 按注册顺序拼接 styles
+
+  Scenario: mermaid 不再内置默认（迁移语义）
+    Given 不配置 plugins 的文档站
+    When 渲染含 ```mermaid 围栏的 Markdown
+    Then 围栏按普通代码块渲染（language-mermaid，可高亮可复制）
+    And 默认产物不含 vendor/mermaid.min.js
+
+  Scenario: 启用 mermaid 插件后行为与内置时期一致
+    Given doclight.json plugins:[{name:"mermaid"}]
+    When buildSite()
+    Then 围栏渲染为 .doclight-mermaid fallback（class 标记 + 源码子元素，sanitize 后源码保留）
+    And 产物含运行时增强脚本（doclight.use 注册 init/onMount：懒加载渲染 + 错误降级提示，100% 不白屏）
+    And 产物含插件 CSS（.doclight-mermaid 等，<style data-doclight-plugin-css>）
+    And vendor/mermaid.min.js 拷贝进产物（按需）
+
+  Scenario: dev server vendor 端点按需服务插件 vendor
+    Given dev server 以启用 mermaid 插件启动
+    When 请求 /__doclight/vendor/mermaid.min.js
+    Then 返回 200（从 node_modules 提供）
+    And 未启用插件时同路径返回 404（诚实降级）
+
+  Scenario: bundle --inline-vendor 按需内联插件 vendor
+    Given bundleSite({inlineVendor:true}) 且启用 mermaid 插件
+    Then 产物含 data-doclight-vendor="mermaid.min.js" 内联标记
+    And 未启用插件时 mermaid.min.js 不内联（默认不携带）
 
 ## PLUG-011 插件热重载
 

@@ -19,6 +19,10 @@ export interface PluginDef {
   version?: string;
   /** 插件配置（用户传入的 options，插件内部消费） */
   config?: Record<string, unknown>;
+  /** 构建期 vendor 资源声明（PLUG-012：按需服务/拷贝/内联——dev 端点按需服务、SSG 按需拷贝、bundle --inline-vendor 按需内联，守体积门禁） */
+  vendor?: PluginVendorFile[];
+  /** 插件 CSS（注入页面 <style data-doclight-plugin-css>；空缺省） */
+  styles?: string;
 
   /* ===== 构建时钩子（Node 端） ===== */
 
@@ -162,6 +166,16 @@ export interface PluginConfig {
   config?: Record<string, unknown>;
   /** 是否启用（默认 true） */
   enabled?: boolean;
+}
+
+/** 插件构建期 vendor 资源声明（PLUG-012：mermaid 等重 vendor 扩展按需启用，不进默认产物） */
+export interface PluginVendorFile {
+  /** vendor 文件名（vendor 端点路径尾段，如 "mermaid.min.js"） */
+  file: string;
+  /** npm 包名（node_modules 定位，dev server 从包内读取） */
+  pkg: string;
+  /** 包内相对路径（如 "dist/mermaid.min.js"） */
+  rel: string;
 }
 
 /**

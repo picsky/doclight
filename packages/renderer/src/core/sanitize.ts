@@ -29,10 +29,10 @@ function getPurifier(): ReturnType<typeof DOMPurify> {
  * - loading：图片懒加载，无脚本语义
  * DOMPurify 默认剥离二者（保守策略），此处显式放行。
  *
- * REND-002 扩展标记（doclight-container / doclight-mermaid / language-* 等）无需
+ * REND-002 扩展标记（doclight-container / doclight-code / language-* 等）无需
  * 额外放行，安全由「内容承载铁律」保证（spike 实测，2026-08-13）：
  * - 标记只用 class（DOMPurify 默认放行，且 class 无脚本语义）
- * - 扩展内容一律放子元素/文本（Mermaid/KaTeX 源码），**不依赖 data-***——
+ * - 扩展内容一律放子元素/文本（KaTeX 源码 / 插件 Mermaid 源码），**不依赖 data-***——
  *   实测 DOMPurify 对 data-* 的放行受属性值内容影响（含 > 时被剥离），不可依赖
  * - 源码经 escapeHtml 转义后入 DOM，展示层读取 textContent 还原（纯文本，无注入面）
  * 每新增扩展必须在注册表（extensions/registry.ts）登记其 class 与降级策略。

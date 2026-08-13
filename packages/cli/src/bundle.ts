@@ -58,11 +58,15 @@ function pageKey(outRel: string): string {
   return outRel === "index.html" ? "/" : `/${outRel}`;
 }
 
-/** 内联扩展库 HTML（C3）：CSS 先于 JS；带 data-doclight-vendor 标记供展示层懒加载跳过 fetch */
-export function inlineVendorHtml(): string {
+/**
+ * 内联扩展库 HTML（C3）：CSS 先于 JS；带 data-doclight-vendor 标记供展示层懒加载跳过 fetch。
+ * @param extraVendor PLUG-012：插件声明的 vendor（mermaid 等按需启用插件）；缺省仅内联内置（Prism/KaTeX）。
+ */
+export function inlineVendorHtml(extraVendor?: Record<string, { pkg: string; rel: string }>): string {
   const css: string[] = [];
   const js: string[] = [];
-  for (const [file, { pkg, rel }] of Object.entries(VENDOR_FILES)) {
+  const files = { ...VENDOR_FILES, ...(extraVendor ?? {}) };
+  for (const [file, { pkg, rel }] of Object.entries(files)) {
     const content = readFileSync(join(nodeModulesBase(pkg), rel), "utf8");
     if (file.endsWith(".css")) css.push(`<style data-doclight-vendor="${file}">${content}</style>`);
     else js.push(`<script data-doclight-vendor="${file}">${content}</script>`);
@@ -151,9 +155,10 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
     form: "bundle",
     displayScript,
     bundleData,
-    extraHead: options.inlineVendor ? inlineVendorHtml() : "",
+    extraHead: options.inlineVendor ? inlineVendorHtml(pipeline.collectVendorFiles()) : "",
     slotContent: homeSlotContent,
     themeCss: resolveThemeCss(cfg.theme),
+    pluginCss: pipeline.collectPluginStyles(),
   });
 
   const file = join(outDir, options.filename ?? "doclight.html");

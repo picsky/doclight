@@ -257,6 +257,8 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
     });
     const html = pipeline.runAfterRender(renderedHtml, ctx);
     const slotContent = pipeline.collectSlotContent(ctx);
+    // PLUG-012：插件 CSS（mermaid 等插件样式按需注入页面）
+    const pluginCss = pipeline.collectPluginStyles();
     const finalTitle = docTitle(frontmatter, rel);
     const description = docDescription(frontmatter) ?? siteDescription;
     const canonicalPath = outRel === "index.html" ? "/" : `/${outRel}`;
@@ -284,6 +286,7 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
         searchVersion,
         slotContent,
         themeCss,
+        pluginCss,
       })
     );
     sitePages.push({
@@ -389,8 +392,9 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
     );
   }
 
-  // 扩展 vendor：自包含产物（SSG-002 决策——拷贝 dist/vendor，离线可用）
-  copyVendor(outDir);
+  // 扩展 vendor：自包含产物（SSG-002 决策——拷贝 dist/vendor，离线可用）。
+  // PLUG-012：合并启用插件声明的 vendor（mermaid 等按需插件）
+  copyVendor(outDir, pipeline.collectVendorFiles());
 
   // 搜索索引 JSON 落盘
   writeFileSync(join(outDir, "search-index.json"), JSON.stringify(searchData));

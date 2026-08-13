@@ -106,7 +106,7 @@ function printHelp(): void {
   --json          publish / space 输出纯 JSON（Agent 直接解析）
   --mcp           dev 模式启用 MCP 插件（同端口 /mcp + /.well-known/mcp）
   --qr <url>      bundle 生成下载二维码（bundle-qr.png，13 §3.2）
-  --inline-vendor bundle 内联扩展库（Prism/Mermaid/KaTeX，file:// 下可用；体积增大）
+  --inline-vendor bundle 内联扩展库（Prism/KaTeX + 启用插件 vendor，file:// 下可用；体积增大）
   --help, -h      显示帮助`);
 }
 
@@ -243,7 +243,7 @@ if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
       console.log(`  页面: ${result.pages} 篇`);
       console.log(`  产物: ${result.file}（${(result.bytes / 1024).toFixed(1)} KB，${result.ms}ms）`);
       if (result.qrFile) console.log(`  二维码: ${result.qrFile}（手机扫码打开/下载，13 §3.2）`);
-      if (opts["inline-vendor"] === "true") console.log(`  扩展: 已内联 Prism/Mermaid/KaTeX（file:// 离线可用）`);
+      if (opts["inline-vendor"] === "true") console.log(`  扩展: 已内联 Prism/KaTeX + 启用插件 vendor（file:// 离线可用）`);
       console.log(`  分发: 双击文件或传给任何人，file:// 离线可用\n`);
     } else if (command === "migrate-docsify") {
       const result = migrateDocsify({ sourceDir: opts["dir"] ?? "docsify-site", destDir: process.cwd() });

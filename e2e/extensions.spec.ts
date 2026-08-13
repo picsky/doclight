@@ -5,12 +5,15 @@
  * dev server 从 node_modules 服务 vendor（/__doclight/vendor/*），展示层懒加载
  * Prism/Mermaid/KaTeX 后增强。夹具含全部扩展语法（含 LLM 易生成的 Mermaid 错误语法，
  * 验证 REND-003「100% 不白屏」容错）。
+ * PLUG-012：Mermaid 已迁移为官方插件——dev server 显式启用 @doclight/plugin-mermaid
+ * （与内置时期行为一致；不启用时 mermaid 围栏按普通代码块渲染）。
  */
 import { test, expect } from "@playwright/test";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startDevServer } from "../packages/cli/src/dev-server.ts";
+import { createMermaidPlugin } from "../packages/cli/src/plugins-official/mermaid.ts";
 
 const docsDir = mkdtempSync(join(tmpdir(), "doclight-ext-e2e-"));
 let server: { url: string; port: number; close(): Promise<void> };
@@ -62,7 +65,7 @@ test.beforeAll(async () => {
       "$$",
     ].join("\n")
   );
-  server = await startDevServer({ dir: docsDir });
+  server = await startDevServer({ dir: docsDir, buildPlugins: [createMermaidPlugin()!] });
 });
 
 test.afterAll(async () => {

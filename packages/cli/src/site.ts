@@ -36,9 +36,10 @@ export function displayBundlePath(): string {
   return existsSync(self) ? self : join(process.cwd(), "dist", "display.js");
 }
 
-/** REND-002 扩展 vendor 文件清单（Prism / Mermaid / KaTeX + KaTeX 字体） */
+/** REND-002 内置扩展 vendor 文件清单（Prism / KaTeX + KaTeX 字体）。
+ *  PLUG-012（Mermaid 迁移）：mermaid.min.js 已不在内置清单——由
+ *  @doclight/plugin-mermaid 的 vendor 声明按需提供（见 plugins.ts collectVendorFiles）。 */
 export const VENDOR_FILES: Record<string, { pkg: string; rel: string }> = {
-  "mermaid.min.js": { pkg: "mermaid", rel: "dist/mermaid.min.js" },
   "prism.min.js": { pkg: "prismjs", rel: "prism.js" },
   "katex.min.js": { pkg: "katex", rel: "dist/katex.min.js" },
   "katex.min.css": { pkg: "katex", rel: "dist/katex.min.css" },
@@ -102,10 +103,13 @@ export function searchIndexVersion(docs: unknown[]): string {
 /**
  * 拷贝扩展 vendor 到产物目录（SSG-002：SSG 形态 vendor 基址决策——拷贝 dist/vendor，
  * 自包含 + 离线可用，页面经 window.DOCLIGHT_VENDOR_BASE="/vendor/" 指到产物）。
+ * @param extraVendor PLUG-012：插件声明的 vendor（mermaid 等按需启用插件）；
+ *   缺省仅拷贝内置扩展 vendor（Prism/KaTeX）。
  */
-export function copyVendor(outDir: string): void {
+export function copyVendor(outDir: string, extraVendor?: Record<string, { pkg: string; rel: string }>): void {
   const vendorOut = join(outDir, "vendor");
-  for (const [name, { pkg, rel }] of Object.entries(VENDOR_FILES)) {
+  const files = { ...VENDOR_FILES, ...(extraVendor ?? {}) };
+  for (const [name, { pkg, rel }] of Object.entries(files)) {
     const data = readFileSync(join(nodeModulesBase(pkg), rel));
     mkdirSync(vendorOut, { recursive: true });
     writeFileSync(join(vendorOut, name), data);
@@ -338,6 +342,8 @@ export interface RenderPageOptions {
   slotContent?: Record<string, string>;
   /** THEME-002：主题 CSS 覆盖层（注入主样式之后，<style data-doclight-theme>；缺省空 = 默认主题） */
   themeCss?: string;
+  /** PLUG-012：插件 CSS（合并各插件 styles，<style data-doclight-plugin-css>；缺省空） */
+  pluginCss?: string;
 }
 
 /**
@@ -654,11 +660,7 @@ ${seoHead}
   .doclight-tip { border-left-color: var(--color-success); }
   .doclight-warning { border-left-color: var(--color-warning); }
   .doclight-danger { border-left-color: var(--color-error); }
-  /* Mermaid：源码 fallback（降级不白屏，REND-003）+ 容错提示 */
-  .doclight-mermaid { margin: 0 0 1.5em; text-align: center; }
-  .doclight-mermaid .doclight-mermaid-src { text-align: left; margin: 0 auto; max-width: 100%; display: inline-block; }
-  .doclight-mermaid-rendered svg { max-width: 100%; height: auto; }
-  .doclight-mermaid-error { color: var(--color-error); font-size: var(--font-size-sm); margin: 0 0 var(--space-2); }
+  /* Mermaid（PLUG-012）：样式由 @doclight/plugin-mermaid 的 styles 声明提供（按需注入） */
   /* KaTeX：块级公式居中 + 横向滚动 */
   .doclight-katex-block { overflow-x: auto; overflow-y: hidden; padding: var(--space-1) 0; margin: 0 0 1.5em; }
   .doclight-katex-inline { padding: 0 2px; }
@@ -701,6 +703,7 @@ ${seoHead}
   }
 </style>
 ${options.themeCss ? `<style data-doclight-theme>\n${options.themeCss}\n</style>` : ""}
+${options.pluginCss ? `<style data-doclight-plugin-css>\n${options.pluginCss}\n</style>` : ""}
 ${options.extraHead ?? ""}
 ${slot("head:end")}
 </head>

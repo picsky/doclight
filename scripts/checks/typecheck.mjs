@@ -13,7 +13,7 @@ export function run() {
   });
   const failures = [];
   if (r.status !== 0) {
-    const lines = (r.stdout + r.stderr).split(/\r?\n/).filter(Boolean);
+    const lines = `${r.stdout ?? ""}${r.stderr ?? ""}`.split(/\r?\n/).filter(Boolean);
     failures.push({
       id: "tsc",
       message: `TypeScript 检查失败（${lines.length} 行输出）`,
