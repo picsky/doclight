@@ -12,6 +12,7 @@ import { initSidebar } from "./sidebar.ts";
 import { initToc, type TocApi } from "./toc.ts";
 import { initSearch, type SearchApi } from "./search.ts";
 import { initExtensions, type ExtensionsApi } from "./extensions.ts";
+import { initUx } from "./ux.ts";
 import { bus } from "./event-bus.ts";
 
 export const displayVersion = "0.1.0";
@@ -24,6 +25,7 @@ export function mount(): Router & { toc: TocApi; search: SearchApi; extensions: 
   const search = initSearch();
   const extensions = initExtensions();
   initSidebar();
+  initUx(); // C4 体验细节：专注模式 / 字号调节 / Powered by
   bus.emit("doclight:mount");
   return { ...router, toc, search, extensions, bus };
 }

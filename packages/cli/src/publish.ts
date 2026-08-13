@@ -117,13 +117,13 @@ function resolveTarget(options: PublishOptions): PublishTarget | { error: string
 }
 
 /** 发布到 local：bundle 单文件 → file:// URL（离线自用/分发，14 §3.3） */
-function publishLocal(target: PublishTarget, options: PublishOptions, start: number): PublishResult {
+async function publishLocal(target: PublishTarget, options: PublishOptions, start: number): Promise<PublishResult> {
   const bundleOpts: BundleOptions = {
     dir: options.dir,
     outDir: target.entry.outputDir ?? options.outDir ?? "dist-bundle",
     title: options.title,
   };
-  const result = bundleSite(bundleOpts);
+  const result = await bundleSite(bundleOpts);
   const url = `file://${result.file.replace(/\\/g, "/")}`;
   return {
     ok: true,

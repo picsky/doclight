@@ -21,6 +21,7 @@
  */
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { Resvg } from "@resvg/resvg-js";
 import { analyzeDoc, buildNavTree, render } from "doclight-renderer";
 import { loadConfig, loadLlmsTxtConfig } from "./config.ts";
 import { buildLlmsFullTxt, buildLlmsTxt, classifyPriority } from "./llms.ts";
@@ -38,6 +39,17 @@ import {
   walkMd,
   type SeoOptions,
 } from "./site.ts";
+
+/** SVG → PNG 光栅化（C1，OG 分享卡）：resvg 渲染固定 1200×630 卡为 PNG。
+ *  失败返回 null（不阻断构建，回退仅 SVG——部分平台仍可访问 svg 文件）。 */
+export function rasterizePng(svg: string): Buffer | null {
+  try {
+    const rendered = new Resvg(svg, { fitTo: { mode: "width", value: 1200 } }).render();
+    return rendered.asPng();
+  } catch {
+    return null;
+  }
+}
 
 export interface BuildOptions {
   /** 文档根目录（含 .md 与静态资源），默认 ./docs */
@@ -230,7 +242,7 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
     const ogSlug = outRel.replace(/\.html$/, "");
     const seo: SeoOptions = {
       base,
-      ...(siteUrl ? { siteUrl, canonicalPath, ogImage: `${siteUrl}${base}/og/${ogSlug}.svg` } : {}),
+      ...(siteUrl ? { siteUrl, canonicalPath, ogImage: `${siteUrl}${base}/og/${ogSlug}.png` } : {}),
       breadcrumb: breadcrumbFor(navTree, rel, ".html", base, title),
       wordCount: countWords(html),
       updatedAt: docUpdatedAt(frontmatter, join(docsDir, rel)),
@@ -299,12 +311,16 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
     pages++;
   }
 
-  // SEO：OG 分享卡片图 + sitemap + robots（siteUrl 提供时——绝对 URL 是这些文件的前提）
+  // SEO：OG 分享卡片图（SVG + PNG 双格式）+ sitemap + robots（siteUrl 提供时）
   if (siteUrl) {
     for (const p of sitePages) {
-      const ogPath = join(outDir, "og", `${p.ogSlug}.svg`);
-      mkdirSync(dirname(ogPath), { recursive: true });
-      writeFileSync(ogPath, ogCardSvg({ title: p.title, description: p.description, siteTitle }));
+      const svg = ogCardSvg({ title: p.title, description: p.description, siteTitle });
+      const ogSvgPath = join(outDir, "og", `${p.ogSlug}.svg`);
+      mkdirSync(dirname(ogSvgPath), { recursive: true });
+      writeFileSync(ogSvgPath, svg);
+      // C1 栅格化：og:image 指向 PNG（微信/微博等不认 SVG 的平台可预览）；失败保留 SVG 不阻断
+      const png = rasterizePng(svg);
+      if (png) writeFileSync(join(outDir, "og", `${p.ogSlug}.png`), png);
     }
     writeSitemap(outDir, siteUrl, base, sitePages.map((p) => ({ loc: p.loc, lastmod: p.lastmod })));
     writeRobots(outDir, siteUrl, base);

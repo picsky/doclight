@@ -174,8 +174,16 @@ describe("doclight build（SEO 全套 + 子路径部署，05 §5.4）", () => {
     expect(sitemap).toContain("<loc>https://docs.example.com/guide/quickstart.html</loc>");
     expect(sitemap).toContain("<lastmod>");
     expect(readFileSync(join(d, "robots.txt"), "utf8")).toContain("Sitemap: https://docs.example.com/sitemap.xml");
+    // OG 卡片图：SVG + PNG 双格式（C1 栅格化），og:image 指向 PNG（微信/微博兼容）
     expect(existsSync(join(d, "og", "index.svg"))).toBe(true);
+    expect(existsSync(join(d, "og", "index.png"))).toBe(true);
     expect(existsSync(join(d, "og", "guide", "quickstart.svg"))).toBe(true);
+    expect(existsSync(join(d, "og", "guide", "quickstart.png"))).toBe(true);
+    expect(index).toContain('<meta property="og:image" content="https://docs.example.com/og/index.png">');
+    expect(intro).toContain('<meta property="og:image" content="https://docs.example.com/og/intro.png">');
+    // PNG 为合法图片头（PNG 魔数）
+    const png = readFileSync(join(d, "og", "index.png"));
+    expect(png.subarray(0, 4).toString("hex")).toBe("89504e47");
     rmSync(d, { recursive: true, force: true });
   });
 

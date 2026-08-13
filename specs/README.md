@@ -86,6 +86,21 @@
 
 > 配套：`mcpHttpHandler` 从独立服务抽出为可挂载 handler（cli 引入 workspace 依赖 doclight-mcp-server，零外部依赖）。
 
+## Phase 4 用户决策批次（A schema + C1-C4，2026-08-13 已落地）
+
+> 对应 08-roadmap Phase 4 遗留中需要用户决策的项：契约扩展 + 分发四触点剩余 + 体验细节。
+> 引入 2 个新依赖（@resvg/resvg-js 光栅化 + qrcode 二维码，均为 CLI 构建期依赖，不影响运行时体积）。
+
+| 需求 ID | 名称 | 说明 | 状态 |
+|---|---|---|---|
+| CONTRACT-001 | doclight.json 契约扩展 | contracts/doclight.schema.json 补 base/siteUrl/outputDir + build.llmsTxt.{priority,exclude}；只加不改，additionalProperties:false 保留 | 已实现 |
+| SEO-003 | OG 卡片 PNG 栅格化 | @resvg/resvg-js 渲染 1200×630 OG 卡为 PNG（og/*.png）；og:image 指向 PNG（微信/微博兼容）；SVG 保留作为降级 | 已实现 |
+| CLI-008 | bundle 下载二维码 | `doclight bundle --qr <url>` 生成 bundle-qr.png（分发四触点④）；qrcode 库纯 JS，无原生依赖 | 已实现 |
+| CLI-009 | bundle vendor 内联 | `doclight bundle --inline-vendor`：Prism/Mermaid/KaTeX JS+CSS 内联进单文件（file:// 下扩展可用）；opt-in 保持默认体积小 | 已实现 |
+| UX-001 | 体验细节（专注/字号/打印/Powered by） | 专注模式（隐藏侧栏/TOC 聚焦内容）+ 字号调节（3 档步进 0.875/1/1.125/1.25）+ 打印样式（隐藏导航控件）+ Powered by 标记（默认开，一行关闭）；全部 localStorage 持久化 | 已实现 |
+
+> 配套：display 层 `extensions.ts` 懒加载跳过已内联全局（C3）；`ux.ts` 纯函数可单测；site.ts renderPage 加 CSS + 按钮 + footer。
+
 ## 目录结构约定
 
 ```

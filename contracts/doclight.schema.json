@@ -22,6 +22,47 @@
       "type": "string",
       "enum": ["minimal", "serif", "modern", "warm"],
       "description": "主题模板（见 11-default-themes 的 4 套）"
+    },
+    "base": {
+      "type": "string",
+      "description": "子路径基址（GitHub Pages 项目页等），如 \"/docs\";缺省根部署（05 §5.2.1，SSG-001）"
+    },
+    "siteUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "站点绝对 URL（canonical / sitemap / OG 用），如 \"https://docs.example.com\";缺省不输出绝对链接 SEO 文件（05 §5.4，SEO-001）"
+    },
+    "outputDir": {
+      "type": "string",
+      "default": "dist-site",
+      "description": "构建输出目录（SSG 产物，05 §5.2.1 约定）"
+    },
+    "build": {
+      "type": "object",
+      "description": "构建行为（Phase 4 AI 就绪扩展，LLMS-001）",
+      "properties": {
+        "llmsTxt": {
+          "type": "object",
+          "description": "llms.txt 智能分级/排除配置（06 §6.2.1）；缺省走默认分级规则",
+          "properties": {
+            "priority": {
+              "type": "object",
+              "description": "显式分级覆盖：精确路径或目录前缀 → high/medium/low",
+              "additionalProperties": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            },
+            "exclude": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "从 llms.txt 与 llms-full.txt 同时剔除的路径（用户明确不想让 Agent 看到的内容）"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

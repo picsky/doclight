@@ -13,8 +13,9 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { buildNavTree, render } from "doclight-renderer";
+import { toFile as qrToFile } from "qrcode";
 import { loadConfig } from "./config.ts";
-import { buildSearchData, displayBundlePath, renderNav, renderPage, walkMd } from "./site.ts";
+import { buildSearchData, displayBundlePath, nodeModulesBase, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
 
 export interface BundleOptions {
   /** 文档根目录，默认 ./docs */
@@ -27,6 +28,11 @@ export interface BundleOptions {
   displayBundle?: string;
   /** 输出文件名，默认 doclight.html */
   filename?: string;
+  /** 下载二维码内容 URL（13 §3.2 分发四触点④）：提供则生成 bundle-qr.png（手机扫码打开/下载） */
+  qrUrl?: string;
+  /** 内联扩展库（C3）：Prism/Mermaid/KaTeX JS+CSS 内联进单文件，file:// 下扩展可用；
+   *  默认不内联（保持体积小，扩展走 REND-003 容错降级）——体积换离线能力，opt-in。 */
+  inlineVendor?: boolean;
 }
 
 export interface BundleResult {
@@ -36,6 +42,8 @@ export interface BundleResult {
   bytes: number;
   /** 打包页数 */
   pages: number;
+  /** 二维码文件路径（提供 qrUrl 时） */
+  qrFile?: string;
   /** 耗时（ms） */
   ms: number;
 }
@@ -45,8 +53,20 @@ function pageKey(outRel: string): string {
   return outRel === "index.html" ? "/" : `/${outRel}`;
 }
 
+/** 内联扩展库 HTML（C3）：CSS 先于 JS；带 data-doclight-vendor 标记供展示层懒加载跳过 fetch */
+export function inlineVendorHtml(): string {
+  const css: string[] = [];
+  const js: string[] = [];
+  for (const [file, { pkg, rel }] of Object.entries(VENDOR_FILES)) {
+    const content = readFileSync(join(nodeModulesBase(pkg), rel), "utf8");
+    if (file.endsWith(".css")) css.push(`<style data-doclight-vendor="${file}">${content}</style>`);
+    else js.push(`<script data-doclight-vendor="${file}">${content}</script>`);
+  }
+  return [...css, ...js].join("\n");
+}
+
 /** 执行 bundle 构建（供命令与测试复用）。outDir 先清空重建。 */
-export function bundleSite(options: BundleOptions = {}): BundleResult {
+export async function bundleSite(options: BundleOptions = {}): Promise<BundleResult> {
   const start = Date.now();
   const cfg = loadConfig([join(process.cwd(), "doclight.json"), join(resolve(options.dir ?? "docs"), "doclight.json")]);
   const docsDir = resolve(options.dir ?? cfg.docsDir ?? "docs");
@@ -109,9 +129,18 @@ export function bundleSite(options: BundleOptions = {}): BundleResult {
     form: "bundle",
     displayScript,
     bundleData,
+    extraHead: options.inlineVendor ? inlineVendorHtml() : "",
   });
 
   const file = join(outDir, options.filename ?? "doclight.html");
   writeFileSync(file, html);
-  return { file, bytes: Buffer.byteLength(html, "utf8"), pages: count, ms: Date.now() - start };
+  const result: BundleResult = { file, bytes: Buffer.byteLength(html, "utf8"), pages: count, ms: Date.now() - start };
+
+  // C2 下载二维码（13 §3.2 分发四触点④）：--qr <url> 生成 bundle-qr.png，手机扫码打开/下载
+  if (options.qrUrl) {
+    const qrFile = join(outDir, "bundle-qr.png");
+    await qrToFile(qrFile, options.qrUrl, { width: 480, margin: 2 });
+    result.qrFile = qrFile;
+  }
+  return result;
 }

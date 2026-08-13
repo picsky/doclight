@@ -332,6 +332,8 @@ export interface RenderPageOptions {
   displayScript?: string;
   /** bundle 形态：内嵌数据块（pages/titles/nav/searchIndex），序列化为 __DOCLLIGHT_BUNDLE__ */
   bundleData?: unknown;
+  /** 额外 <head> 内容（C3 bundle --inline-vendor 的内联扩展库；缺省空） */
+  extraHead?: string;
 }
 
 /**
@@ -663,7 +665,32 @@ ${seoHead}
     main { padding: var(--space-6) var(--space-4); font-size: 15px; }
     .topbar { height: 48px; }
   }
+  /* ===== C4 体验细节：专注模式 / 打印 / Powered by ===== */
+  /* 专注模式：隐藏侧栏/TOC，内容加宽聚焦（展示层 toggle body.focus-mode） */
+  body.focus-mode .sidebar, body.focus-mode .toc-rail, body.focus-mode .toc-fab, body.focus-mode .toc-sheet { display: none; }
+  body.focus-mode main { max-width: var(--max-width-focus, 840px); }
+  body.focus-mode #focus-toggle { color: var(--color-primary); border-color: var(--color-primary); }
+  /* 字号调节：html font-size 由展示层按百分比缩放（设计令牌全为 rem，联动缩放） */
+  .font-ctl { display: inline-flex; gap: 2px; }
+  .font-ctl button { padding: 4px 8px; }
+  /* Powered by：默认显示、一行可关闭（尊重自托管数据洁癖，13 §4） */
+  .powered-by { display: flex; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-4); border-top: 1px solid var(--color-border-soft); color: var(--color-text-muted); font-size: var(--font-size-sm); }
+  .powered-by a { color: var(--color-text-muted); text-decoration: none; border-bottom: 1px solid var(--color-border); }
+  .powered-by a:hover { color: var(--color-primary); }
+  .powered-by button { border: 0; background: transparent; color: var(--color-text-muted); cursor: pointer; padding: 2px 6px; border-radius: var(--radius-sm); }
+  .powered-by button:hover { color: var(--color-error); }
+  /* 打印（C4）：隐藏导航/控件，内容全宽纯文本 */
+  @media print {
+    .topbar, .sidebar, .toc-rail, .toc-fab, .toc-sheet, .powered-by { display: none !important; }
+    .layout { display: block; }
+    main { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+    .paper { box-shadow: none !important; border: 0 !important; }
+    body { background: #fff !important; color: #000 !important; }
+    article { font-size: 12pt; line-height: 1.6; }
+    a { color: inherit; text-decoration: none; }
+  }
 </style>
+${options.extraHead ?? ""}
 </head>
 <body>
 <header class="topbar">
@@ -671,6 +698,8 @@ ${seoHead}
   <span class="site-title">${escapeHtml(siteTitle)}</span>
   <button id="search-toggle" aria-label="搜索（Ctrl+K）">🔍</button>
   <button id="theme-toggle" aria-label="切换主题">🌓</button>
+  <button id="focus-toggle" aria-label="专注模式" title="专注模式">⛶</button>
+  <span class="font-ctl"><button id="font-dec" aria-label="减小字号">A−</button><button id="font-inc" aria-label="增大字号">A+</button></span>
 </header>
 <div class="layout">
   <aside class="sidebar">${navHtml}</aside>
@@ -683,6 +712,8 @@ ${seoHead}
   <div class="toc-sheet-header">本页目录<button class="toc-sheet-close" aria-label="关闭目录">×</button></div>
   <nav class="toc-sheet-nav"></nav>
 </div>
+<!-- C4 Powered by：默认显示、可一行关闭（13 §4 传播机制） -->
+<footer class="powered-by">Powered by <a href="https://doclight.tech" target="_blank" rel="noopener">DocLight</a><button id="powered-by-close" aria-label="隐藏 Powered by 标记">×</button></footer>
 ${overridesScript}
 ${sseScript}
 ${displayTag}

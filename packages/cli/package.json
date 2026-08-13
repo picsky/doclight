@@ -7,10 +7,12 @@
   "types": "./src/index.ts",
   "description": "doclight CLI：init / dev / build / bundle / deploy / publish / space / embed",
   "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "doclight-mcp-server": "workspace:*",
     "doclight-renderer": "workspace:*",
     "katex": "^0.18.4",
     "mermaid": "^11.16.1",
-    "prismjs": "^1.30.0"
+    "prismjs": "^1.30.0",
+    "qrcode": "^1.5.4"
   }
 }

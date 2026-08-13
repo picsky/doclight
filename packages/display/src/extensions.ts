@@ -27,14 +27,24 @@ function vendorBase(): string {
   return (winGlobal("DOCLIGHT_VENDOR_BASE") as string | undefined) ?? DEFAULT_VENDOR;
 }
 
-/* ===== 懒加载（去重） ===== */
+/* ===== 懒加载（去重 + 内联跳过，C3 bundle --inline-vendor） ===== */
 
 const loadedScripts = new Set<string>();
 const loadedStyles = new Set<string>();
 
+/** 脚本文件 → 其暴露的全局名：bundle 内联 vendor 后全局已存在，跳过 fetch（file:// 下无网络） */
+const VENDOR_SCRIPT_GLOBALS: Array<[string, string]> = [
+  ["prism.min.js", "Prism"],
+  ["mermaid.min.js", "mermaid"],
+  ["katex.min.js", "katex"],
+];
+
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
     if (loadedScripts.has(src)) return resolve();
+    // 内联 vendor（C3）：对应库全局已就绪 → 无需再注入
+    const vendorGlobal = VENDOR_SCRIPT_GLOBALS.find(([f]) => src.endsWith(f))?.[1];
+    if (vendorGlobal && winGlobal(vendorGlobal) !== undefined) return resolve();
     const el = document.createElement("script");
     el.src = src;
     el.async = true;
@@ -50,6 +60,9 @@ function loadScript(src: string): Promise<void> {
 function loadStyle(href: string): Promise<void> {
   return new Promise((resolve, reject) => {
     if (loadedStyles.has(href)) return resolve();
+    // 内联 vendor CSS（C3）：带 data-doclight-vendor 标记的 <style> 已注入 → 跳过
+    const file = href.split("/").pop();
+    if (file && document.querySelector(`style[data-doclight-vendor="${file}"]`)) return resolve();
     const el = document.createElement("link");
     el.rel = "stylesheet";
     el.href = href;

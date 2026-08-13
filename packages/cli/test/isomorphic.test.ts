@@ -40,7 +40,7 @@ function bundlePages(bundleHtml: string): Record<string, string> {
   return (JSON.parse(m[1]!) as { pages: Record<string, string> }).pages;
 }
 
-beforeAll(() => {
+beforeAll(async () => {
   docsDir = mkdtempSync(join(tmpdir(), "doclight-iso-docs-"));
   mkdirSync(join(docsDir, "guide"), { recursive: true });
   writeFileSync(
@@ -94,7 +94,7 @@ beforeAll(() => {
   buildOut = mkdtempSync(join(tmpdir(), "doclight-iso-build-"));
   bundleOut = mkdtempSync(join(tmpdir(), "doclight-iso-bundle-"));
   buildSite({ dir: docsDir, outDir: buildOut });
-  bundleSite({ dir: docsDir, outDir: bundleOut });
+  await bundleSite({ dir: docsDir, outDir: bundleOut });
 });
 
 afterAll(() => {

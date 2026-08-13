@@ -198,10 +198,10 @@ Node 渲染内核 + dev server 跑起来，实现最基本的文档浏览功能�
 
 #### 体验细节（次要，非差异化）
 - [ ] 链接 hover 预览（简单版）
-- [ ] 专注模式按钮
-- [ ] 字号调节（A- / A+）
-- [ ] 打印样式优化
-- [ ] Powered by DocLight 标记（默认开启，一行关闭）
+- [x] 专注模式按钮（UX-001）
+- [x] 字号调节（A- / A+）（UX-001）
+- [x] 打印样式优化（UX-001）
+- [x] Powered by DocLight 标记（默认开启，一行关闭）（UX-001）
 
 #### 无障碍
 - [ ] 键盘导航完整支持
@@ -292,7 +292,10 @@ Node 渲染内核 + dev server 跑起来，实现最基本的文档浏览功能�
 - [x] `doclight deploy` 命令（GitHub Pages / Cloudflare / Netlify 自动检测，CLI-003）
 - [x] OG 分享卡片图生成（每页社交预览图，Node 侧生成 og/*.svg，SEO-002）
 - [x] `doclight embed` iframe 嵌入代码（CLI-007：snippet.js + iframe 片段）
-- [ ] bundle 下载二维码（遗留：QR 生成需依赖或手写实现，待决策）
+- [x] bundle 下载二维码（CLI-008：`--qr <url>` 生成 bundle-qr.png）
+- [x] OG 卡片 PNG 栅格化（SEO-003：@resvg/resvg-js 渲染 og/*.png，og:image 指向 PNG）
+- [x] bundle vendor 内联（CLI-009：`--inline-vendor` opt-in，file:// 下扩展可用）
+- [x] doclight.json 契约扩展（CONTRACT-001：补 base/siteUrl/outputDir/build.llmsTxt）
 
 ### 交付物
 - 可用的 CLI 工具

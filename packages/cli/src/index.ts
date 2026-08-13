@@ -35,6 +35,10 @@ export interface CliOptions {
   remoteUrl?: string;
   /** dev --mcp：MCP 插件模式（嵌入 dev server，MCP-005） */
   mcp?: boolean;
+  /** bundle --qr <url>：生成下载二维码（C2，13 §3.2 分发四触点④） */
+  qrUrl?: string;
+  /** bundle --inline-vendor：内联扩展库（C3，file:// 下扩展可用，体积增大） */
+  inlineVendor?: boolean;
 }
 
 /** 解析命令行参数（支持 --key value 与 --key=value）。无值 flag（如 --json）记为 "true"。 */
@@ -95,6 +99,8 @@ function printHelp(): void {
   --root <path>   publish / space 的项目根目录（缺省当前目录）
   --json          publish / space 输出纯 JSON（Agent 直接解析）
   --mcp           dev 模式启用 MCP 插件（同端口 /mcp + /.well-known/mcp）
+  --qr <url>      bundle 生成下载二维码（bundle-qr.png，13 §3.2）
+  --inline-vendor bundle 内联扩展库（Prism/Mermaid/KaTeX，file:// 下可用；体积增大）
   --help, -h      显示帮助`);
 }
 
@@ -126,7 +132,13 @@ export async function runPreview(
 
 /** 执行 bundle 构建（供命令与测试复用） */
 export function runBundle(options: Partial<CliOptions> = {}): ReturnType<typeof bundleSite> {
-  return bundleSite({ dir: options.dir, outDir: options.outDir, title: options.title });
+  return bundleSite({
+    dir: options.dir,
+    outDir: options.outDir,
+    title: options.title,
+    qrUrl: options.qrUrl,
+    inlineVendor: options.inlineVendor,
+  });
 }
 
 /** 执行嵌入分发（供命令与测试复用） */
@@ -203,10 +215,18 @@ if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
       for (const f of result.skipped) console.log(`  跳过  ${f}（已存在，--force 覆盖）`);
       console.log(`\n  开始: doclight dev --dir ${result.root}\\docs\n`);
     } else if (command === "bundle") {
-      const result = runBundle({ dir: opts["dir"], outDir: opts["out-dir"], title: opts["title"] });
+      const result = await runBundle({
+        dir: opts["dir"],
+        outDir: opts["out-dir"],
+        title: opts["title"],
+        qrUrl: opts["qr"],
+        inlineVendor: opts["inline-vendor"] === "true",
+      });
       console.log(`\n  DocLight 便携包构建完成 ✓\n`);
       console.log(`  页面: ${result.pages} 篇`);
       console.log(`  产物: ${result.file}（${(result.bytes / 1024).toFixed(1)} KB，${result.ms}ms）`);
+      if (result.qrFile) console.log(`  二维码: ${result.qrFile}（手机扫码打开/下载，13 §3.2）`);
+      if (opts["inline-vendor"] === "true") console.log(`  扩展: 已内联 Prism/Mermaid/KaTeX（file:// 离线可用）`);
       console.log(`  分发: 双击文件或传给任何人，file:// 离线可用\n`);
     } else if (command === "migrate-docsify") {
       const result = migrateDocsify({ sourceDir: opts["dir"] ?? "docsify-site", destDir: process.cwd() });

@@ -27,7 +27,7 @@ test.beforeAll(async () => {
   writeFileSync(join(docsDir, "intro.md"), "# 入门\n\n入门内容");
   writeFileSync(join(docsDir, "guide", "quickstart.md"), "---\ntitle: 快速开始\n---\n\n# 快速开始\n\n三步上手");
   const outDir = mkdtempSync(join(tmpdir(), "doclight-bundle-e2e-out-"));
-  const result = bundleSite({ dir: docsDir, outDir, title: "测试站" });
+  const result = await bundleSite({ dir: docsDir, outDir, title: "测试站" });
   bundleUrl = pathToFileURL(result.file).href;
   rmSync(docsDir, { recursive: true, force: true });
   // 保留 outDir 供测试使用；afterAll 清理
