@@ -1,0 +1,117 @@
+/**
+ * doclight bundle —— 单文件便携包（05-ssg-build §5.3.4，CLI-002，形态③）
+ *
+ * 复用 SSG 渲染内核，输出单个自包含 doclight.html：
+ * - 所有页面 HTML 打包为内嵌数据块（__DOCLLIGHT_BUNDLE__.pages，hash 路由）
+ * - 内嵌搜索索引（searchIndex）+ docs.json（nav）+ 每页标题（titles）
+ * - 展示层运行时内联（display.js），零外部请求
+ * - 扩展 vendor（Prism/Mermaid/KaTeX）不内联：file:// 下加载失败自动降级
+ *   （代码块纯文本可读可复制 / Mermaid 保留源码 / KaTeX 保留 TeX 源码，REND-003 容错）
+ *
+ * 产物特征（05 §5.3.4）：零依赖（file:// 三引擎可用）/ 跨浏览器 / 离线可用 / 可分发 / AI 就绪。
+ */
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { buildNavTree, render } from "doclight-renderer";
+import { loadConfig } from "./config.ts";
+import { buildSearchData, displayBundlePath, renderNav, renderPage, walkMd } from "./site.ts";
+
+export interface BundleOptions {
+  /** 文档根目录，默认 ./docs */
+  dir?: string;
+  /** 输出目录（doclight.html 所在），默认 ./dist-bundle */
+  outDir?: string;
+  /** 站点标题 */
+  title?: string;
+  /** 展示层 bundle 源码路径（缺省 process.cwd()/dist/display.js） */
+  displayBundle?: string;
+  /** 输出文件名，默认 doclight.html */
+  filename?: string;
+}
+
+export interface BundleResult {
+  /** 产物完整路径 */
+  file: string;
+  /** 产物字节数 */
+  bytes: number;
+  /** 打包页数 */
+  pages: number;
+  /** 耗时（ms） */
+  ms: number;
+}
+
+/** 页面内容键：根级置顶页 → "/"，其余 → "/{outRel}" */
+function pageKey(outRel: string): string {
+  return outRel === "index.html" ? "/" : `/${outRel}`;
+}
+
+/** 执行 bundle 构建（供命令与测试复用）。outDir 先清空重建。 */
+export function bundleSite(options: BundleOptions = {}): BundleResult {
+  const start = Date.now();
+  const cfg = loadConfig([join(process.cwd(), "doclight.json"), join(resolve(options.dir ?? "docs"), "doclight.json")]);
+  const docsDir = resolve(options.dir ?? cfg.docsDir ?? "docs");
+  const outDir = resolve(options.outDir ?? "dist-bundle");
+  const siteTitle = options.title ?? cfg.title ?? "DocLight";
+  const displayBundle = options.displayBundle ?? displayBundlePath();
+
+  rmSync(outDir, { recursive: true, force: true });
+  mkdirSync(outDir, { recursive: true });
+
+  const mdFiles = walkMd(docsDir);
+  const navTree = buildNavTree(mdFiles);
+  // hash 路由：导航链接 #/xxx（file:// 无法 pushState）
+  const navHtml = renderNav(navTree, ".html", "", true);
+
+  const pages: Record<string, string> = {};
+  const titles: Record<string, string> = {};
+  let homeTitle = siteTitle;
+  let homeContent = "";
+
+  const rootIndexFiles = mdFiles.filter((rel) => /^README\.md$/i.test(rel) || /^index\.md$/i.test(rel));
+  const rootHome = rootIndexFiles.find((rel) => /^README\.md$/i.test(rel)) ?? rootIndexFiles[0];
+
+  let count = 0;
+  for (const rel of mdFiles) {
+    const outRel = rel === rootHome ? "index.html" : rel.replace(/\.md$/, ".html");
+    const source = readFileSync(join(docsDir, rel), "utf8");
+    const { html, frontmatter } = render(source, { currentPath: rel, linkSuffix: ".html" });
+    const title = typeof frontmatter.title === "string" && frontmatter.title ? frontmatter.title : rel.replace(/\.md$/, "").split("/").pop()!;
+    const key = pageKey(outRel);
+    pages[key] = html;
+    titles[key] = `${title} · ${siteTitle}`;
+    if (key === "/") {
+      homeTitle = title;
+      homeContent = html;
+    }
+    count++;
+  }
+
+  // 首页回退：无根级置顶页用首篇文档（与 build 一致）
+  if (!pages["/"] && mdFiles.length > 0) {
+    const firstKey = pageKey(mdFiles[0]!.replace(/\.md$/, ".html"));
+    homeContent = pages[firstKey] ?? "";
+    homeTitle = mdFiles[0]!.replace(/\.md$/, "").split("/").pop()!;
+    pages["/"] = homeContent;
+    titles["/"] = `${homeTitle} · ${siteTitle}`;
+  }
+
+  // 内嵌搜索索引（pathSuffix=".html"，展示层直接构建，零网络）
+  const searchData = buildSearchData(docsDir, mdFiles, { pathSuffix: ".html" });
+  const bundleData = { version: 1, pages, titles, nav: navTree, searchIndex: searchData };
+
+  const displayScript = readFileSync(displayBundle, "utf8");
+
+  const html = renderPage({
+    title: homeTitle,
+    siteTitle,
+    navHtml,
+    contentHtml: homeContent,
+    form: "bundle",
+    displayScript,
+    bundleData,
+  });
+
+  const file = join(outDir, options.filename ?? "doclight.html");
+  writeFileSync(file, html);
+  return { file, bytes: Buffer.byteLength(html, "utf8"), pages: count, ms: Date.now() - start };
+}

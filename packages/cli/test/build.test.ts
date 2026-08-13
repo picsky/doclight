@@ -1,0 +1,254 @@
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { buildNavTree } from "doclight-renderer";
+import { buildSite } from "../src/build.ts";
+import { startPreviewServer, type PreviewServer } from "../src/preview.ts";
+import { breadcrumbFor, buildSearchData, searchIndexVersion } from "../src/site.ts";
+
+let docsDir: string;
+let outDir: string;
+let preview: PreviewServer;
+
+beforeAll(async () => {
+  docsDir = mkdtempSync(join(tmpdir(), "doclight-ssg-"));
+  mkdirSync(join(docsDir, "guide"), { recursive: true });
+  mkdirSync(join(docsDir, "assets"), { recursive: true });
+  writeFileSync(join(docsDir, "README.md"), "# 首页\n\n欢迎来到测试站。\n\n[去入门](intro.md)");
+  writeFileSync(join(docsDir, "intro.md"), "---\ntitle: 入门\nsummary: 入门指南\n---\n\n# 入门内容");
+  writeFileSync(join(docsDir, "guide", "quickstart.md"), "# 快速开始\n\n参见 [基础](./basic.md)");
+  writeFileSync(join(docsDir, "guide", "basic.md"), "# 基础");
+  writeFileSync(join(docsDir, "assets", "logo.txt"), "not-an-image");
+
+  outDir = mkdtempSync(join(tmpdir(), "doclight-ssg-out-"));
+  // 展示层 bundle 缺失会抛错；这里放一个占位（内容直出本身不依赖它）
+  writeFileSync(join(outDir, "display.js"), "placeholder");
+  // buildSite 会清空重建 outDir，display bundle 需在构建中指定
+});
+
+afterAll(async () => {
+  if (preview) await preview.close();
+  rmSync(docsDir, { recursive: true, force: true });
+  rmSync(outDir, { recursive: true, force: true });
+});
+
+function tmpBuildDir(): string {
+  const d = mkdtempSync(join(tmpdir(), "doclight-ssg-build-"));
+  writeFileSync(join(d, "display.js"), "/* placeholder */");
+  return d;
+}
+
+describe("doclight build（SSG-001 静态导出）", () => {
+  it("每篇 .md 输出为同相对路径 .html，根级 README 收敛为 index.html", () => {
+    const d = tmpBuildDir();
+    const result = buildSite({ dir: docsDir, outDir: d, title: "测试站" });
+    expect(result.pages).toBe(4); // README→index + intro + quickstart + basic
+    expect(existsSync(join(d, "index.html"))).toBe(true);
+    expect(existsSync(join(d, "intro.html"))).toBe(true);
+    expect(existsSync(join(d, "guide", "quickstart.html"))).toBe(true);
+    expect(existsSync(join(d, "guide", "basic.html"))).toBe(true);
+    expect(existsSync(join(d, "README.md"))).toBe(false); // 不残留 .md
+    rmSync(d, { recursive: true, force: true });
+  });
+
+  it("无根级 README 时回退首篇文档生成 index.html", () => {
+    const noRoot = mkdtempSync(join(tmpdir(), "doclight-ssg-noroot-"));
+    mkdirSync(join(noRoot, "guide"), { recursive: true });
+    writeFileSync(join(noRoot, "guide", "a.md"), "# A");
+    writeFileSync(join(noRoot, "guide", "b.md"), "# B");
+    const d = tmpBuildDir();
+    const result = buildSite({ dir: noRoot, outDir: d });
+    expect(result.pages).toBe(3); // a + b + 首页回退
+    expect(existsSync(join(d, "index.html"))).toBe(true);
+    rmSync(noRoot, { recursive: true, force: true });
+    rmSync(d, { recursive: true, force: true });
+  });
+
+  it("SSG 页面为渐进式水合形态：.html 链接 + 全局覆盖 + SSG 标记", () => {
+    const d = tmpBuildDir();
+    buildSite({ dir: docsDir, outDir: d, title: "测试站" });
+    const index = readFileSync(join(d, "index.html"), "utf8");
+    // 导航链接为 .html 后缀，根级 README 收敛为 /
+    expect(index).toContain('href="/intro.html"');
+    expect(index).toContain('href="/guide/quickstart.html"');
+    expect(index).toContain('href="/"'); // 首页自指
+    // SSG 形态标记
+    expect(index).toContain('window.DOCLIGHT_VENDOR_BASE = "/vendor/"');
+    expect(index).toContain('window.DOCLIGHT_SEARCH_INDEX = "/search-index.json"');
+    expect(index).toContain("__DOCLLIGHT_SSG__");
+    expect(index).toContain('src="/display.js"');
+    expect(index).not.toContain("EventSource"); // SSG 无 SSE 热重载
+    // SEO description：README 无 frontmatter 故无；intro.md 带 summary 才有
+    expect(index).not.toContain('<meta name="description"');
+    expect(readFileSync(join(d, "intro.html"), "utf8")).toContain('<meta name="description" content="入门指南">');
+    rmSync(d, { recursive: true, force: true });
+  });
+
+  it("内容区站内链接为 .html（linkSuffix）且外部链接不误伤", () => {
+    const d = tmpBuildDir();
+    buildSite({ dir: docsDir, outDir: d });
+    // README（→ index.html）里的相对链接 [去入门](intro.md) 被渲染为 .html
+    const index = readFileSync(join(d, "index.html"), "utf8");
+    const article = index.slice(index.indexOf("<article>"), index.indexOf("</article>"));
+    expect(article).toContain('href="intro.html"');
+    const quickstart = readFileSync(join(d, "guide", "quickstart.html"), "utf8");
+    const qa = quickstart.slice(quickstart.indexOf("<article>"), quickstart.indexOf("</article>"));
+    expect(qa).toContain('href="guide/basic.html"'); // ./basic.md 相对当前文档 → guide/basic.html
+    expect(qa).not.toContain("basic.md");
+    rmSync(d, { recursive: true, force: true });
+  });
+
+  it("预构建 search-index.json（path 为 .html URL）+ 静态资源拷贝 + vendor 拷贝", () => {
+    const d = tmpBuildDir();
+    const result = buildSite({ dir: docsDir, outDir: d });
+    const index = JSON.parse(readFileSync(join(d, "search-index.json"), "utf8")) as { docs: Array<{ path: string }> };
+    expect(index.docs.length).toBe(4);
+    expect(index.docs.every((x) => x.path.endsWith(".html"))).toBe(true);
+    expect(index.docs.some((x) => x.path === "guide/quickstart.html")).toBe(true);
+    // 静态资源（非 md）拷贝
+    expect(readFileSync(join(d, "assets", "logo.txt"), "utf8")).toBe("not-an-image");
+    expect(result.assets).toBe(1);
+    // vendor 拷贝（SSG-002 自包含）
+    for (const f of ["mermaid.min.js", "prism.min.js", "katex.min.js", "katex.min.css"]) {
+      expect(existsSync(join(d, "vendor", f))).toBe(true);
+    }
+    expect(readdirSync(join(d, "vendor", "fonts")).length).toBeGreaterThan(0); // KaTeX 字体
+    rmSync(d, { recursive: true, force: true });
+  });
+
+  it("buildSearchData 的 pathSuffix 参数（dev=.md / SSG=.html）", () => {
+    const dev = buildSearchData(docsDir, ["guide/quickstart.md"]);
+    const ssg = buildSearchData(docsDir, ["guide/quickstart.md"], { pathSuffix: ".html" });
+    expect((dev.docs[0] as { path: string }).path).toBe("guide/quickstart.md");
+    expect((ssg.docs[0] as { path: string }).path).toBe("guide/quickstart.html");
+  });
+
+  it("searchIndexVersion：内容哈希，内容不变版本不变、变化即变（03 §3.8.5 持久化校验）", () => {
+    expect(searchIndexVersion([{ a: 1 }])).toBe(searchIndexVersion([{ a: 1 }]));
+    expect(searchIndexVersion([{ a: 1 }])).not.toBe(searchIndexVersion([{ a: 2 }]));
+    expect(searchIndexVersion([])).toBe(searchIndexVersion([]));
+  });
+
+  it("breadcrumbFor：首页 → 分组链 → 当前页；无 index 分组不可链接", () => {
+    const tree = buildNavTree(["README.md", "guide/quickstart.md", "guide/basic.md"]);
+    const crumbs = breadcrumbFor(tree, "guide/quickstart.md", ".html", "", "快速开始");
+    expect(crumbs).toEqual([
+      { label: "首页", href: "/" },
+      { label: "guide", href: "" }, // guide 组无置顶页 → 不可链接（防死链）
+      { label: "快速开始", href: "" },
+    ]);
+    // 分组含 index 页时可链接（base 子路径前缀生效）
+    const tree2 = buildNavTree(["guide/index.md", "guide/quickstart.md"]);
+    const crumbs2 = breadcrumbFor(tree2, "guide/quickstart.md", ".html", "/docs", "快速开始");
+    expect(crumbs2[1]).toEqual({ label: "guide", href: "/docs/guide/index.html" });
+    expect(crumbs2[0]).toEqual({ label: "首页", href: "/docs/" });
+  });
+});
+
+describe("doclight build（SEO 全套 + 子路径部署，05 §5.4）", () => {
+  it("siteUrl 提供时：canonical/OG/Twitter/JSON-LD/面包屑 + sitemap/robots/OG 卡", () => {
+    const d = tmpBuildDir();
+    buildSite({ dir: docsDir, outDir: d, title: "测试站", siteUrl: "https://docs.example.com" });
+    const index = readFileSync(join(d, "index.html"), "utf8");
+    // canonical + OG + Twitter
+    expect(index).toContain('<link rel="canonical" href="https://docs.example.com/">');
+    expect(index).toContain('<meta property="og:url" content="https://docs.example.com/">');
+    expect(index).toContain('<meta property="og:title"');
+    expect(index).toContain('<meta property="og:type" content="article">');
+    expect(index).toContain('<meta name="twitter:card" content="summary_large_image">');
+    // JSON-LD（TechArticle + wordCount）+ 面包屑 UI + BreadcrumbList
+    expect(index).toContain('"@type":"TechArticle"');
+    expect(index).toContain('"wordCount"');
+    expect(index).toContain('class="breadcrumb"');
+    expect(index).toContain('"@type":"BreadcrumbList"');
+    // 子页面 canonical / og:url
+    const intro = readFileSync(join(d, "intro.html"), "utf8");
+    expect(intro).toContain('<link rel="canonical" href="https://docs.example.com/intro.html">');
+    expect(intro).toContain('<meta property="og:url" content="https://docs.example.com/intro.html">');
+    // sitemap.xml（含首页与各页 + lastmod）+ robots.txt + OG 卡片图
+    const sitemap = readFileSync(join(d, "sitemap.xml"), "utf8");
+    expect(sitemap).toContain("<urlset");
+    expect(sitemap).toContain("<loc>https://docs.example.com/</loc>");
+    expect(sitemap).toContain("<loc>https://docs.example.com/intro.html</loc>");
+    expect(sitemap).toContain("<loc>https://docs.example.com/guide/quickstart.html</loc>");
+    expect(sitemap).toContain("<lastmod>");
+    expect(readFileSync(join(d, "robots.txt"), "utf8")).toContain("Sitemap: https://docs.example.com/sitemap.xml");
+    expect(existsSync(join(d, "og", "index.svg"))).toBe(true);
+    expect(existsSync(join(d, "og", "guide", "quickstart.svg"))).toBe(true);
+    rmSync(d, { recursive: true, force: true });
+  });
+
+  it("无 siteUrl：不生成 sitemap/robots/OG 卡，页面无 canonical（绝对 URL 前提缺失）", () => {
+    const d = tmpBuildDir();
+    buildSite({ dir: docsDir, outDir: d });
+    expect(existsSync(join(d, "sitemap.xml"))).toBe(false);
+    expect(existsSync(join(d, "robots.txt"))).toBe(false);
+    expect(existsSync(join(d, "og"))).toBe(false);
+    const index = readFileSync(join(d, "index.html"), "utf8");
+    expect(index).not.toContain('rel="canonical"');
+    expect(index).not.toContain("og:url");
+    rmSync(d, { recursive: true, force: true });
+  });
+
+  it("--base 子路径部署：导航/资源 URL 加前缀；preview 剥离前缀", async () => {
+    const d = tmpBuildDir();
+    buildSite({ dir: docsDir, outDir: d, title: "测试站", base: "/docs", siteUrl: "https://x.example.com" });
+    const index = readFileSync(join(d, "index.html"), "utf8");
+    // 导航绝对链接 + 首页自指 + 展示层/vendor/搜索索引全部加 base 前缀
+    expect(index).toContain('href="/docs/intro.html"');
+    expect(index).toContain('href="/docs/guide/quickstart.html"');
+    expect(index).toContain('href="/docs/"');
+    expect(index).toContain('src="/docs/display.js"');
+    expect(index).toContain('window.DOCLIGHT_VENDOR_BASE = "/docs/vendor/"');
+    expect(index).toContain('window.DOCLIGHT_SEARCH_INDEX = "/docs/search-index.json"');
+    // canonical 也带 base 前缀
+    expect(index).toContain('<link rel="canonical" href="https://x.example.com/docs/">');
+    // preview 剥离 base 前缀后命中产物
+    preview = await startPreviewServer({ dir: d, port: 0, base: "/docs" });
+    expect((await fetch(`${preview.url}docs/`)).status).toBe(200);
+    expect((await fetch(`${preview.url}docs/guide/quickstart.html`)).status).toBe(200);
+    await preview.close();
+    preview = undefined as unknown as PreviewServer;
+    rmSync(d, { recursive: true, force: true });
+  });
+
+  it("搜索索引 version 内联进 SSG 页（window.DOCLIGHT_SEARCH_VERSION，持久化校验用）", () => {
+    const d = tmpBuildDir();
+    buildSite({ dir: docsDir, outDir: d });
+    const index = readFileSync(join(d, "index.html"), "utf8");
+    expect(index).toContain("window.DOCLIGHT_SEARCH_VERSION");
+    const parsed = JSON.parse(readFileSync(join(d, "search-index.json"), "utf8")) as { version: string; docs: unknown[] };
+    expect(parsed.version).toMatch(/^[0-9a-z]+$/);
+    expect(index).toContain(`window.DOCLIGHT_SEARCH_VERSION = "${parsed.version}"`);
+    rmSync(d, { recursive: true, force: true });
+  });
+});
+
+describe("doclight preview（PREVIEW-001 产物预览）", () => {
+  it("服务首页与 .html 页面，无扩展名 / .md 回退到 .html", async () => {
+    const d = tmpBuildDir();
+    buildSite({ dir: docsDir, outDir: d });
+    preview = await startPreviewServer({ dir: d, port: 0 });
+    const res = await fetch(preview.url);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("欢迎来到测试站");
+    expect((await fetch(`${preview.url}guide/quickstart.html`)).status).toBe(200);
+    expect((await fetch(`${preview.url}guide/quickstart`)).status).toBe(200); // 无扩展名
+    expect((await fetch(`${preview.url}guide/quickstart.md`)).status).toBe(200); // .md 回退
+    expect((await fetch(`${preview.url}assets/logo.txt`)).status).toBe(200);
+    await preview.close();
+    preview = undefined as unknown as PreviewServer;
+    rmSync(d, { recursive: true, force: true });
+  });
+
+  it("路径穿越被拒绝（404）", async () => {
+    const d = tmpBuildDir();
+    buildSite({ dir: docsDir, outDir: d });
+    preview = await startPreviewServer({ dir: d, port: 0 });
+    expect((await fetch(`${preview.url}../package.json`)).status).toBe(404);
+    await preview.close();
+    preview = undefined as unknown as PreviewServer;
+    rmSync(d, { recursive: true, force: true });
+  });
+});

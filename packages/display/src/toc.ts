@@ -93,7 +93,12 @@ export function initToc(options: { articleSelector?: string } = {}): TocApi {
     const el = document.getElementById(id);
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "start" });
-    history.replaceState(null, "", `#${id}`);
+    // file://（bundle 形态）replaceState 可能抛错：降级为仅滚动
+    try {
+      history.replaceState(null, "", `#${id}`);
+    } catch {
+      /* bundle/file:// 锚点更新失败不影响滚动 */
+    }
     closeSheet();
   }
 

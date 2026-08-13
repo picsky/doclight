@@ -6,17 +6,18 @@
 
 DocLight 是一款**主要由 Agent 自主开发**的开源文档站引擎。你不是辅助人类写代码——你就是主要开发者之一。你的产出质量 = 产品质量。因此，自迭代、可验证、可追溯是硬要求。
 
-## 当前状态（2026-08-13，Phase 2 扩展语法渲染收官）
+## 当前状态（2026-08-13，Phase 3 全部完成）
 
 - **Phase 1 ✅ 完整收官**：REND-001 渲染内核（marked+DOMPurify+frontmatter）、NAV-001 导航树、DEV-001 dev server、展示层（主题/SPA 路由+钩子 PLUG-002/移动端侧边栏）+ **TOC-001 本页目录** + **THEME-001 完整主题令牌** + **PLUG-001 事件总线**
-- **Phase 2 搜索 ✅ 主体**：**SRCH-001** 内置搜索（Cmd/Ctrl+K、中文 bigram 检索、索引懒加载、最近搜索）；**未引真实 MiniSearch**（零依赖构建约束），同形状 API 自研，Phase 3 可一处替换
-- **Phase 2 扩展语法渲染 ✅**：**REND-002 扩展语法注册表**（`packages/renderer/src/extensions/`：白名单式 schema + 容器/代码块/KaTeX marked 扩展）+ **REND-003 Mermaid 容错**（错误语法→降级源码+提示不白屏）+ **代码高亮（Prism 懒加载）+ 复制按钮** + **自定义容器**（:::tip/warning/danger/info）+ **KaTeX（懒加载）** + **REND-004 双读验证**；展示层增强在 `packages/display/src/extensions.ts`（vendor 按需注入），dev server 新增 `/__doclight/vendor/*` 端点
-- **verify:e2e 门禁 ✅**：`npm run verify` 6/6 全绿（e2e **51/51** × 三浏览器，含扩展渲染 6 例）；**下一步 = Phase 3（SSG 静态导出 + bundle + 部署）**，与体验细节并行小步推进，交接见 `docs/agent-handoffs/PHASE-2-extensions-complete.md`
-- **调研结论（2026-08-13，两版并排）**：`research-report-agent-content-opportunity.md`（机会 7.5/10，零构建+扩展语法渲染+双读 三位一体空白，文档站优先）+ `research-report-agent-content-demand-validation.md`（批判 3/10，否决独立「展示层」产品、保留 AI 原生消费半边）→ 扩展渲染是**引擎增量功能**，已随 Phase 2 落地闭环
-- **monorepo 结构**：`packages/{renderer,display,core,cli,mcp-server}`（renderer 受保护 `src/core/`——markdown/sanitize/frontmatter/link；新增 `src/extensions/` 扩展注册表）
-- **契约文件**：`contracts/`（doclight.schema.json）、`specs/features/{render,render-ext,nav,dev,toc,theme,plugin,search}.feature`（需求 ID 溯源）、`docs/agent-handoffs/`
-- **决策记录**：`adr/`（ADR-0001 包命名 renderer、ADR-0002 内核预算 30KB）；搜索自研决策见 PHASE-2-search 交接；**扩展承载铁律**（不依赖 data-*，class+子元素承载）与 vendor 懒加载决策见 PHASE-2-extensions 交接
-- **体积门禁**：展示层 < 25KB（实测 7.5KB，构建 removeComments 后）/ Node 内核 < 30KB（合计 27.8KB）
+- **Phase 2 搜索 ✅ 主体**：**SRCH-001** 内置搜索（Cmd/Ctrl+K、中文 bigram 检索、索引懒加载、最近搜索、**localStorage 持久化 + 内容哈希版本**）；**未引真实 MiniSearch**（零依赖构建约束），同形状 API 自研，可一处替换
+- **Phase 2 扩展语法渲染 ✅**：**REND-002 扩展语法注册表**（`packages/renderer/src/extensions/`）+ **REND-003 Mermaid 容错** + **代码高亮（Prism 懒加载）+ 复制按钮** + **自定义容器** + **KaTeX（懒加载）** + **REND-004 双读验证**；展示层增强在 `packages/display/src/extensions.ts`，dev server `/__doclight/vendor/*` 端点
+- **Phase 3 ✅ 全部完成（2026-08-13）**：**SSG-001 `doclight build`** + **SSG-002 vendor 基址决策**（拷贝 dist/vendor 自包含）+ **PREVIEW-001 `doclight preview`**（均为 PHASE-3-ssg 交接）+ **SEO-001 页面级 SEO**（canonical/OG/Twitter/JSON-LD/面包屑）+ **SEO-002 站点级 SEO**（sitemap/robots/OG 卡 og/*.svg）+ **`--base` 子路径部署** + **CLI-001 `doclight init`** + **CLI-002 `doclight bundle`**（单文件 hash 路由 + 内嵌数据 + file:// 三引擎）+ **CLI-003 `doclight deploy`**（gh-pages 推送 + CF/Netlify 指引）+ **CLI-004 `doclight migrate-docsify`** + 迁移指南 `docs/migration-from-docsify.md`；交接见 `docs/agent-handoffs/PHASE-3-complete.md`
+- **verify 门禁 ✅**：`npm run verify` 全绿（lint/typecheck/test **159/159**/size/contract/spec 19/19/e2e **54/54** 含 bundle file:// × 三浏览器）；**下一步 = Phase 4（AI 就绪：llms.txt / 语义 frontmatter / MCP Server / Agent 内容空间）**
+- **调研结论（2026-08-13，两版并排）**：`research-report-agent-content-opportunity.md`（机会 7.5/10，零构建+扩展语法渲染+双读 三位一体空白）+ `research-report-agent-content-demand-validation.md`（批判 3/10，否决独立「展示层」产品、保留 AI 原生消费半边）→ 扩展渲染是**引擎增量功能**，已随 Phase 2 落地闭环
+- **monorepo 结构**：`packages/{renderer,display,core,cli,mcp-server}`（renderer 受保护 `src/core/`；`src/extensions/` 扩展注册表；cli 新增 `src/{site,build,preview,bundle,init,deploy,migrate,config}.ts`）
+- **契约文件**：`contracts/`（doclight.schema.json）、`specs/features/{render,render-ext,nav,dev,toc,theme,plugin,search,ssg,seo,cli}.feature`（需求 ID 溯源）、`docs/agent-handoffs/`
+- **决策记录**：`adr/`（ADR-0001 包命名 renderer、ADR-0002 内核预算 30KB）；搜索自研见 PHASE-2-search 交接；**扩展承载铁律**（不依赖 data-*）与 vendor 懒加载见 PHASE-2-extensions 交接；**SSG vendor 基址（拷贝自包含）见 PHASE-3-ssg 交接；SEO/base/bundle/deploy 决策见 PHASE-3-complete 交接**
+- **体积门禁**：展示层 < 25KB（实测 **8.1KB**，removeComments 后）/ Node 内核 < 30KB（合计 27.8KB）
 - **远程仓库**：`github.com/picsky/doclight`（私有，完备后转公开）
 
 ## 开始工作的流程（每次必走）

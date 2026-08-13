@@ -60,16 +60,22 @@ function extractTitle(html: string): string | null {
   return /<title>([^<]*)<\/title>/.exec(html)?.[1] ?? null;
 }
 
-/** 根据当前 URL 高亮导航中匹配项（data-path 与 URL 路径做 .md 归一比较） */
+/**
+ * 根据当前 URL 高亮导航中匹配项（data-path 与 URL 路径做 .md 归一比较）。
+ * bundle 形态（05 §5.3.4）：hash 路由（#/guide/start.html），hash 优先于 pathname；
+ * 普通锚点（#安装）不以 "#/" 开头，不受影响。
+ */
 export function highlightActive(url: string, navSelector = "aside.sidebar"): void {
   const path = (() => {
     try {
-      return new URL(url, location.href).pathname;
+      const parsed = new URL(url, location.href);
+      return parsed.hash.startsWith("#/") ? parsed.hash.slice(1) : parsed.pathname;
     } catch {
       return "/";
     }
   })();
-  const norm = (p: string) => p.replace(/^\/+/, "").replace(/\.md$/, "").replace(/\/$/, "") || "/";
+  // .md / .html 后缀都归一（dev 用 .md URL、SSG 用 .html URL、bundle 用 .html hash，05 §5.3）
+  const norm = (p: string) => p.replace(/^\/+/, "").replace(/\.(md|html)$/, "").replace(/\/$/, "") || "/";
   const target = norm(path);
   document.querySelectorAll<HTMLAnchorElement>(`${navSelector} a[data-path]`).forEach((a) => {
     a.classList.toggle("active", norm(a.getAttribute("data-path") ?? "") === target);
@@ -123,24 +129,74 @@ async function navigateWithHooks(
   highlightActive(target);
 }
 
+/** bundle 形态内嵌数据（__DOCLLIGHT_BUNDLE__：pages/titles，hash 路由 + 零网络） */
+interface BundleData {
+  pages?: Record<string, string>;
+  titles?: Record<string, string>;
+}
+
+/** 纯函数：hash/路径 → 内嵌数据键（统一带前导斜杠；空 → 首页 "/"） */
+export function bundlePageKey(raw: string): string {
+  const p = raw.split("#").pop()!.split("?")[0]!.replace(/^\/+/, "");
+  if (!p || p === "/") return "/";
+  return `/${p}`;
+}
+
 /** 初始化：拦截站内链接点击 + popstate 前进后退 + 钩子注册 API */
 export function initRouter(options: { contentSelector?: string; navSelector?: string } = {}): Router {
   const navSelector = options.navSelector ?? "aside.sidebar";
   const state = { from: null as string | null, beforeHooks: [] as BeforeHook[], afterHooks: [] as AfterHook[] };
+  // bundle 形态（05 §5.3.4）：file:// 无法 pushState，用 hash 路由 + 内嵌页面数据，不发起 fetch
+  const bundle = (window as unknown as Record<string, unknown>)["__DOCLLIGHT_BUNDLE__"] as BundleData | undefined;
+  const bundleMode = !!bundle;
 
-  document.addEventListener("click", (e) => {
-    const target = (e.target as HTMLElement | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
-    if (!target || target.target === "_blank") return;
-    const href = target.getAttribute("href");
-    if (!isInternalLink(href, location.href)) return;
-    e.preventDefault();
-    void navigateWithHooks(href!, false, state);
-  });
+  function runAfterHooks(to: string): void {
+    const ctx: RouteContext = { from: state.from, to, replace: false };
+    state.from = to;
+    for (const hook of state.afterHooks) {
+      try {
+        hook(ctx);
+      } catch {
+        /* 隔离单个 afterEach 钩子异常 */
+      }
+    }
+    bus.emit("doclight:routechange", ctx);
+  }
 
-  window.addEventListener("popstate", () => void navigateWithHooks(location.href, true, state));
+  /** bundle 导航：查内嵌数据注入内容，更新标题与高亮（不 fetch、不 pushState） */
+  function handleBundleNavigation(): void {
+    const key = bundlePageKey(location.hash);
+    const content = document.querySelector<HTMLElement>("article");
+    const html = bundle?.pages?.[key];
+    if (content && html != null) {
+      content.innerHTML = html;
+      const title = bundle?.titles?.[key];
+      if (title) document.title = title;
+    }
+    runAfterHooks(key);
+    highlightActive(bundleMode && location.hash ? location.hash : location.href, navSelector);
+  }
 
-  // 初次加载高亮（直出页）
-  highlightActive(location.href, navSelector);
+  if (bundleMode) {
+    // 导航链接为 #/xxx（renderNav hash 模式）：浏览器天然维护 hash 历史，hashchange 接管
+    window.addEventListener("hashchange", handleBundleNavigation);
+    // 初次加载高亮（hash 路由：hash 优先）
+    highlightActive(location.hash || location.href, navSelector);
+  } else {
+    document.addEventListener("click", (e) => {
+      const target = (e.target as HTMLElement | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!target || target.target === "_blank") return;
+      const href = target.getAttribute("href");
+      if (!isInternalLink(href, location.href)) return;
+      e.preventDefault();
+      void navigateWithHooks(href!, false, state);
+    });
+
+    window.addEventListener("popstate", () => void navigateWithHooks(location.href, true, state));
+
+    // 初次加载高亮（直出页）
+    highlightActive(location.href, navSelector);
+  }
 
   return {
     beforeEach(hook) {
@@ -156,6 +212,10 @@ export function initRouter(options: { contentSelector?: string; navSelector?: st
       };
     },
     navigate(url, replace = false) {
+      if (bundleMode) {
+        location.hash = bundlePageKey(url);
+        return Promise.resolve();
+      }
       return navigateWithHooks(url, replace, state);
     },
   };

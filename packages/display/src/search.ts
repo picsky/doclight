@@ -146,6 +146,43 @@ export function highlight(text: string, terms: string[]): string {
 const RECENT_KEY = "doclight-search-recent";
 const RECENT_MAX = 5;
 
+/* ===== 搜索索引持久化（03 §3.8.5：localStorage + 版本校验）===== */
+
+/** 缓存键 = 版本隔离：内容变化（构建哈希）→ 版本变化 → 旧缓存自动失效不误用 */
+export function searchCacheKey(version: string): string {
+  return `doclight-search-idx-${version}`;
+}
+
+/** 读取缓存文档（version 缺失 / 无缓存 / 解析失败 → null）。storage 抽象便于 Node 单测注入 mock。 */
+export function readSearchCache(
+  storage: Pick<Storage, "getItem">,
+  version: string | undefined
+): SearchDoc[] | null {
+  if (!version) return null;
+  try {
+    const raw = storage.getItem(searchCacheKey(version));
+    if (!raw) return null;
+    const data = JSON.parse(raw) as { docs?: unknown };
+    return Array.isArray(data.docs) ? (data.docs as SearchDoc[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 写入缓存（不可用/超限时静默忽略，与最近搜索同策略） */
+export function writeSearchCache(
+  storage: Pick<Storage, "setItem">,
+  version: string | undefined,
+  docs: SearchDoc[]
+): void {
+  if (!version) return;
+  try {
+    storage.setItem(searchCacheKey(version), JSON.stringify({ docs }));
+  } catch {
+    /* 隐私模式 / 配额满等忽略持久化 */
+  }
+}
+
 function loadRecent(): string[] {
   try {
     const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
@@ -170,8 +207,16 @@ export interface SearchApi {
 
 /** 初始化搜索：Cmd/Ctrl+K 或顶栏搜索按钮打开，懒加载索引，实时出结果 */
 export function initSearch(options: { indexUrl?: string; toggleSelector?: string } = {}): SearchApi {
-  const indexUrl = options.indexUrl ?? "/__doclight/search-index.json";
+  // SSG 形态：页面内联 window.DOCLIGHT_SEARCH_INDEX 指向静态产物（与 DOCLIGHT_VENDOR_BASE 同模式）
+  // 注：拼接式构建（build-display.mjs）所有文件合一作用域，不得与 extensions.ts 的 winGlobal 重名
+  const win = window as unknown as Record<string, unknown>;
+  const globalIndex = win["DOCLIGHT_SEARCH_INDEX"];
+  const indexUrl =
+    options.indexUrl ?? (typeof globalIndex === "string" ? globalIndex : undefined) ?? "/__doclight/search-index.json";
   const toggleSelector = options.toggleSelector ?? "#search-toggle";
+  // bundle 形态（05 §5.3.4）：索引内嵌（__DOCLLIGHT_BUNDLE__.searchIndex），结果链接走 hash 路由
+  const bundle = win["__DOCLLIGHT_BUNDLE__"] as { searchIndex?: { docs?: SearchDoc[] } } | undefined;
+  const bundleMode = !!bundle;
 
   let index: SearchIndex | null = null;
   let indexLoading: Promise<void> | null = null;
@@ -193,17 +238,33 @@ export function initSearch(options: { indexUrl?: string; toggleSelector?: string
   const status = overlay.querySelector<HTMLElement>(".search-status")!;
   const resultsEl = overlay.querySelector<HTMLElement>(".search-results")!;
 
-  /** 懒加载索引（首次打开才 fetch + 构建，03 §3.5.3） */
+  /** 懒加载索引（首次打开才构建，03 §3.5.3）；持久化：版本命中则跳过 fetch（03 §3.8.5） */
   function ensureIndex(): Promise<void> {
     if (index) return Promise.resolve();
     if (!indexLoading) {
       indexLoading = (async () => {
         status.textContent = "正在构建索引…";
         try {
+          // bundle 形态：索引内嵌（file:// 零网络），直接构建
+          if (bundle?.searchIndex) {
+            index = buildIndex(bundle.searchIndex.docs ?? []);
+            status.textContent = "";
+            return;
+          }
+          // 页面内联 window.DOCLIGHT_SEARCH_VERSION（内容哈希）：缓存命中则免网络请求
+          const version = typeof win.DOCLIGHT_SEARCH_VERSION === "string" ? win.DOCLIGHT_SEARCH_VERSION : undefined;
+          const cached = readSearchCache(localStorage, version);
+          if (cached && cached.length > 0) {
+            index = buildIndex(cached);
+            status.textContent = "";
+            return;
+          }
           const res = await fetch(indexUrl);
           if (!res.ok) throw new Error(`索引加载失败（${res.status}）`);
           const data = (await res.json()) as { docs: SearchDoc[] };
-          index = buildIndex(data.docs ?? []);
+          const docs = data.docs ?? [];
+          index = buildIndex(docs);
+          writeSearchCache(localStorage, version, docs);
           status.textContent = "";
         } catch (err) {
           status.textContent = `搜索不可用：${(err as Error).message}`;
@@ -223,7 +284,7 @@ export function initSearch(options: { indexUrl?: string; toggleSelector?: string
     resultsEl.innerHTML = results
       .map(
         (r) => `
-      <a class="search-result" href="/${r.path}" data-path="${r.path}">
+      <a class="search-result" href="${bundleMode ? `#/${r.path}` : `/${r.path}`}" data-path="${r.path}">
         <span class="search-result-title">${highlight(r.title, terms)}</span>
         <span class="search-result-path">${r.path}</span>
         <span class="search-result-snippet">${highlight(r.snippet, terms)}</span>

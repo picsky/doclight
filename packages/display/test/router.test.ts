@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { isInternalLink, resolveBeforeHooks, type BeforeHook } from "../src/router.ts";
+import { bundlePageKey, isInternalLink, resolveBeforeHooks, type BeforeHook } from "../src/router.ts";
 
 describe("路由内部链接判定（展示层最简骨架）", () => {
   const base = "http://localhost:3000/";
@@ -73,5 +73,29 @@ describe("路由钩子决策（PLUG-002，03 §3.2.4）", () => {
     const spy = vi.fn(() => undefined);
     resolveBeforeHooks([spy], ctx);
     expect(spy).toHaveBeenCalledWith(ctx);
+  });
+});
+
+describe("bundle 形态内嵌数据键归一（CLI-002，05 §5.3.4 hash 路由）", () => {
+  it("hash / 路径归一为带前导斜杠的页面键", () => {
+    expect(bundlePageKey("#/guide/start.html")).toBe("/guide/start.html");
+    expect(bundlePageKey("/guide/start.html")).toBe("/guide/start.html");
+    expect(bundlePageKey("guide/start.html")).toBe("/guide/start.html");
+  });
+
+  it("空 / 根路径收敛为首页", () => {
+    expect(bundlePageKey("")).toBe("/");
+    expect(bundlePageKey("#")).toBe("/");
+    expect(bundlePageKey("/")).toBe("/");
+    expect(bundlePageKey("#/")).toBe("/");
+  });
+
+  it("剥离查询串", () => {
+    expect(bundlePageKey("/guide/start.html?q=1")).toBe("/guide/start.html");
+    expect(bundlePageKey("#/guide/start.html?q=1")).toBe("/guide/start.html");
+  });
+
+  it("TOC 锚点（非 #/ 前缀）不当作页面键冲突处理", () => {
+    expect(bundlePageKey("#安装")).toBe("/安装"); // 无对应页面 → 查不到即不导航
   });
 });

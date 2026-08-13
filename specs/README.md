@@ -18,6 +18,23 @@
 | REND-003 | Mermaid 容错渲染 | LLM 生成语法错误→降级为图表源码+提示，不白屏 | 已实现 |
 | REND-004 | 双读友好验证 | 扩展渲染后 llms.txt/MCP 仍返回纯 markdown 原稿 | 已实现 |
 
+## Phase 3 剩余完成（SEO + init + bundle + deploy + 迁移，2026-08-13 已落地）
+
+> 延续 PHASE-3-ssg-complete 交接：SSG 最小闭环（SSG-001/002 + PREVIEW-001）之后补齐 SEO 全套、
+> 完整 CLI 命令族与迁移工具。对应 05-ssg-build §5.2.1/§5.4/§5.5 + 13-deployment-distribution §2.1 + 08-roadmap Phase 3。
+
+| 需求 ID | 名称 | 说明 | 状态 |
+|---|---|---|---|
+| SEO-001 | 页面级 SEO meta | canonical / OG / Twitter Card / JSON-LD TechArticle / 面包屑（含 BreadcrumbList） | 已实现 |
+| SEO-002 | 站点级 SEO 文件 | sitemap.xml + robots.txt + 每页 OG 卡片图（og/*.svg，Node 侧生成） | 已实现 |
+| CLI-001 | doclight init | 生成 doclight.json + 示例 docs/ + index.html，幂等 | 已实现 |
+| CLI-002 | doclight bundle | 单文件便携包：内嵌 pages/titles/nav/searchIndex + 展示层内联，file:// 三引擎可用 | 已实现 |
+| CLI-003 | doclight deploy | gh-pages 一键推送（自动 /<repo>/ base）+ Cloudflare/Netlify 指引 | 已实现 |
+| CLI-004 | migrate-docsify | docsify 内容迁移到 DocLight docs/ 约定 + _sidebar 解析报告 | 已实现 |
+
+> 配套：`--base` 子路径部署（ssg.feature）、搜索索引持久化（search.feature / 03 §3.8.5）、
+> 迁移指南 `docs/migration-from-docsify.md`。
+
 ## 目录结构约定
 
 ```
@@ -31,7 +48,7 @@ specs/
 ## 需求 ID 与追溯（10 §1.4）
 
 - 每个需求项有唯一 ID：`<前缀>-<序号>`（如 `SRCH-001`）
-- 前缀表：`SRCH`(搜索) / `REND`(渲染) / `NAV`(导航) / `TOC` / `THEME` / `SSG` / `MCP` / `PLUG`(插件) / `SPACE`(内容空间) / `CLI` / `DEV`(dev server，Phase 1 新增) — 新增前缀须登记
+- 前缀表：`SRCH`(搜索) / `REND`(渲染) / `NAV`(导航) / `TOC` / `THEME` / `SSG` / `MCP` / `PLUG`(插件) / `SPACE`(内容空间) / `CLI` / `SEO`(搜索优化，Phase 3 新增) / `DEV`(dev server，Phase 1 新增) — 新增前缀须登记
 - Agent 在**提交信息与代码中引用需求 ID**（`feat(SRCH-001): ...`）
 - `npm run spec:check` 校验链路：specs 中的每个 ID 在 `packages/*` 的源码或测试中有引用
 - 只有 `.feature` 与编号 RFC 规格（`NNN-*.md`）承载需求 ID；本 README 中的示例 ID 仅供说明，不计入追溯（spec:check 不扫描约定文档）

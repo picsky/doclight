@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { buildIndex, highlight, search, tokenize, type SearchDoc } from "../src/search.ts";
+import {
+  buildIndex,
+  highlight,
+  readSearchCache,
+  search,
+  searchCacheKey,
+  tokenize,
+  writeSearchCache,
+  type SearchDoc,
+} from "../src/search.ts";
+
+/** 内存版 localStorage mock（getItem 缺失键返回 null，与浏览器一致） */
+function mockStorage(): { getItem(k: string): string | null; setItem(k: string, v: string): void } {
+  const store = new Map<string, string>();
+  return {
+    getItem: (k) => store.get(k) ?? null,
+    setItem: (k, v) => {
+      store.set(k, v);
+    },
+  };
+}
 
 const DOCS: SearchDoc[] = [
   { path: "README.md", title: "首页", headings: ["安装", "配置"], text: "欢迎来到文档站，从这里开始使用。" },
@@ -80,5 +100,30 @@ describe("结果高亮（SRCH-001）", () => {
   it("拉丁词大小写不敏感高亮", () => {
     const h = highlight("Quick Start Guide", ["quick"]);
     expect(h).toContain("<mark>Quick</mark>");
+  });
+});
+
+describe("搜索索引持久化（SRCH-001，03 §3.8.5：localStorage + 版本校验）", () => {
+  it("searchCacheKey 按版本隔离", () => {
+    expect(searchCacheKey("abc")).toBe("doclight-search-idx-abc");
+    expect(searchCacheKey("abc")).not.toBe(searchCacheKey("abd"));
+  });
+
+  it("readSearchCache：版本缺失 / 无缓存 / 内容损坏均返回 null", () => {
+    const storage = mockStorage();
+    expect(readSearchCache(storage, undefined)).toBeNull();
+    expect(readSearchCache(storage, "v1")).toBeNull();
+    storage.setItem("doclight-search-idx-v1", "not-json");
+    expect(readSearchCache(storage, "v1")).toBeNull();
+    storage.setItem("doclight-search-idx-v1", JSON.stringify({ docs: "not-array" }));
+    expect(readSearchCache(storage, "v1")).toBeNull();
+  });
+
+  it("write→read 往返，且版本变化后旧缓存不误用", () => {
+    const storage = mockStorage();
+    const docs: SearchDoc[] = [{ path: "a.md", title: "A", headings: [], text: "内容" }];
+    writeSearchCache(storage, "v1", docs);
+    expect(readSearchCache(storage, "v1")).toEqual(docs);
+    expect(readSearchCache(storage, "v2")).toBeNull(); // 版本变化 → 失配重建
   });
 });

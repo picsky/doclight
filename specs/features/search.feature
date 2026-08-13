@@ -35,3 +35,13 @@ Feature: 内置全文搜索（零配置）
     Given 用户曾搜索并打开过结果
     When 再次打开搜索框且输入为空
     Then 显示最近搜索记录（localStorage 持久化，最多 5 条）
+
+  Scenario: 搜索索引持久化（03 §3.8.5：localStorage + 版本校验）
+    Given 页面内联 window.DOCLIGHT_SEARCH_VERSION（内容哈希）
+    When 用户首次打开搜索框
+    Then 构建索引并写入 localStorage（键含版本）
+    When 内容未变化再次打开搜索框
+    Then 版本命中直接使用缓存，免去搜索索引网络请求
+    And 内容变化（构建版本变化）后旧缓存失配，重建索引
+    Given bundle 形态（单文件）
+    Then 索引内嵌（__DOCLLIGHT_BUNDLE__.searchIndex），零网络直接构建
