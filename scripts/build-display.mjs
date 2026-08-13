@@ -33,6 +33,8 @@ function transpileToJs(filePath, source) {
       module: ts.ModuleKind.ESNext,
       sourceMap: false,
       isolatedModules: true,
+      // 产物剥离注释（双读注释保留在 .ts 源码；bundle 为运行时产物，不应携带）
+      removeComments: true,
     },
   }).outputText;
 }
