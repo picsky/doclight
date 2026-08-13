@@ -9,7 +9,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startDevServer, type DevServer } from "../src/dev-server.ts";
-import { loadPluginsSync } from "../src/plugin-loader.ts";
+import { loadPluginsAsync, loadPluginsSync } from "../src/plugin-loader.ts";
 import type { PluginDef } from "../../core/src/plugin.ts";
 
 let root: string;
@@ -73,5 +73,47 @@ describe("插件热重载（PLUG-011）", () => {
       return body.includes("[v2-reloaded]"); // 保持旧行为
     });
     expect(bodyBefore).toContain("[v2-reloaded]");
+  });
+});
+
+// PLUG-013：TS 插件文件热重载（async reload 回调 + import query 绕过模块缓存）。
+// 注：vitest 的 vite-node 会拦截动态 import（缓存语义与原生 Node 不同），该集成测试
+// 需真实 Node import 行为——vitest 环境下跳过；loadPluginsAsync 的绕过逻辑已由
+// plugin-loader.test.ts 的真实 Node 子进程测试覆盖（spike 实测 import + query 有效）。
+describe.skipIf(!("typescript" in process.features) || process.features.typescript !== "strip" || !!process.env.VITEST)("TS 插件热重载（PLUG-013）", () => {
+  let root: string;
+  let tsPlugin: string;
+  let dev: DevServer;
+
+  beforeAll(async () => {
+    root = mkdtempSync(join(tmpdir(), "doclight-ts-plugin-reload-"));
+    mkdirSync(join(root, "docs"), { recursive: true });
+    mkdirSync(join(root, "plugins"), { recursive: true });
+    writeFileSync(join(root, "docs", "README.md"), "# 首页\n\nPLACEHOLDER");
+    tsPlugin = join(root, "plugins", "hot.ts");
+    writeFileSync(tsPlugin, 'export default { name: "hot", beforeRender: (md: string) => md.replace("PLACEHOLDER", "[ts-v1]") };');
+
+    const reload = async (): Promise<PluginDef[] | null> => {
+      const result = await loadPluginsAsync([{ name: tsPlugin }], root);
+      return result.skipped.some((s) => s.fatal) ? null : result.plugins;
+    };
+    const initial = await reload();
+    dev = await startDevServer({ dir: join(root, "docs"), port: 0, buildPlugins: initial ?? [], pluginFiles: [tsPlugin], reloadPlugins: reload });
+  });
+
+  afterAll(async () => {
+    await dev.close();
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("初始渲染走 v1，TS 文件变更后热重载取最新（import + query 绕过模块缓存）", async () => {
+    const first = await (await fetch(dev.url)).text();
+    expect(first).toContain("[ts-v1]");
+
+    writeFileSync(tsPlugin, 'export default { name: "hot", beforeRender: (md: string) => md.replace("PLACEHOLDER", "[ts-v2-reloaded]") };');
+    await waitFor(async () => {
+      const body = await (await fetch(dev.url)).text();
+      return body.includes("[ts-v2-reloaded]") && !body.includes("[ts-v1]");
+    });
   });
 });

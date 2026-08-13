@@ -1,4 +1,4 @@
-# 验收准则：插件系统（PLUG-001 ~ PLUG-012，07 §7 完整规格）
+# 验收准则：插件系统（PLUG-001 ~ PLUG-013，07 §7 完整规格）
 
 ## PLUG-001 事件总线（Phase 1 已有）
 
@@ -282,6 +282,37 @@ Feature: 重 vendor 扩展插件化（mermaid 从内置迁移）——PluginDef 
     Given bundleSite({inlineVendor:true}) 且启用 mermaid 插件
     Then 产物含 data-doclight-vendor="mermaid.min.js" 内联标记
     And 未启用插件时 mermaid.min.js 不内联（默认不携带）
+
+## PLUG-013 加载能力扩展（ESM-only 包 / TS 插件文件）
+
+Feature: 加载器同步契约下支持 ESM 与 TypeScript 插件（Node 原生能力，零额外依赖）
+
+  Scenario: ESM-only 插件包（node_modules type:module）
+    Given node_modules 内一个 type:module 包，export default PluginDef
+    When loadPluginsSync([{name:"<包名>"}], root)
+    Then 返回 1 个 PluginDef（default 导出形态解析）
+    And skipped 为空
+
+  Scenario: .ts 插件文件（项目内相对路径，type stripping）
+    Given 项目内 ./plugins/my-plugin.ts 文件 export default PluginDef
+    When loadPluginsSync([{name:"./plugins/my-plugin.ts"}], root)
+    Then 返回 1 个 PluginDef（name 取导出值）
+
+  Scenario: .ts 插件热重载（require 缓存失效同 .js）
+    Given .ts 插件文件内容 v1
+    When 修改为 v2 后重新 loadPluginsSync
+    Then 取到 v2
+
+  Scenario: 顶层 await 的 ESM 插件诚实跳过
+    Given 插件包含顶层 await（require 同步限制无法加载）
+    When loadPluginsSync
+    Then 插件进 skipped（fatal=true）
+    And 原因含 top-level await 专属提示（不伪造成功，不中断其余插件）
+
+  Scenario: 低版本 Node 的 ESM/TS 加载失败诚实降级
+    Given Node < 23.6（无 require(esm) / TS strip 默认能力）
+    When loadPluginsSync ESM/TS 插件
+    Then 插件进 skipped（fatal=true，含原因）
 
 ## PLUG-011 插件热重载
 

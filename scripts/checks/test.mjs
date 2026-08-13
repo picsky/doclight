@@ -27,7 +27,8 @@ export function run() {
   const failures = [];
   for (const suite of report.testResults ?? []) {
     for (const t of suite.assertionResults ?? []) {
-      if (t.status !== "passed") {
+      // skipped = 环境条件跳过（如 vitest 拦截动态 import 的 TS 集成测试）——不视为失败
+      if (t.status !== "passed" && t.status !== "skipped") {
         failures.push({
           id: `${suite.name}::${t.fullName}`,
           message: `测试失败：${t.status}`,

@@ -50,11 +50,20 @@ module.exports = function createPlugin(config = {}) {
 
 | 形态 | 示例 | 说明 |
 |---|---|---|
-| 内置官方插件 | `"giscus"` / `"@doclight/plugin-giscus"` | 随 CLI 内置，直接按名使用 |
-| 项目内相对路径 | `"./plugins/my-chart/plugin.js"` | 脚手架默认形态，同步 require 加载 |
-| npm 包 | `"doclight-plugin-xxx"` | 需已安装到项目 node_modules（ESM-only 包暂不支持，见遗留） |
+| 内置官方插件 | `"giscus"` / `"@doclight/plugin-mermaid"` | 随 CLI 内置，直接按名使用 |
+| 项目内相对路径 | `"./plugins/my-chart/plugin.js"` / `"./plugins/my-chart/plugin.ts"` | 脚手架默认形态，同步加载 |
+| npm 包 | `"doclight-plugin-xxx"` | 需已安装到项目 node_modules（JS / ESM-only 均可，PLUG-013） |
 
 **导出形态**（四种均可）：直接导出 PluginDef 对象 / `{ default: ... }` / `{ plugin: ... }` / **工厂函数 `(config) => PluginDef | null`**（脚手架模板形态，返回 null 表示配置无效）。
+
+**加载能力矩阵（PLUG-013，Node 原生、零额外依赖）**：
+
+| 插件形态 | Node ≥ 23.6 | Node 22.x | 说明 |
+|---|---|---|---|
+| CommonJS 包 / .js 文件 | ✅ | ✅ | 任意版本 |
+| ESM-only 包（type:module） | ✅ 默认 | ⚠️ 需 `--experimental-require-module` | require(esm) 同步加载，`{ default }` 形态解析 |
+| .ts 插件文件（项目内） | ✅ 默认 | ⚠️ 需 `--experimental-strip-types` | type stripping；node_modules 内 .ts 不被 Node 处理（发布 JS） |
+| ESM 含顶层 await（TLA） | ❌ | ❌ | require 同步限制，诚实跳过 + 专属提示（加载器保持同步契约，不为边缘场景异步化） |
 
 **诚实原则**：无法解析的插件跳过并输出警告（含原因），不伪造成功、不中断其余插件。
 

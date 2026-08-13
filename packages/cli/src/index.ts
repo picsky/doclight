@@ -19,7 +19,7 @@ import { startPreviewServer } from "./preview.ts";
 import { publishSite, type PublishResult } from "./publish.ts";
 import { spaceInit, spaceStatus, spaceSwitch } from "./space.ts";
 import { embedSite } from "./embed.ts";
-import { configuredPluginWatchFiles, loadConfiguredPlugins, reloadConfiguredPlugins } from "./plugin-loader.ts";
+import { configuredPluginWatchFiles, loadConfiguredPlugins, reloadConfiguredPluginsAsync } from "./plugin-loader.ts";
 import { pluginList, pluginNew } from "./plugin-new.ts";
 import { loadConfiguredTheme } from "./themes.ts";
 
@@ -119,7 +119,7 @@ export async function runDev(options: Partial<CliOptions> = {}): Promise<{ url: 
     buildPlugins: loadConfiguredPlugins(merged.dir),
     themeCss: loadConfiguredTheme(merged.dir),
     pluginFiles: configuredPluginWatchFiles(merged.dir),
-    reloadPlugins: () => reloadConfiguredPlugins(merged.dir),
+    reloadPlugins: () => reloadConfiguredPluginsAsync(merged.dir),
   });
 }
 

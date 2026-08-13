@@ -47,8 +47,9 @@ export interface DevServerOptions {
   themeCss?: string;
   /** PLUG-011：插件热重载 watch 文件（绝对路径；由 CLI 层用 configuredPluginWatchFiles 计算） */
   pluginFiles?: string[];
-  /** PLUG-011：插件重新解析回调（watch 触发后调用；返回 null 表示加载期错误 → 保留旧管线） */
-  reloadPlugins?: () => PluginDef[] | null;
+  /** PLUG-011：插件重新解析回调（watch 触发后调用；返回 null 表示加载期错误 → 保留旧管线；
+   *   PLUG-013：支持异步（ESM/TS 插件经 import 绕过缓存取最新）） */
+  reloadPlugins?: () => PluginDef[] | Promise<PluginDef[] | null> | null;
 }
 
 export interface DevServer {
@@ -144,9 +145,9 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
     const dirs = new Set(pluginFiles.map((f) => dirname(f)));
     const schedulePluginReload = (): void => {
       if (pluginReloadTimer) clearTimeout(pluginReloadTimer);
-      pluginReloadTimer = setTimeout(() => {
+      pluginReloadTimer = setTimeout(async () => {
         try {
-          const fresh = options.reloadPlugins!();
+          const fresh = await options.reloadPlugins!();
           // null = 加载期错误（文件缺失/语法错误）：保留旧管线，迭代中的半成品不打断浏览
           if (fresh) pipeline.setPlugins(fresh);
         } catch {
