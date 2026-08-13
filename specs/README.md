@@ -7,18 +7,16 @@
 
 规格是「做什么 + 怎么验收」的机器可读载体。每个需求以 **RFC 式规格文档 + Gherkin 行为规格** 双形态存在，让开发 Agent 明确知道「什么算做完」，验收准则可被自动化测试直接消费。
 
-## 规划中需求（Phase 2 扩展语法渲染，随实现落地）
+## Phase 2 扩展语法渲染（REND-002/003/004，2026-08-13 已落地）
 
-> 调研结论（2026-08-13，见仓库根 `research-report-agent-content-opportunity.md` / `research-report-agent-content-demand-validation.md`）：扩展语法渲染是 DocLight 差异化核心（Agent 原生能力），已落入 08-roadmap Phase 2 优先级。
-> 以下 ID 为**规划中登记**，`.feature` 文件与 `packages/*` 实现须**一并落地**（spec:check 要求 ID 在实现中有引用，避免破坏 `npm run verify` 6/6 全绿门禁）。
+> 调研结论：扩展语法渲染是 DocLight 差异化核心（Agent 原生能力，08-roadmap Phase 2 优先级 + research-report §6.3 MVP）。
+> 落地形态：`specs/features/render-ext.feature` + `packages/renderer/src/extensions/`（注册表/容器/代码块/KaTeX 标记）+ `packages/display/src/extensions.ts`（懒加载增强）+ `packages/cli/src/dev-server.ts`（vendor 端点与样式）。
 
 | 需求 ID | 名称 | 说明 | 状态 |
 |---|---|---|---|
-| REND-002 | 扩展语法注册表 | 白名单式（类型 / DOMPurify sanitize / 懒加载映射 / 降级策略），不引入 MDX/JSX | 规划中 |
-| REND-003 | Mermaid 容错渲染 | LLM 生成语法错误→降级为图表源码+提示，不白屏 | 规划中 |
-| REND-004 | 双读友好验证 | 扩展渲染后 llms.txt/MCP 仍返回纯 markdown 原稿 | 规划中 |
-
-> 落地时：新建 `specs/features/render-ext.feature` 承载上述 ID + `packages/renderer/src/ext/` 实现 + 单测，三者同时合入。
+| REND-002 | 扩展语法注册表 | 白名单式（类型 / DOMPurify sanitize / 懒加载映射 / 降级策略），不引入 MDX/JSX | 已实现 |
+| REND-003 | Mermaid 容错渲染 | LLM 生成语法错误→降级为图表源码+提示，不白屏 | 已实现 |
+| REND-004 | 双读友好验证 | 扩展渲染后 llms.txt/MCP 仍返回纯 markdown 原稿 | 已实现 |
 
 ## 目录结构约定
 

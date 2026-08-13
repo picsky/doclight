@@ -1,0 +1,47 @@
+# 验收准则：REND-002 扩展语法注册表 / REND-003 Mermaid 容错 / REND-004 双读友好
+# 对应设计：08-roadmap §Phase 2 扩展语法渲染 + research-report §6.3 MVP
+# 实现位置：packages/renderer/src/extensions/（注册表/容器/代码块/KaTeX 标记）+ packages/display/src/extensions.ts（懒加载增强）+ packages/cli/src/dev-server.ts（vendor 端点与样式）
+
+Feature: 扩展语法渲染（白名单式注册表，零构建）
+  扩展语法在 Node 渲染内核标记、浏览器展示层按需懒加载增强；不引入 MDX/JSX，展示层体积不因扩展增长。
+
+  Scenario: REND-002 白名单式注册表默认全开
+    Given 一个含扩展语法的文档站（不写任何配置）
+    When 渲染一篇含容器/代码块/Mermaid/KaTeX 的 Markdown
+    Then 四种扩展全部渲染为带 class 标记的 HTML
+    And 未知容器类型不识别（降级为普通段落）
+
+  Scenario: REND-002 代码高亮 + 复制按钮
+    Given 含语言围栏代码块的 Markdown
+    When 渲染并加载展示层
+    Then 代码块带 language-* 标记，Prism 懒加载后高亮 token
+    And 复制按钮可复制代码文本（剪贴板）
+
+  Scenario: REND-003 Mermaid 容错渲染不白屏
+    Given LLM 生成的 Mermaid 语法错误代码块
+    When 渲染并加载展示层
+    Then 渲染失败时保留图表源码 + 错误提示，页面不白屏
+    And Mermaid 源码在 sanitize 后完整保留（不依赖 data-* 属性）
+
+  Scenario: REND-002 自定义容器
+    Given :::tip / :::warning / :::danger / :::info 容器
+    When 渲染
+    Then 输出 doclight-container + 对应类型 class，内层 Markdown 完整渲染
+
+  Scenario: REND-002 KaTeX 公式标记
+    Given 含 $…$ 内联与 $$…$$ 块级公式的 Markdown
+    When 渲染并加载展示层
+    Then 懒加载 KaTeX 后渲染为数学排版
+    And 未加载时 TeX 源码可见（降级可读）
+
+  Scenario: REND-004 双读友好（扩展渲染不破坏 agent 消费原稿）
+    Given 含扩展语法的 Markdown 源文件
+    When 渲染生成站点
+    Then 原始 .md 源文件不被修改（llms.txt/MCP 仍返回纯 markdown 原稿）
+    And 扩展内容仅存在于渲染产物标记，源码保持可读
+
+  Scenario: XSS 安全（扩展放大攻击面被白名单收敛）
+    Given 扩展语法内注入脚本/事件属性/危险 URL
+    When 渲染
+    Then 输出 HTML 不含可执行脚本（脚本被转义/清除）
+    And 合法扩展标记（class）保留，渲染不中断

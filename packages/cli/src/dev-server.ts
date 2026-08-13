@@ -8,8 +8,16 @@
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { readdirSync, readFileSync, statSync, watch } from "node:fs";
-import { extname, join, resolve, sep } from "node:path";
+import { dirname, extname, join, resolve, sep } from "node:path";
+import { createRequire } from "node:module";
 import { buildNavTree, render, type NavNode } from "doclight-renderer";
+
+// vendor 依赖定位：从 cli 包自身解析（pnpm workspace 把依赖 symlink 进包级 node_modules，
+// process.cwd() 的根 node_modules 找不到——见 .spike/check-vendor.mjs 实测）
+const require = createRequire(import.meta.url);
+function nodeModulesBase(pkg: string): string {
+  return dirname(require.resolve(`${pkg}/package.json`));
+}
 
 export interface DevServerOptions {
   /** 文档根目录（含 .md 与静态资源） */
@@ -222,6 +230,49 @@ function renderPage(options: { title: string; siteTitle: string; navHtml: string
   .search-recent-label { padding: var(--space-2) var(--space-3) var(--space-1); font-size: var(--font-size-xs); color: var(--color-text-muted); }
   .search-recent-item { display: block; width: 100%; text-align: left; padding: var(--space-2) var(--space-3); border: none; background: none; cursor: pointer; color: var(--color-text); border-radius: var(--radius); font-size: var(--font-size-sm); font-family: var(--font-sans); }
   .search-recent-item:hover { background: var(--color-bg-soft); color: var(--color-primary); }
+  /* ===== REND-002 扩展语法渲染（容器 / 代码块+复制 / Mermaid 容错 / KaTeX） ===== */
+  /* 代码块容器（复制按钮定位基准） */
+  pre.doclight-code { position: relative; }
+  pre.doclight-code.has-copy { padding-right: 56px; }
+  .doclight-copy {
+    position: absolute; top: var(--space-2); right: var(--space-2);
+    border: 1px solid var(--color-border); background: var(--color-bg-soft);
+    color: var(--color-text-secondary); border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs); font-family: var(--font-sans);
+    padding: 2px 8px; cursor: pointer; opacity: 0; transition: opacity var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+  }
+  pre.doclight-code:hover .doclight-copy { opacity: 1; }
+  .doclight-copy:hover { color: var(--color-primary); border-color: var(--color-primary); }
+  .doclight-copy.copied { color: var(--color-success); border-color: var(--color-success); opacity: 1; }
+  /* 代码高亮 token 配色（Prism token class，亮/暗两套；与设计令牌一致，不引 Prism 主题 CSS） */
+  .token.comment, .token.prolog, .token.doctype, .token.cdata { color: var(--color-text-muted); font-style: italic; }
+  .token.punctuation { color: var(--color-text-secondary); }
+  .token.keyword, .token.rule, .token.important { color: var(--color-info); }
+  .token.string, .token.attr-value, .token.char { color: var(--color-warning); }
+  .token.number, .token.boolean, .token.constant, .token.symbol { color: #9333ea; }
+  .token.function, .token.method { color: var(--color-primary); }
+  .token.tag, .token.selector, .token.atrule { color: var(--color-primary); }
+  .token.attr-name, .token.property, .token.builtin { color: var(--color-warning); }
+  .token.class-name, .token.maybe-class-name, .token.type { color: #7c3aed; }
+  .token.operator, .token.entity, .token.url { color: var(--color-text); }
+  .token.regex, .token.variable { color: var(--color-warning); }
+  [data-theme="dark"] .token.number, [data-theme="dark"] .token.boolean, [data-theme="dark"] .token.constant, [data-theme="dark"] .token.symbol { color: #c084fc; }
+  [data-theme="dark"] .token.class-name, [data-theme="dark"] .token.maybe-class-name, [data-theme="dark"] .token.type { color: #a78bfa; }
+  /* 自定义容器（:::tip / :::warning / :::danger / :::info） */
+  .doclight-container { margin: 0 0 1.5em; padding: var(--space-3) var(--space-4); border-left: 3px solid var(--color-info); background: var(--color-bg-soft); border-radius: 0 var(--radius) var(--radius) 0; }
+  .doclight-container > :first-child { margin-top: 0; }
+  .doclight-container > :last-child { margin-bottom: 0; }
+  .doclight-tip { border-left-color: var(--color-success); }
+  .doclight-warning { border-left-color: var(--color-warning); }
+  .doclight-danger { border-left-color: var(--color-error); }
+  /* Mermaid：源码 fallback（降级不白屏，REND-003）+ 容错提示 */
+  .doclight-mermaid { margin: 0 0 1.5em; text-align: center; }
+  .doclight-mermaid .doclight-mermaid-src { text-align: left; margin: 0 auto; max-width: 100%; display: inline-block; }
+  .doclight-mermaid-rendered svg { max-width: 100%; height: auto; }
+  .doclight-mermaid-error { color: var(--color-error); font-size: var(--font-size-sm); margin: 0 0 var(--space-2); }
+  /* KaTeX：块级公式居中 + 横向滚动 */
+  .doclight-katex-block { overflow-x: auto; overflow-y: hidden; padding: var(--space-1) 0; margin: 0 0 1.5em; }
+  .doclight-katex-inline { padding: 0 2px; }
   /* 响应式（04 §4.8） */
   @media (max-width: 1024px) {
     .toc-rail { display: none; }
@@ -292,6 +343,53 @@ function sendJson(res: ServerResponse, status: number, data: unknown): void {
 function send404(res: ServerResponse, message: string): void {
   res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
   res.end(message);
+}
+
+/**
+ * REND-002 扩展 vendor 静态资源端点（/__doclight/vendor/*）。
+ * 展示层按需懒加载的扩展库（Prism / Mermaid / KaTeX）由 dev server 从 node_modules
+ * 提供——不进展示层 bundle（守 <25KB gzip 门禁，ADR-0002），SSG/bundle 形态经
+ * window.DOCLIGHT_VENDOR_BASE 切换（Phase 3 决策点）。
+ * KaTeX 字体走 fonts/* 子路径（katex.min.css 内相对引用）。全程路径穿越防护。
+ */
+const VENDOR_FILES: Record<string, { pkg: string; rel: string }> = {
+  "mermaid.min.js": { pkg: "mermaid", rel: "dist/mermaid.min.js" },
+  "prism.min.js": { pkg: "prismjs", rel: "prism.js" },
+  "katex.min.js": { pkg: "katex", rel: "dist/katex.min.js" },
+  "katex.min.css": { pkg: "katex", rel: "dist/katex.min.css" },
+};
+
+/** 从 node_modules 读取并返回文件（穿越防护：解析后必须落在包目录内） */
+function serveNodeModulesFile(pkg: string, rel: string, res: ServerResponse): void {
+  const base = nodeModulesBase(pkg);
+  const resolved = resolve(base, rel);
+  if (!resolved.startsWith(base + sep) && resolved !== base) {
+    send404(res, "路径越界");
+    return;
+  }
+  try {
+    const data = readFileSync(resolved);
+    const mime = MIME[extname(resolved)] ?? "application/octet-stream";
+    res.writeHead(200, { "Content-Type": mime });
+    res.end(data);
+  } catch {
+    send404(res, `vendor 文件缺失：${pkg}/${rel}（先运行 pnpm install）`);
+  }
+}
+
+function serveVendor(urlPath: string, res: ServerResponse): void {
+  const rest = urlPath.slice("/__doclight/vendor/".length);
+  const entry = VENDOR_FILES[rest];
+  if (entry) {
+    serveNodeModulesFile(entry.pkg, entry.rel, res);
+    return;
+  }
+  // KaTeX 字体：fonts/<file> → katex/dist/fonts/<file>
+  if (rest.startsWith("fonts/")) {
+    serveNodeModulesFile("katex", `dist/fonts/${rest.slice("fonts/".length)}`, res);
+    return;
+  }
+  send404(res, `vendor 资源不存在：${urlPath}`);
 }
 
 /**
@@ -394,6 +492,12 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
       } catch {
         send404(res, "dist/display.js 未构建（先运行 npm run build）");
       }
+      return;
+    }
+
+    // REND-002 扩展 vendor 端点（Prism / Mermaid / KaTeX 按需懒加载）
+    if (urlPath.startsWith("/__doclight/vendor/")) {
+      serveVendor(urlPath, res);
       return;
     }
 

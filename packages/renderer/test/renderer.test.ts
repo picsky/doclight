@@ -71,9 +71,9 @@ tags: [入门, 安装]
     expect(html).toContain('<img src="img/logo.png" alt="logo" loading="lazy">');
   });
 
-  it("代码块带语言类名", () => {
+  it("代码块带语言类名（REND-002 标记：doclight-code + language-*）", () => {
     const { html } = render("```js\nconsole.log('hi');\n```");
     // 引号在代码文本节点中无需实体转义，DOMPurify 序列化时解码为字面量（语义等价且安全）
-    expect(html).toContain("<pre><code class=\"language-js\">console.log('hi');</code></pre>");
+    expect(html).toContain('<pre class="doclight-code"><code class="language-js">console.log(\'hi\');</code></pre>');
   });
 });

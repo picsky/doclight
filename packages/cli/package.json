@@ -7,6 +7,9 @@
   "types": "./src/index.ts",
   "description": "doclight CLI：init / dev / build / bundle / deploy（dev 已实现，其余 Phase 3）",
   "dependencies": {
-    "doclight-renderer": "workspace:*"
+    "doclight-renderer": "workspace:*",
+    "katex": "^0.18.4",
+    "mermaid": "^11.16.1",
+    "prismjs": "^1.30.0"
   }
 }

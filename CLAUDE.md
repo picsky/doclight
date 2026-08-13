@@ -4,15 +4,15 @@
 
 **DocLight 是一款服务于人阅读、同时 AI 原生友好的零构建开源文档站引擎。** 一个 `index.html` + `docs/` 文件夹 = 文档站；可选 SSG 静态导出修复 SEO；自带 llms.txt + MCP。
 
-## 当前状态（2026-08-12，晚间）
+## 当前状态（2026-08-13，Phase 2 扩展语法渲染收官）
 
-- **阶段**：Phase 1 ✅ 完整收官 + Phase 2 搜索 ✅ 主体完成（`npm run verify` 6/6 全绿，含 e2e 门禁 33/33 × 三浏览器）；**下一步 = Phase 2 扩展语法渲染（Agent 原生能力，调研确认的差异化核心：Mermaid 容错/代码高亮+复制/自定义容器/KaTeX + 双读验证）**，与 Phase 3（SSG）并行小步推进；演示形态为第二阶段（先做 Claude Code artifacts 差异化评估），见 08-roadmap 与 PHASE-2 交接
-- **已完成（Phase 0 + Phase 1 全部 + Phase 2 搜索）**：自迭代环境（verify 命令族/契约层/CI）+ **REND-001 渲染内核**（marked v18 + DOMPurify+jsdom sanitize + frontmatter，安全测试集全过）+ **NAV-001 导航树**（docs.json）+ **DEV-001 dev server**（`doclight dev` 启动：首屏直出 + SSE 热重载 + 路径穿越防护）+ **展示层**（主题/SPA 路由+路由钩子 PLUG-002/移动端侧边栏）+ **TOC-001 本页目录**（桌面导轨/移动端面板/滚动高亮）+ **THEME-001 完整主题令牌**（03 §3.6 全量设计令牌）+ **PLUG-001 事件总线** + **SRCH-001 内置搜索**（Cmd/Ctrl+K + 中文 bigram 检索 + 索引懒加载 + 最近搜索）+ **verify:e2e 门禁**（Playwright 三浏览器端到端纳入 `npm run verify`）
-- **体积门禁（ADR-0002 修订）**：展示层 < 25KB gzip（实测 **9.8KB**）/ Node 内核 < 30KB（实测 27.9KB）
-- **决策记录**：搜索未引真实 MiniSearch（零依赖构建约束），以同形状 API 自研落地，Phase 3 可一处替换（见 PHASE-2 交接 §决策记录）
-- **遗留**：**Phase 2 扩展语法渲染**（REND-002 扩展语法注册表 / REND-003 Mermaid 容错 / 代码高亮+复制 / 自定义容器 / KaTeX / REND-004 双读验证）；体验细节（专注模式/字号调节/打印样式/Powered by）；搜索索引持久化（localStorage+版本校验，SSG 预构建待 Phase 3）；doclight.json 配置系统（02 §2.5）；视觉回归/同构快照（Phase 0 遗留）；npm 包名注册与域名（待用户决策）
-- **调研结论（2026-08-13，两版并排）**：`research-report-agent-content-opportunity.md`（机会 7.5/10：零构建+扩展语法渲染+双读 三位一体空白，文档站优先、演示次之）+ `research-report-agent-content-demand-validation.md`（批判 3/10：否决独立「展示层」产品，保留「喂 markdown 给 agent」半边）——结论：扩展渲染是**引擎增量功能**而非新独立产品，已落入 08-roadmap Phase 2 优先级
-- **交接详情**：`docs/agent-handoffs/PHASE-2-search-complete.md`（换会话先读它；Phase 1 见 PHASE-1-complete.md、Phase 0 见 PHASE-0-complete.md）
+- **阶段**：Phase 1 ✅ + Phase 2 搜索 ✅ + **Phase 2 扩展语法渲染 ✅ 完成**（`npm run verify` 6/6 全绿，含 e2e 51/51 × 三浏览器）；**下一步 = Phase 3（SSG，SEO 刚需 + 搜索索引预构建）**，与剩余体验细节并行小步推进；演示形态为第二阶段（先做 Claude Code artifacts 差异化评估），见 08-roadmap 与 PHASE-2 交接
+- **已完成（Phase 0 + Phase 1 全部 + Phase 2 搜索 + Phase 2 扩展渲染）**：自迭代环境（verify 命令族/契约层/CI）+ **REND-001 渲染内核** + **NAV-001** + **DEV-001 dev server** + **展示层** + **TOC-001** + **THEME-001** + **PLUG-001/002** + **SRCH-001 搜索** + **REND-002 扩展语法注册表**（白名单式：类型/marked 扩展/sanitize 白名单/懒加载映射/降级策略，容器+代码块+KaTeX 标记）+ **REND-003 Mermaid 容错**（LLM 错误语法→降级源码+提示，100% 不白屏，主题同步）+ **代码高亮（Prism 懒加载）+ 复制按钮** + **自定义容器（:::tip/warning/danger/info）** + **KaTeX（懒加载）** + **REND-004 双读验证**（渲染不破坏 .md 原稿）+ **verify:e2e 扩展用例**（e2e/extensions.spec.ts 6 例 × 三浏览器）
+- **体积门禁（ADR-0002 修订，构建已剥离注释）**：展示层 < 25KB gzip（实测 **7.5KB**）/ Node 内核 < 30KB（renderer 3.9KB + marked + dompurify 合计 **27.8KB**）
+- **决策记录**：①搜索未引真实 MiniSearch，同形状 API 自研（Phase 3 可一处替换）；②**扩展内容承载铁律**：不依赖 `data-*` 属性（DOMPurify 对 data-* 放行受值内容影响，Mermaid 源码含 `>` 被剥离——spike 实测），一律「class 标记 + 子元素/文本承载」；③vendor（Prism/Mermaid/KaTeX）由 dev server 从包级 node_modules 按需服务（`/__doclight/vendor/*`，createRequire 解析），不进展示层 bundle；SSG/bundle 形态经 `window.DOCLIGHT_VENDOR_BASE` 切换（Phase 3 决策点）；④构建产物 `removeComments`（双读注释保留 .ts 源码）
+- **遗留**：**Phase 3（SSG 静态导出 + bundle + 部署）**；体验细节（专注模式/字号调节/打印样式/Powered by）；搜索索引持久化（localStorage+版本校验）；doclight.json 配置系统（02 §2.5）；视觉回归/同构快照（Phase 0 遗留）；npm 包名注册与域名（待用户决策）
+- **调研结论（2026-08-13，两版并排）**：`research-report-agent-content-opportunity.md`（机会 7.5/10：零构建+扩展语法渲染+双读 三位一体空白，文档站优先、演示次之）+ `research-report-agent-content-demand-validation.md`（批判 3/10：否决独立「展示层」产品，保留「喂 markdown 给 agent」半边）——扩展渲染是**引擎增量功能**，已随 Phase 2 落地闭环
+- **交接详情**：`docs/agent-handoffs/PHASE-2-extensions-complete.md`（换会话先读它；搜索见 PHASE-2-search-complete.md、Phase 1 见 PHASE-1-complete.md、Phase 0 见 PHASE-0-complete.md）
 - **开工前**：先跑 `npm run verify` 确认从全绿基线出发（现含 e2e，需本机/CI 已装 Playwright 浏览器）
 
 ## 最高原则（决定一切决策）

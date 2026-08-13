@@ -32,3 +32,15 @@ export function slugify(text: string): string {
     .replace(/[^\w一-龥]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
+
+/** HTML 转义（转义 & < > " '，与 marked 默认 code escape 一致） */
+export function escapeHtml(s: string): string {
+  const map: Record<string, string> = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  };
+  return s.replace(/[&<>"']/g, (ch) => map[ch]!);
+}

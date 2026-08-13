@@ -9,31 +9,22 @@
  * marked.use 只遍历 renderer 的自有可枚举 key，类实例的方法在原型上、
  * #私有字段不可见，会导致自定义 renderer 静默不生效。
  *
- * 自定义能力（03 §3.3.2）：
+ * 自定义能力（03 §3.3.2 + REND-002 扩展注册表）：
  * - 标题：注入锚点 id（供 TOC / 跳转）
  * - 链接：区分外部链接（新标签打开）与站内相对链接（路径修正）
  * - 图片：相对路径修正 + 懒加载
- * - 代码块：包裹 language- 类名
+ * - 代码块：renderCodeBlock 分流（mermaid 围栏 → .doclight-mermaid fallback；普通 → 高亮+复制标记）
  * - 表格：包裹 .table-wrap 容器（横向滚动）
+ * - 扩展语法：从注册表（getExtensions）挂载容器 / KaTeX 等 marked 扩展
  */
 import { Marked, type RendererObject, type Tokens } from "marked";
 import { isExternal, resolveRelative, slugify } from "./link.ts";
+import { renderCodeBlock } from "../extensions/code.ts";
+import { getExtensions } from "../extensions/registry.ts";
 
 export interface MarkdownOptions {
   /** 当前文档路径，用于相对链接/图片修正，如 "guide/quickstart.md" */
   currentPath?: string;
-}
-
-/** HTML 转义（与 marked 默认 code escape 一致，转义 & < > " '） */
-function escapeHtml(s: string): string {
-  const map: Record<string, string> = {
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  };
-  return s.replace(/[&<>"']/g, (ch) => map[ch]!);
 }
 
 /** 将 Markdown 渲染为（未消毒的）HTML 片段。调用方必须再过 sanitizeHtml。 */
@@ -56,8 +47,8 @@ export function renderMarkdown(md: string, options: MarkdownOptions = {}): strin
       return `<img src="${src}" alt="${text}" loading="lazy" />`;
     },
     code({ text, lang }: Tokens.Code) {
-      // 转义代码内容（与 marked 默认 escape 一致，纵深防御）
-      return `<pre><code class="language-${lang ?? ""}">${escapeHtml(text)}</code></pre>`;
+      // REND-002：mermaid 围栏 / 普通代码块分流（含转义，纵深防御）
+      return renderCodeBlock(text, lang);
     },
     table(token: Tokens.Table) {
       const cell = (c: Tokens.TableCell) => `<td>${this.parser.parseInline(c.tokens)}</td>`;
@@ -68,6 +59,10 @@ export function renderMarkdown(md: string, options: MarkdownOptions = {}): strin
   };
   const marked = new Marked();
   marked.use({ renderer });
+  // REND-002：挂载注册表中启用的扩展（容器 / KaTeX 等）
+  for (const ext of getExtensions()) {
+    if (ext.markedExtensions?.length) marked.use({ extensions: ext.markedExtensions });
+  }
   // 本项目始终同步渲染（不启用 async），parse 返回 Promise 的分支不会被触发
   return marked.parse(md) as string;
 }
