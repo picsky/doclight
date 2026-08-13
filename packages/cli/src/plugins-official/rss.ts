@@ -29,6 +29,7 @@ export function createRssPlugin(config?: Record<string, unknown>): PluginDef {
     name: "rss",
     version: "0.1.0",
     config: config ?? {},
+    capabilities: ["rss"],
     onBuild(ctx): BuildFile[] {
       // RSS 需要绝对 URL；siteUrl 未配置时降级跳过（双读友好：提示而非静默失败）
       if (!ctx.siteUrl) {

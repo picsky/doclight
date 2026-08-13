@@ -48,7 +48,9 @@ describe("doclight build（SSG-001 静态导出）", () => {
     expect(existsSync(join(d, "intro.html"))).toBe(true);
     expect(existsSync(join(d, "guide", "quickstart.html"))).toBe(true);
     expect(existsSync(join(d, "guide", "basic.html"))).toBe(true);
-    expect(existsSync(join(d, "README.md"))).toBe(false); // 不残留 .md
+    // AEO-001：每页 markdown 版本随构建拷贝进产物（与 .html 同相对路径）
+    expect(existsSync(join(d, "README.md"))).toBe(true);
+    expect(existsSync(join(d, "guide", "quickstart.md"))).toBe(true);
     rmSync(d, { recursive: true, force: true });
   });
 

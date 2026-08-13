@@ -15,6 +15,7 @@ import { join, resolve } from "node:path";
 import { buildNavTree, render } from "doclight-renderer";
 import { toFile as qrToFile } from "qrcode";
 import { loadConfig } from "./config.ts";
+import { buildCapabilityManifest } from "./capabilities.ts";
 import { BuildPluginPipeline } from "./plugins.ts";
 import { resolveThemeCss } from "./themes.ts";
 import { buildSearchData, displayBundlePath, nodeModulesBase, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
@@ -167,6 +168,21 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
 
   const file = join(outDir, options.filename ?? "doclight.html");
   writeFileSync(file, html);
+  // CAP-001：能力协议——bundle 产物目录同样输出 capabilities.json（三形态一致；
+  // markdownAlternate=false：单文件 hash 路由，无独立页面 URL）
+  writeFileSync(
+    join(outDir, "capabilities.json"),
+    JSON.stringify(
+      buildCapabilityManifest({
+        siteTitle,
+        base: "",
+        form: "bundle",
+        plugins: pipeline.listPlugins().map((p) => ({ name: p.name, version: p.version, capabilities: p.capabilities })),
+      }),
+      null,
+      2
+    )
+  );
   const result: BundleResult = { file, bytes: Buffer.byteLength(html, "utf8"), pages: count, ms: Date.now() - start };
 
   // C2 下载二维码（13 §3.2 分发四触点④）：--qr <url> 生成 bundle-qr.png，手机扫码打开/下载

@@ -127,6 +127,7 @@ module.exports = function createPlugin(config = {}) {
 
 - `vendor`：`Array<{ file, pkg, rel }>`——file 为 vendor 端点路径尾段（`/__doclight/vendor/<file>`），pkg/rel 从 node_modules 定位；构建管线 `collectVendorFiles()` 合并去重（同名首个命中胜出）。
 - `styles`：插件 CSS 字符串，注入页面主样式之后（`<style data-doclight-plugin-css>`），可引用 THEME-001 设计令牌变量（`var(--color-error)` 等）。
+- `capabilities`（CAP-001，可选）：插件提供的渲染能力声明（如 `["mermaid"]`），写入站点产物 `capabilities.json`——Agent 写内容前据此知道该插件启用了哪些语法/能力。不声明则不出现在能力清单。
 - 未启用插件时其 vendor 不服务/不拷贝/不内联（诚实降级，不伪造资源）。
 
 ### 3.3 十一个插槽

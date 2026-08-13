@@ -45,6 +45,9 @@ export interface SiteData {
   search: SearchIndex;
   /** llms-full.txt：markdown 路径 → 全文原稿 */
   fullByPath: Map<string, string>;
+  /** CAP-001：capabilities.json（渲染能力清单：扩展语法/插件/frontmatter 约定/Agent 端点）。
+   *  产物缺失时为 null——get_capabilities 工具据此诚实降级（不伪造）。 */
+  capabilities: Record<string, unknown> | null;
 }
 
 function readJson<T>(dir: string, file: string): T | null {
@@ -89,6 +92,8 @@ export function loadSite(siteDir: string): SiteData {
     docs?: SiteDocMeta[];
   }>(siteDir, "docs.json");
   const searchJson = readJson<{ docs?: SearchDoc[] }>(siteDir, "search-index.json");
+  // CAP-001：能力协议——capabilities.json（宽松读取；缺失/损坏 → null，get_capabilities 诚实降级）
+  const capabilities = readJson<Record<string, unknown>>(siteDir, "capabilities.json");
   const docs = docsJson?.docs ?? [];
   const fullByPath = new Map<string, string>();
   const fullPath = join(siteDir, "llms-full.txt");
@@ -107,5 +112,6 @@ export function loadSite(siteDir: string): SiteData {
     docs,
     search: buildIndex(searchJson?.docs ?? []),
     fullByPath,
+    capabilities,
   };
 }

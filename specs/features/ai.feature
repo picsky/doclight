@@ -37,9 +37,10 @@ Feature: AI 就绪（llms.txt / 语义 frontmatter / MCP Server，Phase 4）
     Then 产物含 docs.json（version/generatedAt/siteTitle/totalDocs/docs[]）
     And 每篇含 path/url/title/summary/tags/category/priority/readingTime/wordCount/headings/hasCode/updatedAt
 
-  Scenario: MCP-001 六个读取端工具正常
+  Scenario: MCP-001 七个工具正常（CAP-001 增 get_capabilities）
     Given MCP Server 加载产物站点
-    Then search_docs 全文搜索返回结构化结果（path/score/snippet/url）
+    Then get_capabilities 返回渲染能力清单（扩展/插件/frontmatter 约定/Agent 端点；缺失时诚实降级）
+    And search_docs 全文搜索返回结构化结果（path/score/snippet/url）
     And read_doc 返回纯 markdown 原稿（REND-004 双读友好），支持 section/format
     And list_docs 按 prefix/category/tags 过滤
     And get_site_summary 返回站点摘要（totalDocs/categories/keyTopics/suggestedEntry）
@@ -50,7 +51,7 @@ Feature: AI 就绪（llms.txt / 语义 frontmatter / MCP Server，Phase 4）
   Scenario: MCP-002 stdio 传输（JSON-RPC 2.0）
     Given 通过 stdin/stdout 以逐行 JSON 与 MCP Server 通信
     Then initialize 返回协议版本 + tools 能力 + serverInfo
-    And tools/list 返回六工具（name/description/inputSchema）
+    And tools/list 返回七工具（get_capabilities 置首；name/description/inputSchema）
     And tools/call 返回 { content: [{type:text}], isError }
     And notification（无 id）不发响应
 

@@ -460,16 +460,16 @@ Node 渲染内核 + dev server 跑起来，实现最基本的文档浏览功能�
 
 ### 任务清单
 
-#### P0 · 能力协议（CAP-001）
-- [ ] `capabilities.json`（或 docs.json 扩展）：声明站点支持的渲染能力（mermaid/tip/KaTeX/插件语法/frontmatter 约定）
-- [ ] 构建产物输出能力清单（三形态一致）
-- [ ] MCP 新增 `get_capabilities` 工具（读取端扩展）
-- [ ] AGENTS.md 生成（Agent 入口：语法/约定/发布链，dogfood 用本仓库）
+#### P0 · 能力协议（CAP-001）✅
+- [x] `capabilities.json`（或 docs.json 扩展）：声明站点支持的渲染能力（mermaid/tip/KaTeX/插件语法/frontmatter 约定）
+- [x] 构建产物输出能力清单（三形态一致：SSG 产物 / dev 端点 / bundle 产物）
+- [x] MCP 新增 `get_capabilities` 工具（读取端扩展，缺失诚实降级）
+- [x] AGENTS.md 生成（Agent 入口：语法/约定/发布链，dogfood 用本仓库）
 
-#### P0 · 发布产物 Agent 友好（AEO-001，对齐 llms.txt v2 / AEO 实践）
-- [ ] 每页 markdown 版本（`.md` URL 或 `<link rel="alternate" type="text/markdown">`）
-- [ ] llms.txt v2 Link 关系（rel="describedby" 指向 llms.txt）
-- [ ] token 计数（llms.txt 条目 + 页面 meta）
+#### P0 · 发布产物 Agent 友好（AEO-001，对齐 llms.txt v2 / AEO 实践）✅
+- [x] 每页 markdown 版本（`.md` URL 或 `<link rel="alternate" type="text/markdown">`）
+- [x] llms.txt v2 Link 关系（rel="describedby" 指向 llms.txt）
+- [x] token 计数（llms.txt 条目 + 页面 meta + docs.json）
 
 #### P1 · 表现层设计系统化（VIS-001）
 - [ ] 4 套设计语言兑现（Minimal/Serif/Modern/Warm——当前仅 minimal/warm）

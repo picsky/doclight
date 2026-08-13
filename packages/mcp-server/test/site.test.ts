@@ -30,7 +30,7 @@ describe("parseLlmsFull（节头解析）", () => {
 });
 
 describe("loadSite（加载 dist 产物）", () => {
-  it("读 docs.json / search-index.json / llms-full.txt", () => {
+  it("读 docs.json / search-index.json / llms-full.txt / capabilities.json", () => {
     const site = loadSite(siteDir);
     expect(site.title).toBe("测试站");
     expect(site.description).toBe("测试站点描述");
@@ -39,6 +39,9 @@ describe("loadSite（加载 dist 产物）", () => {
     expect(site.search.docs.length).toBe(2);
     expect(site.fullByPath.get("guide/a.md")).toContain("安装 DocLight");
     expect(site.fullByPath.get("guide/b.md")).toContain("const x = 1;");
+    // CAP-001：capabilities.json 加载（缺失时为 null，get_capabilities 诚实降级）
+    expect(site.capabilities).not.toBeNull();
+    expect((site.capabilities as { schemaVersion: number }).schemaVersion).toBe(1);
   });
 
   it("产物缺失时优雅降级（空数据，不抛错）", () => {
@@ -47,6 +50,7 @@ describe("loadSite（加载 dist 产物）", () => {
     expect(site.title).toBe("DocLight"); // 缺省
     expect(site.docs).toEqual([]);
     expect(site.fullByPath.size).toBe(0);
+    expect(site.capabilities).toBeNull();
     rmSync(empty, { recursive: true, force: true });
   });
 });

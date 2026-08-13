@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { loadSite, type SiteData } from "../src/site.ts";
 import { findTool, McpError, TOOLS } from "../src/tools.ts";
 import { makeFixtureSite } from "./helpers.ts";
@@ -22,9 +24,10 @@ const call = (name: string, args: Record<string, unknown>) => {
   return tool.handler(site, args) as Record<string, unknown>;
 };
 
-describe("MCP 工具注册表（MCP-001）", () => {
-  it("六工具齐备，顺序稳定", () => {
+describe("MCP 工具注册表（MCP-001 + CAP-001）", () => {
+  it("七工具齐备，顺序稳定（get_capabilities 置首——写内容前第一查）", () => {
     expect(TOOLS.map((t) => t.name)).toEqual([
+      "get_capabilities",
       "search_docs",
       "read_doc",
       "list_docs",
@@ -38,6 +41,37 @@ describe("MCP 工具注册表（MCP-001）", () => {
     for (const t of TOOLS) {
       expect(t.description.length).toBeGreaterThan(10);
       expect(t.inputSchema.type).toBe("object");
+    }
+  });
+});
+
+describe("get_capabilities（CAP-001）", () => {
+  it("产物含 capabilities.json 时返回完整能力清单（source 标注）", () => {
+    const r = call("get_capabilities", {}) as Record<string, unknown>;
+    expect(r.schemaVersion).toBe(1);
+    expect(r.source).toBe("capabilities.json");
+    expect((r.markdown as { extensions: unknown[] }).extensions).toHaveLength(1);
+    expect((r.plugins as Array<{ name: string }>)[0]!.name).toBe("mermaid");
+    expect(r.outputs).toContain("capabilities.json");
+  });
+
+  it("产物缺失 capabilities.json 时诚实降级（complete=false + 重建提示 + 可推导信息，不伪造）", () => {
+    const bare = mkdtempSync(join(tmpdir(), "doclight-mcp-nocap-"));
+    try {
+      writeFileSync(
+        join(bare, "docs.json"),
+        JSON.stringify({ siteTitle: "无能力站", totalDocs: 1, docs: [{ path: "a.md", title: "A", priority: "high" }] })
+      );
+      const bareSite = loadSite(bare);
+      const tool = findTool("get_capabilities");
+      expect(tool).toBeDefined();
+      const r = tool!.handler(bareSite, {}) as Record<string, unknown>;
+      expect(r.complete).toBe(false);
+      expect(String(r.note)).toContain("capabilities.json");
+      expect((r.derived as { siteTitle: string }).siteTitle).toBe("无能力站");
+      expect(r.capabilities).toBeUndefined(); // 不伪造完整清单
+    } finally {
+      rmSync(bare, { recursive: true, force: true });
     }
   });
 });

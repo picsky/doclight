@@ -26,6 +26,8 @@ import { analyzeDoc, buildNavTree, render } from "doclight-renderer";
 import { loadConfig, loadLlmsTxtConfig } from "./config.ts";
 import { resolveThemeCss } from "./themes.ts";
 import { buildLlmsFullTxt, buildLlmsTxt, classifyPriority } from "./llms.ts";
+import { buildCapabilityManifest } from "./capabilities.ts";
+import { estimateTokens, totalTokens } from "./tokens.ts";
 import { BuildPluginPipeline } from "./plugins.ts";
 import type { BuildContext, PluginDef, RenderContext } from "../../core/src/plugin.ts";
 import {
@@ -111,6 +113,8 @@ interface DocMeta {
   next?: string;
   /** 原始 markdown 全文（llms-full.txt 用，不写入 docs.json） */
   content: string;
+  /** AEO-001：token 估算（启发式，tokens.ts） */
+  tokens: number;
 }
 
 /** 宽松转字符串数组（frontmatter 的 tags/prerequisites 等） */
@@ -266,12 +270,18 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
     const description = docDescription(frontmatter) ?? siteDescription;
     const canonicalPath = outRel === "index.html" ? "/" : `/${outRel}`;
     const ogSlug = outRel.replace(/\.html$/, "");
+    // AEO-001：每页 markdown 版本 URL（站点根起；首页对应根级 README/index 源路径）
+    const markdownUrl = `/${rel}`;
+    // AEO-001：token 估算（启发式；Agent 读取成本）
+    const tokens = estimateTokens(source);
     const seo: SeoOptions = {
       base,
       ...(siteUrl ? { siteUrl, canonicalPath, ogImage: `${siteUrl}${base}/og/${ogSlug}.png` } : {}),
       breadcrumb: breadcrumbFor(navTree, rel, ".html", base, finalTitle),
       wordCount: countWords(html),
       updatedAt: docUpdatedAt(frontmatter, join(docsDir, rel)),
+      markdownUrl,
+      tokens,
       ...(typeof frontmatter.author === "string" ? { author: frontmatter.author } : options.author ? { author: options.author } : {}),
     };
     const outPath = join(outDir, outRel);
@@ -320,6 +330,7 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
       prerequisites: toStrArray(frontmatter.prerequisites),
       next: typeof frontmatter.next === "string" ? frontmatter.next : undefined,
       content: source,
+      tokens,
     });
   }
 
@@ -358,8 +369,10 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
 
   // Phase 4 AI 就绪（LLMS-001 + docs.json 增强）：llms.txt / llms-full.txt / docs.json。
   // 语义元数据来自 frontmatter + analyzeDoc；llms.txt 条目含语义字段（合同验收：llms.txt includes semantic frontmatter）
+  // Phase 6 P0（AEO-001）：条目/头部附 token 估算（Agent 读取成本一级指标）。
   const generatedAt = new Date().toISOString();
   const metaForJson = docMetas.map(({ content: _c, ...meta }) => meta);
+  const totalTokenCount = totalTokens(docMetas.map((d) => d.content));
   writeFileSync(
     join(outDir, "llms.txt"),
     buildLlmsTxt({ siteTitle, siteDescription, siteUrl: siteUrl || undefined, docs: metaForJson, generatedAt, llmsTxt })
@@ -371,6 +384,7 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
       docs: docMetas.map((d) => ({ path: d.path, content: d.content })),
       generatedAt,
       llmsTxt,
+      totalTokens: totalTokenCount,
     })
   );
   writeFileSync(
@@ -382,9 +396,37 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
       siteDescription: siteDescription ?? null,
       siteUrl: siteUrl || null,
       totalDocs: metaForJson.length,
+      totalTokens: totalTokenCount,
       docs: metaForJson,
     })
   );
+
+  // CAP-001：能力协议——capabilities.json（渲染能力清单：扩展语法/插件/frontmatter 约定/Agent 端点）。
+  // 插件段来自构建管线（启用插件及其 capabilities 声明，单一事实来源）。
+  writeFileSync(
+    join(outDir, "capabilities.json"),
+    JSON.stringify(
+      buildCapabilityManifest({
+        siteTitle,
+        siteDescription,
+        siteUrl: siteUrl || undefined,
+        base,
+        form: "ssg",
+        plugins: pipeline.listPlugins().map((p) => ({ name: p.name, version: p.version, capabilities: p.capabilities })),
+        generatedAt,
+      }),
+      null,
+      2
+    )
+  );
+
+  // AEO-001：每页 markdown 版本——.md 源文件原样拷贝进产物（与 .html 同相对路径；
+  // 页面 <head> 已输出 link rel="alternate" type="text/markdown" 指向它）。
+  for (const rel of mdFiles) {
+    const dest = join(outDir, rel);
+    mkdirSync(dirname(dest), { recursive: true });
+    writeFileSync(dest, readFileSync(join(docsDir, rel)));
+  }
 
   // 展示层 bundle（渐进式水合所需；缺失则提示先构建）
   try {

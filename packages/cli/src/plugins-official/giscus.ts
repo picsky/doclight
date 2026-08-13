@@ -53,6 +53,7 @@ export function createGiscusPlugin(config?: Record<string, unknown>): PluginDef 
     name: "giscus",
     version: "0.1.0",
     config: config ?? {},
+    capabilities: ["comments"],
     slotContent: {
       // 评论容器 + 客户端脚本（Giscus 自引导，内容承载：div 挂载点 + script，class 标记）
       "content:after": `<div class="doclight-giscus"></div>\n<script src="https://giscus.app/client.js" ${attrs}></script>`,

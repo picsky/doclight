@@ -180,6 +180,32 @@ bundle 形态不仅服务人，也是**给 Agent 的完整内容包**：
 - 无需爬站 / 联网，适合离线或受限环境下的 Agent 消费
 - 与在线形态互补：**在线走 MCP 动态检索，离线走 bundle 静态读取**
 
+### 6.2.4 能力协议 capabilities.json + 发布产物 Agent 友好（Phase 6 P0，CAP-001 / AEO-001）
+
+**能力协议（CAP-001）**：Agent 写内容前必须能回答「这个站能渲染什么」，而不是猜。
+`capabilities.json`（构建产物，站点根）声明：
+
+- `markdown.extensions`：内置扩展语法白名单（REND-002 注册表，含降级说明）
+- `plugins`：启用插件及其 `capabilities` 声明（如 mermaid 插件 → `["mermaid"]`）
+- `markdown.frontmatter`：frontmatter 约定键（FRONT-001）
+- `outputs` / `mcp`：Agent 接口端点与 MCP 工具清单（get_capabilities 置首）
+
+**三形态一致**：同一生成器（`buildCapabilityManifest`）——SSG 产物根 / dev server `/capabilities.json` /
+bundle 产物目录。**AGENTS.md 同源**：`buildAgentsMd(manifest)` 生成（doclight init 写入，
+本仓库 dogfood），capabilities.json 是它的机器形态，单一事实来源不漂移。
+MCP `get_capabilities` 工具：产物缺失时诚实降级（complete=false + 重建提示，不伪造）。
+
+**发布产物 Agent 友好（AEO-001）**：发布后的站点 Agent 读取最优——
+
+- **每页 markdown 版本**：`.md` 源文件随构建拷贝进产物（与 .html 同相对路径），每页
+  `<head>` 输出 `<link rel="alternate" type="text/markdown">`——Agent 免解析 HTML 直接取原稿；
+  sitemap 不含 .md（SEO 不重复收录）
+- **llms.txt v2 Link 关系**：每页 `<head>` 输出 `<link rel="describedby" href=".../llms.txt">`
+- **token 计数**：docs.json 每篇 `tokens` + 头部 `totalTokens`、llms.txt 条目「约 N tokens」与
+  头部总数、llms-full.txt 头部总数、页面 `<meta name="doclight:tokens">`——Agent 读取成本
+  一级指标（Cisco 单文档 193K tokens 威胁上下文窗口，research §二）；估算为启发式
+  （CJK×0.75 + 非CJK词×1.3，上取整），非真实分词器，见 `packages/cli/src/tokens.ts`
+
 ---
 
 ## 6.3 Level 3：可被理解

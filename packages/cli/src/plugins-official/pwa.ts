@@ -29,6 +29,7 @@ export function createPwaPlugin(config?: Record<string, unknown>): PluginDef {
     name: "pwa",
     version: "0.1.0",
     config: config ?? {},
+    capabilities: ["pwa"],
     slotContent: {
       // 函数型：每次渲染按 ctx.base 拼绝对路径（子路径部署安全）
       "head:end": (ctx: RenderContext) => {

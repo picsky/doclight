@@ -80,6 +80,8 @@ export function mcpHttpHandler(
         endpoint: "/mcp",
         siteTitle: site.title,
         totalDocs: site.docs.length,
+        // CAP-001：能力协议——渲染能力清单端点（Agent 写内容前先读）
+        capabilitiesEndpoint: "/capabilities.json",
         tools: toolDescriptors(),
       });
       return true;

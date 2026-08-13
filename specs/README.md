@@ -101,6 +101,22 @@
 
 > 配套：display 层 `extensions.ts` 懒加载跳过已内联全局（C3）；`ux.ts` 纯函数可单测；site.ts renderPage 加 CSS + 按钮 + footer。
 
+## Phase 6 P0 能力协议 + 发布产物 Agent 友好（CAP-001 / AEO-001，2026-08-13 已落地）
+
+> 对应 08-roadmap Phase 6 P0 + ADR-0004（v3 定位「把 Markdown 变成作品」）+ research/product-vision-validation.md §五。
+> 「能力协议」= Agent 写内容前知道这个站能渲染什么（原则零第一落地）；「发布产物 Agent 友好」= 发布后的站点
+> Agent 读取最优（每页 markdown 版本 + llms.txt v2 Link 关系 + token 计数）。
+> 落地形态：`specs/features/capabilities.feature` + `specs/features/aeo.feature` + `packages/cli/src/{capabilities,tokens,agents}.ts`
+> + `packages/mcp-server/src/tools.ts`（get_capabilities 工具，置首）。
+
+| 需求 ID | 名称 | 说明 | 状态 |
+|---|---|---|---|
+| CAP-001 | 能力协议 | capabilities.json（扩展语法/插件能力/frontmatter 约定/Agent 端点，单一事实来源）+ 三形态一致（SSG 产物 / dev 端点 / bundle 产物）+ MCP get_capabilities（缺失诚实降级）+ AGENTS.md 生成（init + 本仓库 dogfood，与 capabilities.json 同源） | 已实现 |
+| AEO-001 | 发布产物 Agent 友好 | 每页 .md 版本（产物副本 + `<link rel="alternate" type="text/markdown">`）+ llms.txt v2 Link 关系（`rel="describedby"` 指向 llms.txt）+ token 计数（docs.json 每篇/llms.txt 条目与头部/页面 meta，启发式估算） | 已实现 |
+
+> 配套：PluginDef 新增 `capabilities?: string[]`（插件能力声明，官方插件 6 个已声明）；llms.txt Agent 端点补
+> /capabilities.json；well-known 发现补 capabilitiesEndpoint；docs.json 补 totalTokens；sitemap 不含 .md（SEO 不重复收录）。
+
 ## 目录结构约定
 
 ```
@@ -114,7 +130,7 @@ specs/
 ## 需求 ID 与追溯（10 §1.4）
 
 - 每个需求项有唯一 ID：`<前缀>-<序号>`（如 `SRCH-001`）
-- 前缀表：`SRCH`(搜索) / `REND`(渲染) / `NAV`(导航) / `TOC` / `THEME` / `SSG` / `MCP` / `PLUG`(插件) / `SPACE`(内容空间) / `CLI` / `SEO`(搜索优化，Phase 3 新增) / `DEV`(dev server，Phase 1 新增) / `LLMS`(llms.txt，Phase 4 新增) / `FRONT`(语义 frontmatter，Phase 4 新增) / `SNAP`(同构快照，Phase 4 补强新增) — 新增前缀须登记（注：ID 正则限 2-5 大写字母，过长前缀不被 spec:check 识别）
+- 前缀表：`SRCH`(搜索) / `REND`(渲染) / `NAV`(导航) / `TOC` / `THEME` / `SSG` / `MCP` / `PLUG`(插件) / `SPACE`(内容空间) / `CLI` / `SEO`(搜索优化，Phase 3 新增) / `DEV`(dev server，Phase 1 新增) / `LLMS`(llms.txt，Phase 4 新增) / `FRONT`(语义 frontmatter，Phase 4 新增) / `SNAP`(同构快照，Phase 4 补强新增) / `CAP`(能力协议，Phase 6 P0 新增) / `AEO`(Agent 发布优化/发布产物 Agent 友好，Phase 6 P0 新增) — 新增前缀须登记（注：ID 正则限 2-5 大写字母，过长前缀不被 spec:check 识别）
 - Agent 在**提交信息与代码中引用需求 ID**（`feat(SRCH-001): ...`）
 - `npm run spec:check` 校验链路：specs 中的每个 ID 在 `packages/*` 的源码或测试中有引用
 - 只有 `.feature` 与编号 RFC 规格（`NNN-*.md`）承载需求 ID；本 README 中的示例 ID 仅供说明，不计入追溯（spec:check 不扫描约定文档）

@@ -9,10 +9,10 @@ function tmpRoot(): string {
 }
 
 describe("doclight init（CLI-001，05 §5.2.1）", () => {
-  it("生成最小骨架：doclight.json + 示例 docs/（README + guide/start）+ index.html", () => {
+  it("生成最小骨架：doclight.json + 示例 docs/（README + guide/start）+ index.html + AGENTS.md", () => {
     const root = tmpRoot();
     const result = initProject({ dir: root, title: "我的文档站", description: "示例描述" });
-    expect(result.created.sort()).toEqual(["doclight.json", "docs/README.md", "docs/guide/start.md", "index.html"]);
+    expect(result.created.sort()).toEqual(["AGENTS.md", "doclight.json", "docs/README.md", "docs/guide/start.md", "index.html"]);
     expect(result.skipped).toEqual([]);
 
     const cfg = JSON.parse(readFileSync(join(root, "doclight.json"), "utf8")) as Record<string, unknown>;
@@ -25,22 +25,24 @@ describe("doclight init（CLI-001，05 §5.2.1）", () => {
     const entry = readFileSync(join(root, "index.html"), "utf8");
     expect(entry).toContain("<title>我的文档站</title>");
     expect(entry).toContain("doclight dev");
+    // CAP-001：AGENTS.md 内容写作入口
+    expect(readFileSync(join(root, "AGENTS.md"), "utf8")).toContain("# AGENTS.md — 我的文档站");
     rmSync(root, { recursive: true, force: true });
   });
 
   it("幂等：已存在文件跳过不覆盖；--force 覆盖", () => {
     const root = tmpRoot();
     const first = initProject({ dir: root, title: "A" });
-    expect(first.created).toHaveLength(4);
+    expect(first.created).toHaveLength(5);
     // 二次 init：全部跳过
     const second = initProject({ dir: root, title: "B" });
     expect(second.created).toEqual([]);
-    expect(second.skipped).toHaveLength(4);
+    expect(second.skipped).toHaveLength(5);
     // doclight.json 仍是 A（未覆盖）
     expect(JSON.parse(readFileSync(join(root, "doclight.json"), "utf8")).title).toBe("A");
     // --force 覆盖
     const third = initProject({ dir: root, title: "C", force: true });
-    expect(third.created).toHaveLength(4);
+    expect(third.created).toHaveLength(5);
     expect(JSON.parse(readFileSync(join(root, "doclight.json"), "utf8")).title).toBe("C");
     rmSync(root, { recursive: true, force: true });
   });

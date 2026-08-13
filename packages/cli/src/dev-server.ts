@@ -14,6 +14,7 @@ import { basename, dirname, join, resolve, sep } from "node:path";
 import { buildNavTree, render } from "doclight-renderer";
 import { loadSite, McpServer, mcpHttpHandler } from "doclight-mcp-server";
 import { buildSite } from "./build.ts";
+import { buildCapabilityManifest } from "./capabilities.ts";
 import { buildSearchData, displayBundlePath, mimeFor, nodeModulesBase, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
 import { BuildPluginPipeline } from "./plugins.ts";
 import type { PluginDef, RenderContext } from "../../core/src/plugin.ts";
@@ -257,6 +258,22 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
     // 导航数据端点（展示层 / 后续形态用）
     if (urlPath === "/__doclight/docs.json") {
       sendJson(res, 200, { version: 1, generatedAt: new Date().toISOString(), nav: buildNavTree(mdFiles) });
+      return;
+    }
+
+    // CAP-001：能力协议——/capabilities.json（dev 形态与 SSG 产物同路径同生成器，
+    // 内容按 dev 状态实时计算：mdFiles 数 / 当前管线插件；Agent 写内容前先读）
+    if (urlPath === "/capabilities.json") {
+      sendJson(
+        res,
+        200,
+        buildCapabilityManifest({
+          siteTitle,
+          base: "",
+          form: "dev",
+          plugins: pipeline.listPlugins().map((p) => ({ name: p.name, version: p.version, capabilities: p.capabilities })),
+        })
+      );
       return;
     }
 

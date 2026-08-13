@@ -33,6 +33,8 @@ export interface LlmsDoc {
   difficulty?: string;
   /** 语义 frontmatter：readingTime（自动计算） */
   readingTime: number;
+  /** AEO-001：token 估算（启发式，tokens.ts；Agent 读取成本一级指标） */
+  tokens?: number;
   priority: LlmsPriority;
 }
 
@@ -96,12 +98,14 @@ const PRIORITY_LABEL: Record<LlmsPriority, string> = {
   low: "参考资料 ★☆☆",
 };
 
-/** 单个条目行：标题 + 摘要 + 语义字段（60 合同：llms.txt 含语义 frontmatter） */
+/** 单个条目行：标题 + 摘要 + 语义字段（60 合同：llms.txt 含语义 frontmatter）
+ *  AEO-001：条目附 token 估算（Agent 读取成本）。 */
 function entryLine(doc: LlmsDoc): string {
   const parts: string[] = [doc.summary];
   if (doc.tags?.length) parts.push(`标签: ${doc.tags.join(" / ")}`);
   if (doc.category) parts.push(`分类: ${doc.category}`);
   parts.push(`${doc.readingTime} 分钟`);
+  if (doc.tokens !== undefined) parts.push(`约 ${doc.tokens} tokens`);
   const extra = parts.filter(Boolean).join("；");
   return `- [${doc.title}](${doc.url}) — ${extra}`;
 }
@@ -114,11 +118,13 @@ export function buildLlmsTxt(options: LlmsOptions): string {
   for (const d of included) groups[d.priority].push(d);
 
   const lines: string[] = [];
+  const totalTokens = included.reduce((sum, d) => sum + (d.tokens ?? 0), 0);
   lines.push(`# ${siteTitle}`);
   lines.push("");
   lines.push(`> llms.txt — 给 AI Agent 看的站点内容索引（LLMS-001，DocLight 自动生成）`);
   lines.push(`> 最后更新：${generatedAt.slice(0, 10)}`);
   lines.push(`> 文档总数：${included.length}`);
+  lines.push(`> 总 token 数：约 ${totalTokens}（启发式估算，AEO-001）`);
   lines.push(`> 站点语言：zh-CN`);
   lines.push("");
   lines.push(`## 站点摘要`);
@@ -143,6 +149,7 @@ export function buildLlmsTxt(options: LlmsOptions): string {
   lines.push(`- /.well-known/mcp — MCP 发现端点（能力描述 + 工具列表）`);
   lines.push(`- /search-index.json — 预构建搜索索引（JSON）`);
   lines.push(`- /docs.json — 文档结构清单（结构化元数据，JSON）`);
+  lines.push(`- /capabilities.json — 渲染能力清单（支持的语法/插件/frontmatter 约定，CAP-001）`);
   lines.push(`- /llms-full.txt — 全站 markdown 全文（大上下文模型用）`);
   lines.push("");
   lines.push(`## 术语表`);
@@ -156,14 +163,16 @@ export function buildLlmsTxt(options: LlmsOptions): string {
   return lines.join("\n");
 }
 
-/** 生成 llms-full.txt（纯函数）：全站 markdown 全文，按文档分节（MCP read_doc 依赖节头） */
+/** 生成 llms-full.txt（纯函数）：全站 markdown 全文，按文档分节（MCP read_doc 依赖节头）
+ *  AEO-001：头部附总 token 估算。 */
 export function buildLlmsFullTxt(options: {
   siteTitle: string;
   docs: Array<{ path: string; content: string }>;
   generatedAt: string;
   llmsTxt?: LlmsTxtConfig;
+  totalTokens?: number;
 }): string {
-  const { siteTitle, docs, generatedAt, llmsTxt } = options;
+  const { siteTitle, docs, generatedAt, llmsTxt, totalTokens } = options;
   const included = docs.filter((d) => !isExcluded(d.path, llmsTxt));
   const lines: string[] = [];
   lines.push(`# ${siteTitle} — 全站文档全文（llms-full.txt）`);
@@ -171,6 +180,7 @@ export function buildLlmsFullTxt(options: {
   lines.push(`> 由 DocLight 自动生成（LLMS-001），供大上下文 AI 模型整站读取；按文档分节。`);
   lines.push(`> 最后更新：${generatedAt.slice(0, 10)}`);
   lines.push(`> 文档总数：${included.length}`);
+  if (totalTokens !== undefined) lines.push(`> 总 token 数：约 ${totalTokens}（启发式估算，AEO-001）`);
   lines.push("");
   for (const d of included) {
     lines.push(`## 路径：${d.path}`);

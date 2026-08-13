@@ -35,6 +35,11 @@ export class BuildPluginPipeline {
     this.plugins = plugins;
   }
 
+  /** 当前管线中的插件定义（CAP-001：capabilities.json 的 plugins 段数据源） */
+  listPlugins(): PluginDef[] {
+    return [...this.plugins];
+  }
+
   /** 正向链：beforeRender（A → B → marked） */
   runBeforeRender(md: string, ctx: RenderContext): string {
     let result = md;

@@ -290,7 +290,7 @@ const getSiteSummary: McpTool = {
       categories: [...catMap.values()],
       keyTopics: [...tagCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([t]) => t),
       suggestedEntry: suggested?.path,
-      aiFeatures: ["llms.txt", "mcp", "search-api", "docs.json"],
+      aiFeatures: ["llms.txt", "mcp", "search-api", "docs.json", "capabilities.json"],
     };
   },
 };
@@ -348,8 +348,30 @@ const findExamples: McpTool = {
   },
 };
 
-/** 工具注册表（顺序即 tools/list 顺序） */
-export const TOOLS: McpTool[] = [searchDocs, readDoc, listDocs, getSiteSummary, getOutline, findExamples];
+/* ---- get_capabilities：站点渲染能力清单（CAP-001，写内容前先查） ---- */
+const getCapabilities: McpTool = {
+  name: "get_capabilities",
+  description:
+    "获取站点渲染能力清单（capabilities.json，CAP-001）：支持的 Markdown 扩展语法 / 插件能力 / frontmatter 约定 / Agent 产物端点 / MCP 工具。写内容前先查，避免使用站点不支持的语法。",
+  inputSchema: { type: "object", properties: {} },
+  handler(site: SiteData) {
+    // 完整清单来自产物 capabilities.json；缺失时诚实降级（返回可推导的最小信息 + 重建提示，不伪造）
+    if (site.capabilities) return { ...site.capabilities, source: "capabilities.json" };
+    return {
+      complete: false,
+      note: "capabilities.json 缺失：请先运行 doclight build（CAP-001 产物含渲染能力清单）",
+      derived: {
+        siteTitle: site.title,
+        description: site.description,
+        totalDocs: site.docs.length,
+        outputs: ["llms.txt", "llms-full.txt", "docs.json", "search-index.json", "capabilities.json"],
+      },
+    };
+  },
+};
+
+/** 工具注册表（顺序即 tools/list 顺序；get_capabilities 置首——写内容前的第一查） */
+export const TOOLS: McpTool[] = [getCapabilities, searchDocs, readDoc, listDocs, getSiteSummary, getOutline, findExamples];
 
 export function findTool(name: string): McpTool | undefined {
   return TOOLS.find((t) => t.name === name);

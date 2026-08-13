@@ -31,10 +31,11 @@ describe("MCP 协议（MCP-002 JSON-RPC）", () => {
     expect(server.handle({ jsonrpc: "2.0", method: "notifications/initialized" })).toBeNull();
   });
 
-  it("tools/list → 六工具（name/description/inputSchema）", () => {
+  it("tools/list → 七工具（name/description/inputSchema；CAP-001 get_capabilities 置首）", () => {
     const res = server.handle({ jsonrpc: "2.0", id: 2, method: "tools/list" })!;
     const tools = (res.result as { tools: Array<{ name: string; description: string; inputSchema: { type: string } }> }).tools;
-    expect(tools.length).toBe(6);
+    expect(tools.length).toBe(7);
+    expect(tools.map((t) => t.name)[0]).toBe("get_capabilities");
     expect(tools.map((t) => t.name)).toContain("search_docs");
     for (const t of tools) {
       expect(t.description.length).toBeGreaterThan(10);

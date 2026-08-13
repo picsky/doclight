@@ -12,6 +12,8 @@
 import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { escapeHtml } from "./site.ts";
+import { buildAgentsMd } from "./agents.ts";
+import { buildCapabilityManifest } from "./capabilities.ts";
 
 export interface InitOptions {
   /** 目标项目根目录，默认当前目录 */
@@ -153,6 +155,16 @@ export function initProject(options: InitOptions = {}): InitResult {
   writeIfAbsent(root, "docs/README.md", SAMPLE_README, !!options.force, created, skipped);
   writeIfAbsent(root, "docs/guide/start.md", SAMPLE_GUIDE, !!options.force, created, skipped);
   writeIfAbsent(root, "index.html", entryHtml({ title, description }), !!options.force, created, skipped);
+  // CAP-001：AGENTS.md 内容写作入口（Agent 写内容前先读：支持的语法 / frontmatter 约定 / 发布链；
+  // 与 capabilities.json 同源——init 生成的 manifest 驱动）
+  writeIfAbsent(
+    root,
+    "AGENTS.md",
+    buildAgentsMd(buildCapabilityManifest({ siteTitle: title, siteDescription: description, base: "", form: "ssg" })) + "\n",
+    !!options.force,
+    created,
+    skipped
+  );
 
   // 校验 docs 目录确实创建（写文件隐含，但防御性保留）
   if (!statSync(join(root, "docs")).isDirectory()) {

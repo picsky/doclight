@@ -154,6 +154,7 @@ export function createMermaidPlugin(config?: Record<string, unknown>): PluginDef
     name: "mermaid",
     version: "0.1.0",
     config: config ?? {},
+    capabilities: ["mermaid"],
     vendor: [{ file: "mermaid.min.js", pkg: "mermaid", rel: "dist/mermaid.min.js" }],
     styles: mermaidStyles,
     extendMarked() {

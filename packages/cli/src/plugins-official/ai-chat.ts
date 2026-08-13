@@ -86,6 +86,7 @@ export function createAiChatPlugin(config?: Record<string, unknown>): PluginDef 
     name: "ai-chat",
     version: "0.1.0",
     config: config ?? {},
+    capabilities: ["ai-chat"],
     slotContent: { "content:after": html },
   };
 }

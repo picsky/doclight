@@ -313,6 +313,11 @@ export interface SeoOptions {
   author?: string;
   /** 社交卡片图绝对 URL（og:image / twitter:image） */
   ogImage?: string;
+  /** AEO-001：本页 markdown 版本 URL（站点根起，如 "/guide/foo.md"；输出
+   *  <link rel="alternate" type="text/markdown">——Agent 免解析 HTML 直接取原稿） */
+  markdownUrl?: string;
+  /** AEO-001：本页 token 估算（<meta name="doclight:tokens">，Agent 读取成本） */
+  tokens?: number;
 }
 
 export interface RenderPageOptions {
@@ -488,6 +493,20 @@ export function renderPage(options: RenderPageOptions): string {
       };
       seoHead += `<script type="application/ld+json">${safeJson(crumbsJson)}</script>\n`;
       breadcrumb = breadcrumbHtml(seo.breadcrumb);
+    }
+
+    // AEO-001：发布产物 Agent 友好——
+    // 1) 每页 markdown 版本（<link rel="alternate" type="text/markdown">，Agent 免解析 HTML 直接取原稿）
+    // 2) llms.txt v2 Link 关系（rel="describedby" 指向 llms.txt；仅 SSG——dev 不产出 llms.txt，不输出死链）
+    // 3) token 计数（<meta name="doclight:tokens">，Agent 读取成本一级指标）
+    if (seo.markdownUrl) {
+      seoHead += `<link rel="alternate" type="text/markdown" href="${escapeHtml(`${base}${seo.markdownUrl}`)}">\n`;
+    }
+    if (form === "ssg") {
+      seoHead += `<link rel="describedby" href="${escapeHtml(`${base}/llms.txt`)}">\n`;
+    }
+    if (typeof seo.tokens === "number") {
+      seoHead += `<meta name="doclight:tokens" content="${seo.tokens}">\n`;
     }
   }
 

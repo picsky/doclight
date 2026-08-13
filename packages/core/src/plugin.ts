@@ -23,6 +23,9 @@ export interface PluginDef {
   vendor?: PluginVendorFile[];
   /** 插件 CSS（注入页面 <style data-doclight-plugin-css>；空缺省） */
   styles?: string;
+  /** CAP-001：插件提供的渲染能力声明（写入 capabilities.json，Agent 写内容前据此
+   *  知道该插件启用了哪些语法/能力，如 mermaid 插件声明 ["mermaid"]）。缺省不声明。 */
+  capabilities?: string[];
 
   /* ===== 构建时钩子（Node 端） ===== */
 

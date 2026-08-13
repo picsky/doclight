@@ -80,6 +80,25 @@ export function makeFixtureSite(): string {
       "",
     ].join("\n")
   );
+  // CAP-001：能力协议产物（get_capabilities 工具数据源）
+  writeFileSync(
+    join(dir, "capabilities.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      generatedAt: "2026-08-13T00:00:00.000Z",
+      site: { title: "测试站", description: "测试站点描述", base: "", language: "zh-CN" },
+      renderer: { engine: "doclight-renderer", version: "0.1.0", markdown: "CommonMark + GFM" },
+      markdown: {
+        frontmatter: ["title", "description", "priority", "tags", "category"],
+        extensions: [{ id: "container", title: "自定义容器", degradation: "降级为普通 div" }],
+      },
+      plugins: [{ name: "mermaid", version: "0.1.0", capabilities: ["mermaid"] }],
+      outputs: ["llms.txt", "llms-full.txt", "docs.json", "search-index.json", "capabilities.json"],
+      pages: { htmlSuffix: ".html", markdownAlternate: true },
+      mcp: { endpoint: "/mcp", wellKnown: "/.well-known/mcp", tools: ["get_capabilities", "search_docs"] },
+      tokens: { estimate: "启发式估算" },
+    })
+  );
   // read_doc format=html 用：产物 .html（含 <article>）
   mkdirSync(join(dir, "guide"), { recursive: true });
   writeFileSync(

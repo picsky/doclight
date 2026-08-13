@@ -26,6 +26,7 @@ export function createPlausiblePlugin(config?: Record<string, unknown>): PluginD
     name: "plausible",
     version: "0.1.0",
     config: config ?? {},
+    capabilities: ["analytics"],
     slotContent: {
       "head:end": `<script defer data-domain="${escapeAttr(cfg.domain)}" src="${escapeAttr(src)}"></script>`,
     },
