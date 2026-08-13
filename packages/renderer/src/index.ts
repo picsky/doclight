@@ -11,6 +11,9 @@ import { renderMarkdown } from "./core/markdown.ts";
 import { sanitizeHtml } from "./core/sanitize.ts";
 export { buildDocsJson, buildNavTree } from "./nav.ts";
 export type { DocsJson, NavFile, NavGroup, NavNode } from "./nav.js";
+// FRONT-001 语义 frontmatter 自动计算（summary/readingTime/wordCount/headings，06 §6.3.1）
+export { analyzeDoc, countWords } from "./analyze.ts";
+export type { DocAnalysis, DocHeading } from "./analyze.ts";
 // REND-002 扩展语法注册表（白名单式：schema / 注册 / 懒加载映射 / 降级策略）
 export {
   DEFAULT_EXTENSIONS,

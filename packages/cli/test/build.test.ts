@@ -225,6 +225,96 @@ describe("doclight build（SEO 全套 + 子路径部署，05 §5.4）", () => {
   });
 });
 
+describe("Phase 4 AI 就绪（LLMS-001 + FRONT-001 + docs.json 增强）", () => {
+  it("build 自动生成 llms.txt：含 MCP 与 /llms-full.txt 链接（合同验收：llms 通道）", () => {
+    const d = tmpBuildDir();
+    buildSite({ dir: docsDir, outDir: d });
+    const llms = readFileSync(join(d, "llms.txt"), "utf8");
+    expect(llms).toContain("MCP"); // 验收：llms.txt 找到字符串 "MCP"
+    expect(llms).toContain("/llms-full.txt"); // 验收：llms.txt 含 llms-full 链接
+    expect(llms).toContain("## 核心文档 ★★★"); // README 命中 high 分级
+    expect(llms).toContain("## 使用指南 ★★☆");
+    rmSync(d, { recursive: true, force: true });
+  });
+
+  it("llms.txt 条目含语义 frontmatter（summary/tags/readingTime——合同验收项）", () => {
+    const d = tmpBuildDir();
+    buildSite({ dir: docsDir, outDir: d });
+    const llms = readFileSync(join(d, "llms.txt"), "utf8");
+    const introLine = llms.split("\n").find((l) => l.includes("入门"))!;
+    expect(introLine).toContain("入门指南"); // intro.md 的 frontmatter summary
+    expect(introLine).toContain("分钟"); // readingTime 语义字段
+    rmSync(d, { recursive: true, force: true });
+  });
+
+  it("llms-full.txt：全文按 `## 路径：<path>` 分节，无 error 字符串（验收）", () => {
+    const d = tmpBuildDir();
+    buildSite({ dir: docsDir, outDir: d });
+    const full = readFileSync(join(d, "llms-full.txt"), "utf8");
+    expect(full).not.toContain("error"); // 验收：llms-full.txt 无 "error"
+    expect(full).toContain("## 路径：guide/quickstart.md");
+    expect(full).toContain("# 快速开始");
+    expect(full).toContain("## 路径：README.md");
+    expect(full).toContain("欢迎来到测试站");
+    rmSync(d, { recursive: true, force: true });
+  });
+
+  it("docs.json：结构化元数据（summary/headings/readingTime/wordCount/url/priority）", () => {
+    const d = tmpBuildDir();
+    buildSite({ dir: docsDir, outDir: d });
+    const docsJson = JSON.parse(readFileSync(join(d, "docs.json"), "utf8")) as {
+      totalDocs: number;
+      docs: Array<{ path: string; url: string; summary: string; headings: unknown[]; readingTime: number; wordCount: number; priority: string }>;
+    };
+    expect(docsJson.totalDocs).toBe(4);
+    const quickstart = docsJson.docs.find((x) => x.path === "guide/quickstart.md")!;
+    expect(quickstart).toBeDefined();
+    expect(quickstart.url).toBe("/guide/quickstart.html");
+    expect(quickstart.headings.some((h) => (h as { text: string }).text === "快速开始")).toBe(true);
+    expect(quickstart.readingTime).toBeGreaterThanOrEqual(1);
+    expect(quickstart.wordCount).toBeGreaterThan(0);
+    expect(quickstart.priority).toBe("high"); // 06 §6.2.1：quickstart 命名命中 high 分级
+    const home = docsJson.docs.find((x) => x.path === "README.md")!;
+    expect(home.url).toBe("/");
+    expect(home.priority).toBe("high");
+    rmSync(d, { recursive: true, force: true });
+  });
+
+  it("preview 可 GET /llms.txt /llms-full.txt /docs.json（验收 HTTP 通道）", async () => {
+    const d = tmpBuildDir();
+    buildSite({ dir: docsDir, outDir: d });
+    preview = await startPreviewServer({ dir: d, port: 0 });
+    const llms = await (await fetch(`${preview.url}llms.txt`)).text();
+    expect(llms).toContain("MCP");
+    const full = await (await fetch(`${preview.url}llms-full.txt`)).text();
+    expect(full).not.toContain("error");
+    const docsJson = await (await fetch(`${preview.url}docs.json`)).json();
+    expect((docsJson as { totalDocs: number }).totalDocs).toBe(4);
+    await preview.close();
+    preview = undefined as unknown as PreviewServer;
+    rmSync(d, { recursive: true, force: true });
+  });
+
+  it("用户自定义分级与排除（build.llmsTxt 宽松读取）", () => {
+    const proj = mkdtempSync(join(tmpdir(), "doclight-llms-cfg-"));
+    mkdirSync(join(proj, "docs", "guide"), { recursive: true });
+    // buildSite 读 cwd 与 docsDir 下的 doclight.json；测试 cwd 是仓库根，故配置放 docsDir 内
+    writeFileSync(join(proj, "docs", "doclight.json"), JSON.stringify({ build: { llmsTxt: { priority: { low: ["guide/"] }, exclude: ["guide/basic.md"] } } }));
+    writeFileSync(join(proj, "docs", "README.md"), "# 首页\n\n内容");
+    writeFileSync(join(proj, "docs", "guide", "quickstart.md"), "---\ntitle: 快速开始\n---\n\n# 快速开始\n\n内容");
+    writeFileSync(join(proj, "docs", "guide", "basic.md"), "---\ntitle: 基础\n---\n\n# 基础\n\n内容");
+    const d = tmpBuildDir();
+    buildSite({ dir: join(proj, "docs"), outDir: d });
+    const llms = readFileSync(join(d, "llms.txt"), "utf8");
+    expect(llms).toContain("快速开始");
+    expect(llms).not.toContain("基础"); // 被 exclude
+    const full = readFileSync(join(d, "llms-full.txt"), "utf8");
+    expect(full).not.toContain("# 基础"); // exclude 同时从全文剔除
+    rmSync(proj, { recursive: true, force: true });
+    rmSync(d, { recursive: true, force: true });
+  });
+});
+
 describe("doclight preview（PREVIEW-001 产物预览）", () => {
   it("服务首页与 .html 页面，无扩展名 / .md 回退到 .html", async () => {
     const d = tmpBuildDir();

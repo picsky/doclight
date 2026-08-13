@@ -322,42 +322,46 @@ Node 渲染内核 + dev server 跑起来，实现最基本的文档浏览功能�
 
 > **调研确认（两版报告唯一高度共识点）**：AI 原生消费接口（llms.txt/MCP/.md endpoint）是真实增长方向（Vercel KB、Cloudflare、Mintlify 转型佐证），也是产品叙事的锚点。批判版（3/10）虽否决「渲染层」叙事，但明确**保留并强化「喂 markdown 给 agent」这半边**——正是本 Phase 与 Phase 2 扩展渲染组成的完整闭环：「Agent 内容空间」= 零构建渲染 + 扩展语法 + 双读。
 
+> **状态（2026-08-13）：✅ 读取端（AI 就绪核心）完成** —— LLMS-001 / FRONT-001 / docs.json 增强 / MCP-001/002/003 全部落地，
+> 交接见 `docs/agent-handoffs/PHASE-4-complete.md`；`npm run verify` 全绿（单测 221/221）+ MCP 双传输端到端实测。
+> **剩余：内容写入与接入体验（publish CLI / Skill / space / 接入指南）——「Agent 内容空间」写入半边**。
+
 ### 任务清单
 
 #### llms.txt
-- [ ] `doclight build --llms-txt` 命令
-- [ ] 智能分级（自动判断优先级）
-- [ ] 站点摘要生成
-- [ ] Agent 专用端点说明
-- [ ] 用户自定义优先级配置
-- [ ] llms-full.txt（全文版本）
+- [x] `doclight build` 自动生成 llms.txt（LLMS-001，无需单独命令）
+- [x] 智能分级（自动判断优先级：frontmatter > 用户配置 > 默认规则）
+- [x] 站点摘要生成
+- [x] Agent 专用端点说明
+- [x] 用户自定义优先级配置（`build.llmsTxt.priority`，宽松读取）
+- [x] llms-full.txt（全文版本，按 `## 路径：` 分节，MCP read_doc 数据源）
 
 #### 语义 frontmatter
-- [ ] 完整的 frontmatter 字段规范
-- [ ] `summary` 自动提取（首段）
-- [ ] `readingTime` 自动计算
-- [ ] `wordCount` 自动统计
-- [ ] `headings` 大纲数据
-- [ ] `ai.*` 增强字段支持
+- [x] 完整的 frontmatter 字段规范（06 §6.3.1，语义字段由 analyzeDoc 自动计算）
+- [x] `summary` 自动提取（首段，~200 字截断）
+- [x] `readingTime` 自动计算
+- [x] `wordCount` 自动统计
+- [x] `headings` 大纲数据
+- [ ] `ai.*` 增强字段支持（嵌套 YAML 需前端解析器扩展，遗留）
 
 #### docs.json 增强
-- [ ] 每篇文档的结构化元数据
-- [ ] 标签、分类、难度
-- [ ] 前置/后续阅读关系
-- [ ] 标题大纲
+- [x] 每篇文档的结构化元数据（path/url/title/summary/priority/readingTime/wordCount/headings/hasCode/updatedAt）
+- [x] 标签、分类、难度
+- [x] 前置/后续阅读关系（prerequisites/next 从 frontmatter 透传）
+- [x] 标题大纲
 
 #### MCP Server
-- [ ] MCP 协议基础实现
-- [ ] 工具实现：
-  - [ ] `search_docs` — 全文搜索
-  - [ ] `read_doc` — 读取文档
-  - [ ] `list_docs` — 列出文档树
-  - [ ] `get_site_summary` — 站点摘要
-  - [ ] `get_outline` — 文档大纲
-  - [ ] `find_examples` — 代码示例搜索
-- [ ] well-known 发现端点
-- [ ] 独立服务模式（HTTP）
-- [ ] 插件模式（集成到开发服务器）
+- [x] MCP 协议基础实现（MCP-002 stdio：JSON-RPC 2.0 2025-06-18 子集，零依赖）
+- [x] 工具实现：
+  - [x] `search_docs` — 全文搜索
+  - [x] `read_doc` — 读取文档（纯 markdown 原稿，REND-004 双读）
+  - [x] `list_docs` — 列出文档树
+  - [x] `get_site_summary` — 站点摘要
+  - [x] `get_outline` — 文档大纲
+  - [x] `find_examples` — 代码示例搜索
+- [x] well-known 发现端点（GET /.well-known/mcp，MCP-003）
+- [x] 独立服务模式（HTTP，MCP-003）
+- [ ] 插件模式（集成到开发服务器，遗留——独立 HTTP 已覆盖部署场景）
 
 #### 内容写入与接入体验（Agent 内容空间核心，见 14）
 - [ ] `doclight publish` CLI（发布到 local / git / space）
@@ -368,19 +372,19 @@ Node 渲染内核 + dev server 跑起来，实现最基本的文档浏览功能�
 - [ ] Harness 课程站 dogfood 验证
 
 ### 交付物
-- llms.txt 自动生成
-- 语义化 frontmatter 支持
-- 可用的 MCP Server（读取端）
-- 内容写入通道（publish CLI + Skill + 接入指南）
-- 完整的 AI 集成文档
+- llms.txt 自动生成 ✅
+- 语义化 frontmatter 支持 ✅
+- 可用的 MCP Server（读取端）✅
+- 内容写入通道（publish CLI + Skill + 接入指南）⏳ 剩余
+- 完整的 AI 集成文档 ⏳ 随内容空间补齐
 
 ### 验收标准
-- `doclight build` 自动生成 llms.txt
-- MCP Server 所有工具正常工作
-- 主流 AI Agent（Claude Desktop 等）能连接和使用
-- 文档结构能被 AI 清晰理解
-- **复制「魔法咒语」给 Agent 后能自动完成接入并发布内容（dogfood 验证）**
-- `doclight publish` 能发布到各 provider 并返回 URL
+- `doclight build` 自动生成 llms.txt ✅
+- MCP Server 所有工具正常工作 ✅（六工具 + stdio/HTTP 双传输实测）
+- 主流 AI Agent（Claude Desktop 等）能连接和使用 ✅（stdio 接入形态实测）
+- 文档结构能被 AI 清晰理解 ✅（语义 frontmatter + docs.json 结构化元数据）
+- **复制「魔法咒语」给 Agent 后能自动完成接入并发布内容（dogfood 验证）** ⏳ 内容空间剩余
+- `doclight publish` 能发布到各 provider 并返回 URL ⏳ 内容空间剩余
 
 ---
 

@@ -35,6 +35,23 @@
 > 配套：`--base` 子路径部署（ssg.feature）、搜索索引持久化（search.feature / 03 §3.8.5）、
 > 迁移指南 `docs/migration-from-docsify.md`。
 
+## Phase 4 AI 就绪（LLMS-001 / FRONT-001 / MCP-001~003，2026-08-13 已落地）
+
+> 对应 08-roadmap Phase 4 + 06-ai-native §6.2/§6.3/§6.4。完整闭环：「Agent 内容空间」=
+> 零构建渲染 + 扩展语法 + 双读（llms.txt/MCP 返回纯 markdown 原稿）。
+> 落地形态：`specs/features/ai.feature` + `packages/renderer/src/analyze.ts`（FRONT-001 语义分析）+
+> `packages/cli/src/llms.ts`（llms.txt 智能分级 + 全文分节）+ `packages/mcp-server/`（MCP-001 工具 / MCP-002 stdio / MCP-003 HTTP）。
+
+| 需求 ID | 名称 | 说明 | 状态 |
+|---|---|---|---|
+| LLMS-001 | llms.txt 生成 | build 自动生成 llms.txt（站点摘要 + 智能分级 + 语义 frontmatter 条目 + Agent 端点）+ llms-full.txt（按节全文，read_doc 数据源） | 已实现 |
+| FRONT-001 | 语义 frontmatter | analyzeDoc 自动计算 summary（首段）/ wordCount / readingTime / headings / hasCode；docs.json 携带结构化元数据 | 已实现 |
+| MCP-001 | MCP 读取端工具 | search_docs / read_doc / list_docs / get_site_summary / get_outline / find_examples，只服务产物站点 | 已实现 |
+| MCP-002 | stdio 传输 | JSON-RPC 2.0 逐行协议：initialize / tools/list / tools/call / ping；工具失败 isError=true | 已实现 |
+| MCP-003 | HTTP + 发现 | POST /mcp + GET /.well-known/mcp（能力/工具列表）+ GET / 双读能力页 | 已实现 |
+
+> 配套：MCP 只服务 dist-site（产物）而非 docs/；`build.llmsTxt` 用户分级/排除宽松读取（schema 扩展待批准）。
+
 ## 目录结构约定
 
 ```
@@ -48,7 +65,7 @@ specs/
 ## 需求 ID 与追溯（10 §1.4）
 
 - 每个需求项有唯一 ID：`<前缀>-<序号>`（如 `SRCH-001`）
-- 前缀表：`SRCH`(搜索) / `REND`(渲染) / `NAV`(导航) / `TOC` / `THEME` / `SSG` / `MCP` / `PLUG`(插件) / `SPACE`(内容空间) / `CLI` / `SEO`(搜索优化，Phase 3 新增) / `DEV`(dev server，Phase 1 新增) — 新增前缀须登记
+- 前缀表：`SRCH`(搜索) / `REND`(渲染) / `NAV`(导航) / `TOC` / `THEME` / `SSG` / `MCP` / `PLUG`(插件) / `SPACE`(内容空间) / `CLI` / `SEO`(搜索优化，Phase 3 新增) / `DEV`(dev server，Phase 1 新增) / `LLMS`(llms.txt，Phase 4 新增) / `FRONT`(语义 frontmatter，Phase 4 新增) — 新增前缀须登记
 - Agent 在**提交信息与代码中引用需求 ID**（`feat(SRCH-001): ...`）
 - `npm run spec:check` 校验链路：specs 中的每个 ID 在 `packages/*` 的源码或测试中有引用
 - 只有 `.feature` 与编号 RFC 规格（`NNN-*.md`）承载需求 ID；本 README 中的示例 ID 仅供说明，不计入追溯（spec:check 不扫描约定文档）

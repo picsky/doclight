@@ -21,8 +21,9 @@
  */
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { buildNavTree, render } from "doclight-renderer";
-import { loadConfig } from "./config.ts";
+import { analyzeDoc, buildNavTree, render } from "doclight-renderer";
+import { loadConfig, loadLlmsTxtConfig } from "./config.ts";
+import { buildLlmsFullTxt, buildLlmsTxt, classifyPriority } from "./llms.ts";
 import {
   breadcrumbFor,
   buildSearchData,
@@ -68,6 +69,35 @@ export interface BuildResult {
   bytes: number;
   /** 构建耗时（ms） */
   ms: number;
+}
+
+/** 单篇文档的语义元数据（Phase 4 AI 就绪：docs.json 增强 + llms 生成共用） */
+interface DocMeta {
+  path: string;
+  url: string;
+  title: string;
+  summary: string;
+  tags?: string[];
+  category?: string;
+  priority: "high" | "medium" | "low";
+  difficulty?: string;
+  readingTime: number;
+  wordCount: number;
+  hasCode: boolean;
+  headings: Array<{ level: number; id: string; text: string }>;
+  updatedAt?: string;
+  author?: string;
+  prerequisites?: string[];
+  next?: string;
+  /** 原始 markdown 全文（llms-full.txt 用，不写入 docs.json） */
+  content: string;
+}
+
+/** 宽松转字符串数组（frontmatter 的 tags/prerequisites 等） */
+function toStrArray(v: unknown): string[] | undefined {
+  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string");
+  if (typeof v === "string" && v.trim()) return [v.trim()];
+  return undefined;
 }
 
 /** 递归拷贝静态资源（跳过 .md：已渲染为 .html） */
@@ -162,7 +192,10 @@ function writeRobots(outDir: string, siteUrl: string, base: string): void {
 export function buildSite(options: BuildOptions = {}): BuildResult {
   const start = Date.now();
   // 配置合并：CLI 选项 > doclight.json > 约定默认（02 §2.5）
-  const cfg = loadConfig([join(process.cwd(), "doclight.json"), join(resolve(options.dir ?? "docs"), "doclight.json")]);
+  const configFiles = [join(process.cwd(), "doclight.json"), join(resolve(options.dir ?? "docs"), "doclight.json")];
+  const cfg = loadConfig(configFiles);
+  // LLMS-001：llms.txt 用户自定义分级/排除（宽松读取 build.llmsTxt，06 §6.2.1）
+  const llmsTxt = loadLlmsTxtConfig(configFiles);
   const docsDir = resolve(options.dir ?? cfg.docsDir ?? "docs");
   const outDir = resolve(options.outDir ?? cfg.outputDir ?? "dist-site");
   const siteTitle = options.title ?? cfg.title ?? "DocLight";
@@ -184,6 +217,8 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
 
   /** sitemap 数据 + OG 卡收集 */
   const sitePages: Array<{ loc: string; lastmod?: string; ogSlug: string; title: string; description?: string }> = [];
+  /** 语义元数据收集（Phase 4：llms.txt / llms-full.txt / docs.json 共用） */
+  const docMetas: DocMeta[] = [];
 
   /** 渲染单篇文档并写入产物 */
   function writeDoc(rel: string, outRel: string): void {
@@ -223,6 +258,27 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
       title,
       description,
     });
+    // Phase 4 语义元数据（FRONT-001 + LLMS-001）：frontmatter 语义字段 + analyzeDoc 自动计算
+    const analysis = analyzeDoc(source);
+    docMetas.push({
+      path: rel,
+      url: base ? `${base}${canonicalPath}` : canonicalPath,
+      title,
+      summary: docDescription(frontmatter) ?? analysis.summary,
+      tags: toStrArray(frontmatter.tags),
+      category: typeof frontmatter.category === "string" ? frontmatter.category : undefined,
+      priority: classifyPriority(rel, frontmatter.priority, llmsTxt),
+      difficulty: typeof frontmatter.difficulty === "string" ? frontmatter.difficulty : undefined,
+      readingTime: analysis.readingTime,
+      wordCount: seo.wordCount ?? analysis.wordCount,
+      hasCode: analysis.hasCode,
+      headings: analysis.headings,
+      updatedAt: seo.updatedAt,
+      author: typeof frontmatter.author === "string" ? frontmatter.author : undefined,
+      prerequisites: toStrArray(frontmatter.prerequisites),
+      next: typeof frontmatter.next === "string" ? frontmatter.next : undefined,
+      content: source,
+    });
   }
 
   // 首页源：根级 README/index 中 README 优先（与 buildNavTree 置顶规则一致）
@@ -253,6 +309,36 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
     writeSitemap(outDir, siteUrl, base, sitePages.map((p) => ({ loc: p.loc, lastmod: p.lastmod })));
     writeRobots(outDir, siteUrl, base);
   }
+
+  // Phase 4 AI 就绪（LLMS-001 + docs.json 增强）：llms.txt / llms-full.txt / docs.json。
+  // 语义元数据来自 frontmatter + analyzeDoc；llms.txt 条目含语义字段（合同验收：llms.txt includes semantic frontmatter）
+  const generatedAt = new Date().toISOString();
+  const metaForJson = docMetas.map(({ content: _c, ...meta }) => meta);
+  writeFileSync(
+    join(outDir, "llms.txt"),
+    buildLlmsTxt({ siteTitle, siteDescription, siteUrl: siteUrl || undefined, docs: metaForJson, generatedAt, llmsTxt })
+  );
+  writeFileSync(
+    join(outDir, "llms-full.txt"),
+    buildLlmsFullTxt({
+      siteTitle,
+      docs: docMetas.map((d) => ({ path: d.path, content: d.content })),
+      generatedAt,
+      llmsTxt,
+    })
+  );
+  writeFileSync(
+    join(outDir, "docs.json"),
+    JSON.stringify({
+      version: 1,
+      generatedAt,
+      siteTitle,
+      siteDescription: siteDescription ?? null,
+      siteUrl: siteUrl || null,
+      totalDocs: metaForJson.length,
+      docs: metaForJson,
+    })
+  );
 
   // 展示层 bundle（渐进式水合所需；缺失则提示先构建）
   try {
