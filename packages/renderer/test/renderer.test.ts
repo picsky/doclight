@@ -60,6 +60,23 @@ tags: [入门, 安装]
     expect(html).toContain('<a href="guide/other.md">');
   });
 
+  it("linkSuffix：SSG 形态站内链接转 .html，dev 缺省保持 .md（SSG-001）", () => {
+    const md = "[下一页](other.md) [锚点](#topic) [外部](https://a.com) ![图](../img/x.png)";
+    const dev = render(md, { currentPath: "guide/quickstart.md" });
+    const ssg = render(md, { currentPath: "guide/quickstart.md", linkSuffix: ".html" });
+    // dev 保持 .md；SSG 转 .html
+    expect(dev.html).toContain('<a href="guide/other.md">');
+    expect(ssg.html).toContain('<a href="guide/other.html">');
+    expect(ssg.html).not.toContain("other.md");
+    // 锚点 / 外部链接 / 图片不受影响
+    expect(ssg.html).toContain('href="#topic"');
+    expect(ssg.html).toContain('href="https://a.com"');
+    expect(ssg.html).toContain('<img src="img/x.png"');
+    // 非 .md 链接（如 pdf）不误伤
+    const pdf = render("[手册](manual.pdf)", { currentPath: "guide/quickstart.md", linkSuffix: ".html" });
+    expect(pdf.html).toContain('href="guide/manual.pdf"');
+  });
+
   it("外部链接新标签打开", () => {
     const { html } = render("[外部](https://example.com)");
     expect(html).toContain('<a href="https://example.com" target="_blank" rel="noopener">');

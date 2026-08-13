@@ -25,11 +25,14 @@ import { getExtensions } from "../extensions/registry.ts";
 export interface MarkdownOptions {
   /** 当前文档路径，用于相对链接/图片修正，如 "guide/quickstart.md" */
   currentPath?: string;
+  /** 站内链接后缀（SSG 形态 ".html"；dev 缺省 "" 保持 .md 链接，见 05 §5.3） */
+  linkSuffix?: string;
 }
 
 /** 将 Markdown 渲染为（未消毒的）HTML 片段。调用方必须再过 sanitizeHtml。 */
 export function renderMarkdown(md: string, options: MarkdownOptions = {}): string {
   const currentPath = options.currentPath ?? "README.md";
+  const linkSuffix = options.linkSuffix ?? "";
   const renderer: RendererObject = {
     heading({ tokens, depth }: Tokens.Heading) {
       const raw = tokens.map((t) => t.raw ?? "").join("");
@@ -40,7 +43,10 @@ export function renderMarkdown(md: string, options: MarkdownOptions = {}): strin
       if (isExternal(href)) {
         return `<a href="${href}" target="_blank" rel="noopener">${text}</a>`;
       }
-      return `<a href="${resolveRelative(currentPath, href)}">${text}</a>`;
+      // SSG 形态：内部 markdown 链接转 .html 后缀（05 §5.3.2 静态产物 URL）
+      const resolved = resolveRelative(currentPath, href);
+      const hrefOut = linkSuffix && resolved.endsWith(".md") ? `${resolved.slice(0, -3)}${linkSuffix}` : resolved;
+      return `<a href="${hrefOut}">${text}</a>`;
     },
     image({ href, text }: Tokens.Image) {
       const src = resolveRelative(currentPath, href);

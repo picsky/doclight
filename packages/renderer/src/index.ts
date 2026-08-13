@@ -27,6 +27,8 @@ export const rendererVersion = "0.1.0";
 export interface RenderOptions {
   /** 当前文档路径，用于相对链接/图片修正，如 "guide/quickstart.md" */
   currentPath?: string;
+  /** 站内链接后缀（SSG 形态 ".html"；dev 缺省 "" 保持 .md 链接，见 05 §5.3） */
+  linkSuffix?: string;
 }
 
 export interface RenderResult {
@@ -39,7 +41,7 @@ export interface RenderResult {
 /** 渲染 Markdown 为安全的 HTML（frontmatter → marked → sanitize 全管线） */
 export function render(markdown: string, options: RenderOptions = {}): RenderResult {
   const { frontmatter, body } = parseFrontmatter(markdown);
-  const rawHtml = renderMarkdown(body, { currentPath: options.currentPath });
+  const rawHtml = renderMarkdown(body, { currentPath: options.currentPath, linkSuffix: options.linkSuffix });
   const html = sanitizeHtml(rawHtml);
   return { html, frontmatter };
 }
