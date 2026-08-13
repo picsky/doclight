@@ -63,6 +63,30 @@
         }
       },
       "additionalProperties": false
+    },
+    "plugins": {
+      "type": "array",
+      "description": "PLUG-008：启用的插件列表（07 §7.5.4）；缺省空数组（零插件）",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "插件名或包名（如 \"giscus\" / \"@doclight/plugin-giscus\"）"
+          },
+          "config": {
+            "type": "object",
+            "description": "传给插件的选项（07 §7.5.3）"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "是否启用（默认 true）"
+          }
+        },
+        "required": ["name"],
+        "additionalProperties": false
+      }
     }
   },
   "additionalProperties": false

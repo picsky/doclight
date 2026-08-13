@@ -15,7 +15,10 @@ import { join, resolve } from "node:path";
 import { buildNavTree, render } from "doclight-renderer";
 import { toFile as qrToFile } from "qrcode";
 import { loadConfig } from "./config.ts";
+import { BuildPluginPipeline } from "./plugins.ts";
+import { resolveThemeCss } from "./themes.ts";
 import { buildSearchData, displayBundlePath, nodeModulesBase, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
+import type { PluginDef, RenderContext } from "../../core/src/plugin.ts";
 
 export interface BundleOptions {
   /** 文档根目录，默认 ./docs */
@@ -33,6 +36,8 @@ export interface BundleOptions {
   /** 内联扩展库（C3）：Prism/Mermaid/KaTeX JS+CSS 内联进单文件，file:// 下扩展可用；
    *  默认不内联（保持体积小，扩展走 REND-003 容错降级）——体积换离线能力，opt-in。 */
   inlineVendor?: boolean;
+  /** PLUG-009：构建时插件列表（由 CLI 层从配置解析后注入；bundle 形态补齐） */
+  buildPlugins?: PluginDef[];
 }
 
 export interface BundleResult {
@@ -82,10 +87,15 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
   // hash 路由：导航链接 #/xxx（file:// 无法 pushState）
   const navHtml = renderNav(navTree, ".html", "", true);
 
+  // PLUG-009：构建管线（bundle 形态补齐——beforeRender → render → afterRender，插槽注入壳层）
+  const pipeline = new BuildPluginPipeline(options.buildPlugins ?? []);
+  const extraMarkedExtensions = pipeline.collectMarkedExtensions();
+
   const pages: Record<string, string> = {};
   const titles: Record<string, string> = {};
   let homeTitle = siteTitle;
   let homeContent = "";
+  let homeSlotContent: Record<string, string> = {};
 
   const rootIndexFiles = mdFiles.filter((rel) => /^README\.md$/i.test(rel) || /^index\.md$/i.test(rel));
   const rootHome = rootIndexFiles.find((rel) => /^README\.md$/i.test(rel)) ?? rootIndexFiles[0];
@@ -94,14 +104,26 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
   for (const rel of mdFiles) {
     const outRel = rel === rootHome ? "index.html" : rel.replace(/\.md$/, ".html");
     const source = readFileSync(join(docsDir, rel), "utf8");
-    const { html, frontmatter } = render(source, { currentPath: rel, linkSuffix: ".html" });
-    const title = typeof frontmatter.title === "string" && frontmatter.title ? frontmatter.title : rel.replace(/\.md$/, "").split("/").pop()!;
+    const fallbackTitle = rel.replace(/\.md$/, "").split("/").pop()!;
+    const ctx: RenderContext = { path: rel, title: fallbackTitle, frontmatter: {}, headings: [], isFirstRender: false };
+    const transformedMd = pipeline.runBeforeRender(source, ctx);
+    const { html: renderedHtml, frontmatter } = render(transformedMd, {
+      currentPath: rel,
+      linkSuffix: ".html",
+      extraMarkedExtensions,
+    });
+    const title = typeof frontmatter.title === "string" && frontmatter.title ? frontmatter.title : fallbackTitle;
+    ctx.title = title;
+    ctx.frontmatter = frontmatter;
+    const html = pipeline.runAfterRender(renderedHtml, ctx);
     const key = pageKey(outRel);
     pages[key] = html;
     titles[key] = `${title} · ${siteTitle}`;
     if (key === "/") {
       homeTitle = title;
       homeContent = html;
+      // 插槽内容注入壳层（单实例：插件静态插槽随壳层常驻，路由切换不重渲染——bundle 形态边界，见插件文档）
+      homeSlotContent = pipeline.collectSlotContent(ctx);
     }
     count++;
   }
@@ -130,6 +152,8 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
     displayScript,
     bundleData,
     extraHead: options.inlineVendor ? inlineVendorHtml() : "",
+    slotContent: homeSlotContent,
+    themeCss: resolveThemeCss(cfg.theme),
   });
 
   const file = join(outDir, options.filename ?? "doclight.html");

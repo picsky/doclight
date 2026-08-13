@@ -1,19 +1,37 @@
 /**
- * dev server（02 §2.4 形态①，DEV-001）
+ * dev server（02 §2.4 形态①，DEV-001 + PLUG-009 插件集成）
  *
  * Node 原生 http：请求文档路径 → 渲染内核输出完整 HTML（首屏直出）→ 返回。
  * 附 docs.json（导航数据）与 SSE 热重载（文件变更推送 reload 事件）。
+ * PLUG-009：加载 doclight.json plugins → BuildPluginPipeline 运行构建时钩子。
  *
  * 安全：路径穿越防护——任何请求路径解析后必须落在文档根目录内，否则 404。
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { mkdtempSync, readFileSync, rmSync, statSync, watch } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { buildNavTree, render } from "doclight-renderer";
 import { loadSite, McpServer, mcpHttpHandler } from "doclight-mcp-server";
 import { buildSite } from "./build.ts";
 import { buildSearchData, displayBundlePath, mimeFor, nodeModulesBase, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
+import { BuildPluginPipeline } from "./plugins.ts";
+import type { PluginDef, RenderContext } from "../../core/src/plugin.ts";
+
+/** 从 Markdown 源提取 frontmatter 数据（轻量版，dev server 用） */
+function extractFrontmatter(md: string): Record<string, unknown> {
+  const m = /^---\r?\n([\s\S]*?)\r?\n?---/.exec(md);
+  if (!m) return {};
+  const fm: Record<string, unknown> = {};
+  for (const line of m[1]!.split(/\r?\n/)) {
+    const idx = line.indexOf(":");
+    if (idx < 0) continue;
+    const key = line.slice(0, idx).trim();
+    if (!key) continue;
+    fm[key] = line.slice(idx + 1).trim().replace(/^["']|["']$/g, "");
+  }
+  return fm;
+}
 
 export interface DevServerOptions {
   /** 文档根目录（含 .md 与静态资源） */
@@ -23,6 +41,14 @@ export interface DevServerOptions {
   title?: string;
   /** MCP 插件模式（MCP-005）：同端口挂载 /mcp + /.well-known/mcp，开发中的站点可被 Agent 读取 */
   mcp?: boolean;
+  /** PLUG-009：构建时插件列表（由 CLI 层从配置解析后注入） */
+  buildPlugins?: PluginDef[];
+  /** THEME-002：主题 CSS 覆盖层（由 CLI 层从配置解析后注入；缺省空 = 默认主题） */
+  themeCss?: string;
+  /** PLUG-011：插件热重载 watch 文件（绝对路径；由 CLI 层用 configuredPluginWatchFiles 计算） */
+  pluginFiles?: string[];
+  /** PLUG-011：插件重新解析回调（watch 触发后调用；返回 null 表示加载期错误 → 保留旧管线） */
+  reloadPlugins?: () => PluginDef[] | null;
 }
 
 export interface DevServer {
@@ -89,6 +115,43 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
   const docsDir = resolve(options.dir);
   const host = options.host ?? "127.0.0.1";
   const siteTitle = options.title ?? "DocLight";
+
+  // PLUG-009：构建管线（插件由 CLI 层从配置解析后注入）
+  const buildPlugins: PluginDef[] = options.buildPlugins ?? [];
+  const pipeline = new BuildPluginPipeline(buildPlugins);
+
+  // PLUG-011：插件热重载——监听插件源文件/配置变更 → 重新解析 → 替换管线 → SSE reload。
+  // 运行时侧（浏览器）由整页刷新完成全清理（PluginManager 全新实例，destroy/插槽全部归零）。
+  const pluginWatchers: Array<ReturnType<typeof watch>> = [];
+  let pluginReloadTimer: ReturnType<typeof setTimeout> | null = null;
+  const pluginFiles = options.pluginFiles ?? [];
+  if (pluginFiles.length && options.reloadPlugins) {
+    // 按目录 watch（非递归）：编辑器原子替换文件不破坏监听；按文件名过滤事件
+    const names = new Set(pluginFiles.map((f) => basename(f)));
+    const dirs = new Set(pluginFiles.map((f) => dirname(f)));
+    const schedulePluginReload = (): void => {
+      if (pluginReloadTimer) clearTimeout(pluginReloadTimer);
+      pluginReloadTimer = setTimeout(() => {
+        try {
+          const fresh = options.reloadPlugins!();
+          // null = 加载期错误（文件缺失/语法错误）：保留旧管线，迭代中的半成品不打断浏览
+          if (fresh) pipeline.setPlugins(fresh);
+        } catch {
+          /* 解析异常保留旧管线（下轮变更再试） */
+        }
+        for (const res of sseClients) res.write("data: reload\n\n");
+      }, 150); // 防抖：编辑器保存触发多次事件
+    };
+    for (const dir of dirs) {
+      try {
+        pluginWatchers.push(watch(dir, (_event, filename) => {
+          if (filename && names.has(filename.toString())) schedulePluginReload();
+        }));
+      } catch {
+        /* 平台不支持时降级：无插件热重载 */
+      }
+    }
+  }
 
   // 首次扫描：收集文档 + 构建导航
   let mdFiles = walkMd(docsDir);
@@ -250,11 +313,21 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
   function serveDoc(res: ServerResponse, doc: string): void {
     try {
       const source = readFileSync(join(docsDir, doc), "utf8");
-      const { html, frontmatter } = render(source, { currentPath: doc });
-      const docTitle = typeof frontmatter.title === "string" ? frontmatter.title : doc.replace(/\.md$/, "");
+      const fallbackTitle = doc.replace(/\.md$/, "");
+      const fm = extractFrontmatter(source);
+      const title = typeof fm.title === "string" && fm.title ? fm.title as string : fallbackTitle;
+
+      // PLUG-009：构建时钩子管线（beforeRender → render → afterRender）
+      const ctx: RenderContext = { path: doc, title, frontmatter: fm, headings: [], isFirstRender: false };
+      const transformedMd = pipeline.runBeforeRender(source, ctx);
+      // PLUG-006 接线：插件 extendMarked 扩展挂载进渲染内核
+      const { html: renderedHtml } = render(transformedMd, { currentPath: doc, extraMarkedExtensions: pipeline.collectMarkedExtensions() });
+      const html = pipeline.runAfterRender(renderedHtml, ctx);
+      const slotContent = pipeline.collectSlotContent(ctx);
+
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(
-        renderPage({ title: docTitle, siteTitle, navHtml, contentHtml: html, form: "dev", searchVersion: searchIndexCache.version })
+        renderPage({ title, siteTitle, navHtml, contentHtml: html, form: "dev", searchVersion: searchIndexCache.version, slotContent, themeCss: options.themeCss })
       );
     } catch (err) {
       send404(res, `渲染失败：${doc}（${(err as Error).message}）`);
@@ -275,6 +348,8 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
         sseClients.forEach((c) => c.end());
         sseClients.clear();
         if (watcher) watcher.close();
+        if (pluginReloadTimer) clearTimeout(pluginReloadTimer);
+        for (const w of pluginWatchers) w.close();
         if (mcpSiteDir) rmSync(mcpSiteDir, { recursive: true, force: true });
         server.close(() => done());
       }),

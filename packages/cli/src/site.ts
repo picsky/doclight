@@ -334,6 +334,10 @@ export interface RenderPageOptions {
   bundleData?: unknown;
   /** 额外 <head> 内容（C3 bundle --inline-vendor 的内联扩展库；缺省空） */
   extraHead?: string;
+  /** PLUG-005：构建时插槽内容（插件 slotContent 合并结果，键为插槽名，值为 HTML） */
+  slotContent?: Record<string, string>;
+  /** THEME-002：主题 CSS 覆盖层（注入主样式之后，<style data-doclight-theme>；缺省空 = 默认主题） */
+  themeCss?: string;
 }
 
 /**
@@ -469,9 +473,15 @@ export function renderPage(options: RenderPageOptions): string {
 
   const overrides = globalOverridesScript(form, base, options.searchVersion, options.bundleData);
   const overridesScript = overrides ? `<script>\n${overrides}\n</script>` : "";
+  // PLUG-005：插槽内容注入（构建时静态 HTML + data-doclight-slot 标记供运行时追加）
+  const slot = (name: string): string => {
+    const html = options.slotContent?.[name] ?? "";
+    return `<span data-doclight-slot="${name}"${html ? ` data-doclight-static="1"` : ""}>${html}</span>`;
+  };
   return `<!DOCTYPE html>
 <html lang="zh-CN" data-theme="auto">
 <head>
+${slot("head:start")}
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)} · ${escapeHtml(siteTitle)}</title>
@@ -690,30 +700,34 @@ ${seoHead}
     a { color: inherit; text-decoration: none; }
   }
 </style>
+${options.themeCss ? `<style data-doclight-theme>\n${options.themeCss}\n</style>` : ""}
 ${options.extraHead ?? ""}
+${slot("head:end")}
 </head>
 <body>
 <header class="topbar">
+  ${slot("topbar:before")}
   <button id="sidebar-toggle" aria-label="菜单">☰</button>
   <span class="site-title">${escapeHtml(siteTitle)}</span>
   <button id="search-toggle" aria-label="搜索（Ctrl+K）">🔍</button>
   <button id="theme-toggle" aria-label="切换主题">🌓</button>
   <button id="focus-toggle" aria-label="专注模式" title="专注模式">⛶</button>
   <span class="font-ctl"><button id="font-dec" aria-label="减小字号">A−</button><button id="font-inc" aria-label="增大字号">A+</button></span>
+  ${slot("topbar:after")}
 </header>
 <div class="layout">
-  <aside class="sidebar">${navHtml}</aside>
-  <main class="paper">${breadcrumb}<article>${contentHtml}</article></main>
+  <aside class="sidebar">${slot("sidebar:before")}${navHtml}${slot("sidebar:after")}</aside>
+  <main class="paper">${breadcrumb}${slot("content:before")}<article>${contentHtml}</article>${slot("content:after")}</main>
 </div>
 <!-- TOC（03 §3.7）：桌面导轨（hover 展开）+ 移动端底部面板；内容由展示层填充 -->
-<aside class="toc-rail" aria-label="本页目录"><div class="toc-dots"></div><nav class="toc-panel"></nav></aside>
+<aside class="toc-rail" aria-label="本页目录">${slot("toc:before")}<div class="toc-dots"></div><nav class="toc-panel"></nav>${slot("toc:after")}</aside>
 <button class="toc-fab" aria-label="目录">☰</button>
 <div class="toc-sheet">
   <div class="toc-sheet-header">本页目录<button class="toc-sheet-close" aria-label="关闭目录">×</button></div>
   <nav class="toc-sheet-nav"></nav>
 </div>
 <!-- C4 Powered by：默认显示、可一行关闭（13 §4 传播机制） -->
-<footer class="powered-by">Powered by <a href="https://doclight.tech" target="_blank" rel="noopener">DocLight</a><button id="powered-by-close" aria-label="隐藏 Powered by 标记">×</button></footer>
+<footer class="powered-by">${slot("footer")}Powered by <a href="https://doclight.tech" target="_blank" rel="noopener">DocLight</a><button id="powered-by-close" aria-label="隐藏 Powered by 标记">×</button></footer>
 ${overridesScript}
 ${sseScript}
 ${displayTag}

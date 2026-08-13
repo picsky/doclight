@@ -14,11 +14,14 @@ import { buildSite } from "./build.ts";
 import { bundleSite } from "./bundle.ts";
 import { deploySite } from "./deploy.ts";
 import { initProject } from "./init.ts";
-import { migrateDocsify } from "./migrate.ts";
+import { migrateDocsify, migrateGitBook, migrateMkDocs } from "./migrate.ts";
 import { startPreviewServer } from "./preview.ts";
 import { publishSite, type PublishResult } from "./publish.ts";
 import { spaceInit, spaceStatus, spaceSwitch } from "./space.ts";
 import { embedSite } from "./embed.ts";
+import { configuredPluginWatchFiles, loadConfiguredPlugins, reloadConfiguredPlugins } from "./plugin-loader.ts";
+import { pluginList, pluginNew } from "./plugin-new.ts";
+import { loadConfiguredTheme } from "./themes.ts";
 
 export const cliVersion = "0.1.0";
 
@@ -78,9 +81,12 @@ function printHelp(): void {
   bundle    构建单文件便携包（离线分发，05 §5.3.4）
   deploy    一键部署（GitHub Pages / Cloudflare / Netlify 检测）
   migrate-docsify  从 docsify 站点迁移内容到 DocLight 约定
+  migrate-mkdocs   从 MkDocs 站点迁移（含 admonition 转换）
+  migrate-gitbook  从 GitBook 站点迁移（含 hint/code 块转换）
   publish   发布到内容空间（local / git / space，14 §4.3）
   space     内容空间管理（init / switch / status，14 §3.4）
   embed     生成嵌入代码（snippet.js + iframe 片段，13 §3.1）
+  plugin    插件开发（new 生成脚手架 / list 列出官方插件）
 
 选项:
   --port <n>      监听端口（默认 3000）
@@ -107,7 +113,14 @@ function printHelp(): void {
 /** 启动 dev server（供命令与测试复用） */
 export async function runDev(options: Partial<CliOptions> = {}): Promise<{ url: string; port: number; close(): Promise<void> }> {
   const merged: CliOptions = { port: options.port ?? 3000, dir: options.dir ?? "docs", title: options.title, mcp: options.mcp };
-  return startDevServer(merged);
+  // PLUG-009 接线：doclight.json plugins → 构建管线；THEME-002 主题同步；PLUG-011 插件热重载
+  return startDevServer({
+    ...merged,
+    buildPlugins: loadConfiguredPlugins(merged.dir),
+    themeCss: loadConfiguredTheme(merged.dir),
+    pluginFiles: configuredPluginWatchFiles(merged.dir),
+    reloadPlugins: () => reloadConfiguredPlugins(merged.dir),
+  });
 }
 
 /** 执行 SSG 构建（供命令与测试复用） */
@@ -120,6 +133,8 @@ export function runBuild(options: Partial<CliOptions> = {}): ReturnType<typeof b
     siteUrl: options.siteUrl,
     description: options.description,
     author: options.author,
+    // PLUG-009 接线：doclight.json plugins → 构建管线
+    buildPlugins: loadConfiguredPlugins(options.dir ?? "docs"),
   });
 }
 
@@ -138,6 +153,8 @@ export function runBundle(options: Partial<CliOptions> = {}): ReturnType<typeof 
     title: options.title,
     qrUrl: options.qrUrl,
     inlineVendor: options.inlineVendor,
+    // PLUG-009 接线：doclight.json plugins → 构建管线（bundle 形态补齐）
+    buildPlugins: loadConfiguredPlugins(options.dir ?? "docs"),
   });
 }
 
@@ -234,6 +251,16 @@ if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
       console.log(`  复制: ${result.copied.length} 篇 Markdown → ${result.destDocs}`);
       if (result.sidebar.length) console.log(`  _sidebar 导航: ${result.sidebar.length} 项（DocLight 自动导航替代）`);
       if (result.skipped.length) console.log(`  跳过（docsify 专属）: ${result.skipped.join(", ")}`);
+      console.log(`\n  下一步: doclight dev / doclight build\n`);
+    } else if (command === "migrate-mkdocs" || command === "migrate-gitbook") {
+      const sourceDir = opts["dir"] ?? (command === "migrate-mkdocs" ? "mkdocs-site" : "gitbook-site");
+      const result = command === "migrate-mkdocs" ? migrateMkDocs({ sourceDir, destDir: process.cwd() }) : migrateGitBook({ sourceDir, destDir: process.cwd() });
+      const from = command === "migrate-mkdocs" ? "MkDocs" : "GitBook";
+      console.log(`\n  ${from} → DocLight 迁移完成 ✓\n`);
+      console.log(`  复制: ${result.copied.length} 篇 Markdown → ${result.destDocs}`);
+      if (result.sidebar.length) console.log(`  ${command === "migrate-mkdocs" ? "mkdocs.yml nav" : "SUMMARY.md"} 导航: ${result.sidebar.length} 项（DocLight 自动导航替代）`);
+      if (result.skipped.length) console.log(`  跳过: ${result.skipped.join(", ")}`);
+      for (const n of result.notes) console.log(`  备注: ${n}`);
       console.log(`\n  下一步: doclight dev / doclight build\n`);
     } else if (command === "deploy") {
       const result = runDeploy({
@@ -344,8 +371,31 @@ if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
       console.log(`\n  或复制以下 <iframe> 代码（嵌入语雀/飞书/博客/官网）：\n`);
       for (const line of result.iframeHtml.split("\n")) console.log(`  ${line}`);
       console.log(`\n  示例 URL: ${result.url}\n`);
+    } else if (command === "plugin") {
+      const sub = rest[0] ?? "";
+      if (sub === "new") {
+        const name = rest[1];
+        if (!name) {
+          console.error(`✗ plugin new 需要插件名（用法: doclight plugin new <name> [--dir <path>]）`);
+          process.exit(1);
+        }
+        const result = pluginNew(name, { dir: opts["dir"] });
+        console.log(`\n  DocLight 插件已生成 ✓（${result.dir}）\n`);
+        for (const f of result.created) console.log(`  创建  ${f}`);
+        for (const f of result.skipped) console.log(`  跳过  ${f}（已存在）`);
+        console.log(`\n  下一步:`);
+        for (const s of result.nextSteps) console.log(`  ${s}`);
+        console.log("");
+      } else if (sub === "list") {
+        console.log(`\n  内置官方插件（doclight.json plugins 数组直接按名使用）:\n`);
+        for (const p of pluginList()) console.log(`  ${p.name.padEnd(12)}${p.description}`);
+        console.log(`\n  自研插件: doclight plugin new <name> 生成脚手架\n`);
+      } else {
+        console.error(`未知 plugin 子命令：${sub || "(空)"}（支持 new / list）`);
+        process.exit(1);
+      }
     } else {
-      console.error(`未知命令：${command ?? "(空)"}（支持 dev / build / preview / init / bundle / deploy / migrate-docsify / publish / space / embed）`);
+      console.error(`未知命令：${command ?? "(空)"}（支持 dev / build / preview / init / bundle / deploy / migrate-docsify / migrate-mkdocs / migrate-gitbook / publish / space / embed / plugin）`);
       process.exit(1);
     }
   } catch (err) {

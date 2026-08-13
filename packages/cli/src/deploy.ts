@@ -14,6 +14,7 @@ import { spawnSync } from "node:child_process";
 import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { buildSite, type BuildResult } from "./build.ts";
+import { loadConfiguredPlugins } from "./plugin-loader.ts";
 
 export type DeployPlatform = "gh-pages" | "cloudflare-pages" | "netlify";
 
@@ -144,12 +145,14 @@ export function deploySite(options: DeployOptions = {}): DeployResult {
   // 平台检测：gh-pages 为默认路径（GitHub 远程自动适配）；其余需显式 --platform
   const platform: DeployPlatform = options.platform ?? "gh-pages";
   const info = remote ? ghPagesInfo(remote) : null;
+  // PLUG-009 接线：doclight.json plugins 随构建管线流动（与 runBuild 同源）
+  const buildPlugins = options.skipBuild ? [] : loadConfiguredPlugins(options.dir ?? "docs", repoRoot);
   if (info && platform === "gh-pages") {
     // 项目页：以 /<repo>/ 为子路径构建，内部链接/资源 URL 全部正确
     const outDir = resolve(options.outDir ?? "dist-site");
     const build = options.skipBuild
       ? undefined
-      : buildSite({ dir: options.dir, outDir, title: options.title, base: info.base, siteUrl: `https://${info.user}.github.io` });
+      : buildSite({ dir: options.dir, outDir, title: options.title, base: info.base, siteUrl: `https://${info.user}.github.io`, buildPlugins });
     const publish = publishGhPages(repoRoot, outDir, info);
     if (!publish.ok) {
       return { platform, steps: [...deployGuide(platform), "", `git 推送失败：${publish.output}`], published: false, build };
@@ -160,7 +163,7 @@ export function deploySite(options: DeployOptions = {}): DeployResult {
   // 非 GitHub：按平台给出命令或指引
   if (platform === "cloudflare-pages" && cliAvailable("wrangler")) {
     const outDir = resolve(options.outDir ?? "dist-site");
-    if (!options.skipBuild) buildSite({ dir: options.dir, outDir, title: options.title });
+    if (!options.skipBuild) buildSite({ dir: options.dir, outDir, title: options.title, buildPlugins });
     return {
       platform,
       steps: [
@@ -172,7 +175,7 @@ export function deploySite(options: DeployOptions = {}): DeployResult {
   }
   if (platform === "netlify" && cliAvailable("netlify")) {
     const outDir = resolve(options.outDir ?? "dist-site");
-    if (!options.skipBuild) buildSite({ dir: options.dir, outDir, title: options.title });
+    if (!options.skipBuild) buildSite({ dir: options.dir, outDir, title: options.title, buildPlugins });
     return {
       platform,
       steps: [`netlify deploy --dir ${outDir} --prod`, "或到 app.netlify.com 拖拽上传"],

@@ -1,12 +1,12 @@
 /**
- * doclight build —— SSG 静态导出（05-ssg-build §5.3，SSG-001 + SEO 全套 §5.4）
+ * doclight build —— SSG 静态导出（05-ssg-build §5.3，SSG-001 + SEO 全套 §5.4 + PLUG-009 插件集成）
  *
  * 三形态架构形态②：同一渲染内核（doclight-renderer）输出完整静态站点。
  * 渐进式水合（05 §5.3.2）：内容纯静态 HTML（SEO 可读），展示层 JS 接管交互。
  *
  * 构建步骤（05 §5.3.1）：
  *   1. 扫描 docs/ → 文档树（buildNavTree）
- *   2. 逐文档渲染（frontmatter → marked → sanitize，linkSuffix=".html"）
+ *   2. 逐文档渲染（PLUG-009：beforeRender → frontmatter → marked → sanitize → afterRender）
  *   3. 生成首页 index.html（根级 README/index）
  *   4. 预构建搜索索引 search-index.json（pathSuffix=".html"，运行时直接加载；version=内容哈希）
  *   5. SEO 页面 meta（SEO-001，05 §5.4）：canonical / OG / Twitter Card / JSON-LD / 面包屑（每页）
@@ -20,11 +20,14 @@
  * 子路径部署（GitHub Pages 项目页等）：--base "/docs" 时产物内绝对 URL 全部加前缀。
  */
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { Resvg } from "@resvg/resvg-js";
 import { analyzeDoc, buildNavTree, render } from "doclight-renderer";
 import { loadConfig, loadLlmsTxtConfig } from "./config.ts";
+import { resolveThemeCss } from "./themes.ts";
 import { buildLlmsFullTxt, buildLlmsTxt, classifyPriority } from "./llms.ts";
+import { BuildPluginPipeline } from "./plugins.ts";
+import type { BuildContext, PluginDef, RenderContext } from "../../core/src/plugin.ts";
 import {
   breadcrumbFor,
   buildSearchData,
@@ -68,6 +71,8 @@ export interface BuildOptions {
   author?: string;
   /** 展示层 bundle 路径（缺省 process.cwd()/dist/display.js，与 dev server 一致） */
   displayBundle?: string;
+  /** PLUG-009：构建时插件列表 */
+  buildPlugins?: PluginDef[];
 }
 
 export interface BuildResult {
@@ -216,6 +221,11 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
   const base = normalizeBase(options.base ?? cfg.base);
   const displayBundle = options.displayBundle ?? displayBundlePath();
 
+  // PLUG-009：构建管线（插件由 CLI 层注入，或从配置加载内置插件）
+  const pipeline = new BuildPluginPipeline(options.buildPlugins ?? []);
+  // THEME-002：主题 CSS 覆盖层（内置主题 / 用户 CSS 文件；空 = 默认主题零注入）
+  const themeCss = resolveThemeCss(cfg.theme);
+
   rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
 
@@ -232,18 +242,29 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
   /** 语义元数据收集（Phase 4：llms.txt / llms-full.txt / docs.json 共用） */
   const docMetas: DocMeta[] = [];
 
-  /** 渲染单篇文档并写入产物 */
+  /** 渲染单篇文档并写入产物（PLUG-009：beforeRender → render → afterRender → slotContent） */
   function writeDoc(rel: string, outRel: string): void {
     const source = readFileSync(join(docsDir, rel), "utf8");
-    const { html, frontmatter } = render(source, { currentPath: rel, linkSuffix: ".html" });
-    const title = docTitle(frontmatter, rel);
+    const title = docTitle({}, rel); // 先取默认标题
+    // PLUG-009：构建时钩子管线（ctx 带 base/siteUrl——PLUG-007 pwa 等插件 slot 函数需拼资产绝对路径）
+    const ctx: RenderContext = { path: rel, title, frontmatter: {}, headings: [], isFirstRender: false, base, siteUrl: siteUrl || undefined };
+    const transformedMd = pipeline.runBeforeRender(source, ctx);
+    // PLUG-006 接线：插件 extendMarked 扩展挂载进渲染内核
+    const { html: renderedHtml, frontmatter } = render(transformedMd, {
+      currentPath: rel,
+      linkSuffix: ".html",
+      extraMarkedExtensions: pipeline.collectMarkedExtensions(),
+    });
+    const html = pipeline.runAfterRender(renderedHtml, ctx);
+    const slotContent = pipeline.collectSlotContent(ctx);
+    const finalTitle = docTitle(frontmatter, rel);
     const description = docDescription(frontmatter) ?? siteDescription;
     const canonicalPath = outRel === "index.html" ? "/" : `/${outRel}`;
     const ogSlug = outRel.replace(/\.html$/, "");
     const seo: SeoOptions = {
       base,
       ...(siteUrl ? { siteUrl, canonicalPath, ogImage: `${siteUrl}${base}/og/${ogSlug}.png` } : {}),
-      breadcrumb: breadcrumbFor(navTree, rel, ".html", base, title),
+      breadcrumb: breadcrumbFor(navTree, rel, ".html", base, finalTitle),
       wordCount: countWords(html),
       updatedAt: docUpdatedAt(frontmatter, join(docsDir, rel)),
       ...(typeof frontmatter.author === "string" ? { author: frontmatter.author } : options.author ? { author: options.author } : {}),
@@ -253,7 +274,7 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
     writeFileSync(
       outPath,
       renderPage({
-        title,
+        title: finalTitle,
         siteTitle,
         navHtml,
         contentHtml: html,
@@ -261,13 +282,15 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
         form: "ssg",
         seo,
         searchVersion,
+        slotContent,
+        themeCss,
       })
     );
     sitePages.push({
       loc: canonicalPath,
       lastmod: seo.updatedAt?.slice(0, 10),
       ogSlug,
-      title,
+      title: finalTitle,
       description,
     });
     // Phase 4 语义元数据（FRONT-001 + LLMS-001）：frontmatter 语义字段 + analyzeDoc 自动计算
@@ -275,7 +298,7 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
     docMetas.push({
       path: rel,
       url: base ? `${base}${canonicalPath}` : canonicalPath,
-      title,
+      title: finalTitle,
       summary: docDescription(frontmatter) ?? analysis.summary,
       tags: toStrArray(frontmatter.tags),
       category: typeof frontmatter.category === "string" ? frontmatter.category : undefined,
@@ -371,6 +394,27 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
 
   // 搜索索引 JSON 落盘
   writeFileSync(join(outDir, "search-index.json"), JSON.stringify(searchData));
+
+  // PLUG-010：构建期文件产出钩子（rss.xml / manifest.json / sw.js 等站点级产物）
+  {
+    const buildCtx: BuildContext = {
+      outDir,
+      siteTitle,
+      base,
+      siteUrl: siteUrl || undefined,
+      docs: docMetas.map((d) => ({ path: d.path.replace(/\.md$/, ".html"), title: d.title, summary: d.summary, updatedAt: d.updatedAt, wordCount: d.wordCount })),
+    };
+    for (const f of pipeline.runOnBuild(buildCtx)) {
+      // 路径穿越防护：解析后必须落在 outDir 内，否则跳过（插件产物不得越界）
+      const resolvedOut = resolve(outDir, f.path);
+      if (!resolvedOut.startsWith(outDir + sep)) {
+        console.warn(`[doclight] 插件产物路径越界，已跳过：${f.path}`);
+        continue;
+      }
+      mkdirSync(dirname(resolvedOut), { recursive: true });
+      writeFileSync(resolvedOut, f.content);
+    }
+  }
 
   const assets = copyStaticAssets(docsDir, outDir);
   const bytes = countBytes(outDir);

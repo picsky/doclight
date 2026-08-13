@@ -37,6 +37,49 @@ Feature: DocLight CLI 全命令（init / bundle / deploy / migrate-docsify）
     And 解析 _sidebar 导航顺序写入报告
     And 幂等（目标已存在不覆盖）
 
+## MIG-001 MkDocs 迁移
+
+Feature: doclight migrate-mkdocs（mkdocs.yml 解析 + admonition 转换）
+
+  Scenario: admonition 转换为 DocLight 容器
+    Given Markdown 含 !!! note / !!! warning "标题" / !!! danger
+    When convertMkDocsAdmonitions()
+    Then 转换为 :::info / :::warning（含标题行）/ :::danger
+    And 4 空格缩进被剥离
+    And 未映射类型原样保留
+
+  Scenario: mkdocs.yml 解析
+    Given mkdocs.yml 含 site_name 与 nav 列表
+    When parseMkdocsConfig() / parseMkdocsNav()
+    Then 提取 docs_dir（缺省 docs）与 site_name
+    And nav 解析为有序路径列表
+
+  Scenario: migrate-mkdocs 端到端
+    Given 一个 MkDocs 项目（mkdocs.yml + docs/*.md）
+    When 运行 doclight migrate-mkdocs
+    Then 复制 .md 且 admonition 已转换
+    And 报告含 site_name 建议（写入 doclight.json title）
+    And 幂等
+
+## MIG-002 GitBook 迁移
+
+Feature: doclight migrate-gitbook（SUMMARY.md 解析 + hint/code 块转换）
+
+  Scenario: hint / code 块转换
+    Given Markdown 含 {% hint style="info" %} 与 {% code title="x.js" %}
+    When convertGitBookBlocks()
+    Then hint 转换为 :::info 容器
+    And code 转换为 ```js 围栏（语言取扩展名）
+    And 未映射 style 原样保留
+
+  Scenario: migrate-gitbook 端到端
+    Given 一个 GitBook 仓库（SUMMARY.md + *.md）
+    When 运行 doclight migrate-gitbook
+    Then 解析 SUMMARY.md 导航顺序写入报告
+    And 复制 .md 且 hint/code 已转换
+    And 跳过 SUMMARY.md
+    And 幂等
+
   Scenario: CLI-007 doclight embed 嵌入分发（13 §3.1）
     Given 构建后的站点产物（dist-site/）
     When 运行 doclight embed

@@ -32,6 +32,8 @@ export interface RenderOptions {
   currentPath?: string;
   /** 站内链接后缀（SSG 形态 ".html"；dev 缺省 "" 保持 .md 链接，见 05 §5.3） */
   linkSuffix?: string;
+  /** PLUG-006：插件提供的额外 marked 扩展（追加到注册表扩展之后） */
+  extraMarkedExtensions?: unknown[];
 }
 
 export interface RenderResult {
@@ -44,7 +46,11 @@ export interface RenderResult {
 /** 渲染 Markdown 为安全的 HTML（frontmatter → marked → sanitize 全管线） */
 export function render(markdown: string, options: RenderOptions = {}): RenderResult {
   const { frontmatter, body } = parseFrontmatter(markdown);
-  const rawHtml = renderMarkdown(body, { currentPath: options.currentPath, linkSuffix: options.linkSuffix });
+  const rawHtml = renderMarkdown(body, {
+    currentPath: options.currentPath,
+    linkSuffix: options.linkSuffix,
+    extraMarkedExtensions: options.extraMarkedExtensions,
+  });
   const html = sanitizeHtml(rawHtml);
   return { html, frontmatter };
 }

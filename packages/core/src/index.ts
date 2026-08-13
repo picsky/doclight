@@ -1,5 +1,5 @@
 /**
- * doclight-core 入口（Phase 0 占位）
+ * doclight-core 入口（Phase 0 占位 + Phase 5 插件类型）
  *
  * 设计目标见 README.md：多包共享的类型与常量。
  * doclight.json 配置类型的完整定义见 contracts/doclight.schema.json。
@@ -22,3 +22,14 @@ export interface DocLightConfig {
   /** 主题模板（对应 11-default-themes 的 4 套） */
   theme?: string;
 }
+
+// Phase 5 插件系统类型（PLUG-003，07 §7）
+export type {
+  PluginDef,
+  RenderContext,
+  SearchDoc,
+  AppApi,
+  SlotName,
+  PluginConfig,
+} from "./plugin.ts";
+export { SLOT_NAMES } from "./plugin.ts";

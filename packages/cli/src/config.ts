@@ -3,7 +3,7 @@
  *
  * 零配置约定（02 §2.5.1）：无 doclight.json 也能跑，缺省取约定值。
  * 支持的键：
- * - 契约内（schema 已收录）：title / description / docsDir / theme
+ * - 契约内（schema 已收录）：title / description / docsDir / theme / plugins
  * - Phase 3 新增（schema 扩展待批准，见交接文档）：base / siteUrl / outputDir
  *   —— 本模块「宽松读取」这些键，不改动契约文件（AGENT.md 红线：schema 修改需显式批准）。
  *
@@ -12,6 +12,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import type { LlmsTxtConfig } from "./llms.ts";
+import type { PluginConfig } from "../../core/src/plugin.ts";
 
 export interface DoclightConfig {
   title?: string;
@@ -24,6 +25,8 @@ export interface DoclightConfig {
   siteUrl?: string;
   /** 构建输出目录（缺省 dist-site） */
   outputDir?: string;
+  /** PLUG-008：启用的插件列表 */
+  plugins?: PluginConfig[];
 }
 
 const KNOWN_KEYS = ["title", "description", "docsDir", "theme", "base", "siteUrl", "outputDir"] as const;
@@ -38,6 +41,16 @@ export function loadConfig(candidates: string[]): DoclightConfig {
       for (const key of KNOWN_KEYS) {
         const v = raw[key];
         if (typeof v === "string" && v) cfg[key] = v;
+      }
+      // PLUG-008：宽松读取 plugins 数组（schema 已登记）
+      if (Array.isArray(raw.plugins)) {
+        cfg.plugins = raw.plugins
+          .filter((p): p is Record<string, unknown> => !!p && typeof p === "object" && typeof p.name === "string")
+          .map((p) => ({
+            name: p.name as string,
+            config: typeof p.config === "object" && p.config ? (p.config as Record<string, unknown>) : undefined,
+            enabled: p.enabled !== false,
+          }));
       }
       return cfg;
     } catch {

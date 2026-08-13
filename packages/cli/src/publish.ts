@@ -17,6 +17,7 @@ import type { BuildResult } from "./build.ts";
 import { buildSite } from "./build.ts";
 import { bundleSite, type BundleOptions } from "./bundle.ts";
 import { deploySite } from "./deploy.ts";
+import { loadConfiguredPlugins } from "./plugin-loader.ts";
 import {
   DEFAULT_SPACE_ENDPOINT,
   DEFAULT_SPACE_NAME,
@@ -122,6 +123,8 @@ async function publishLocal(target: PublishTarget, options: PublishOptions, star
     dir: options.dir,
     outDir: target.entry.outputDir ?? options.outDir ?? "dist-bundle",
     title: options.title,
+    // PLUG-009 接线：doclight.json plugins 随构建管线流动（与 runBundle 同源）
+    buildPlugins: loadConfiguredPlugins(options.dir ?? "docs", resolve(options.root ?? ".")),
   };
   const result = await bundleSite(bundleOpts);
   const url = `file://${result.file.replace(/\\/g, "/")}`;
@@ -217,7 +220,9 @@ async function publishSpace(target: PublishTarget, options: PublishOptions, star
 
   // 构建 SSG（space 需要整站元数据：docs.json / llms.txt 随产物）
   const outDir = resolve(options.outDir ?? "dist-site");
-  const build = options.skipBuild ? undefined : buildSite({ dir: options.dir, outDir, title: options.title });
+  // PLUG-009 接线：doclight.json plugins 随构建管线流动（与 runBuild 同源）
+  const buildPlugins = options.skipBuild ? [] : loadConfiguredPlugins(options.dir ?? "docs", resolve(options.root ?? "."));
+  const build = options.skipBuild ? undefined : buildSite({ dir: options.dir, outDir, title: options.title, buildPlugins });
 
   // 未构建出 docs.json → 无法生成清单
   if (!options.skipBuild && !build) {

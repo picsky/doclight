@@ -17,7 +17,7 @@
  * - 表格：包裹 .table-wrap 容器（横向滚动）
  * - 扩展语法：从注册表（getExtensions）挂载容器 / KaTeX 等 marked 扩展
  */
-import { Marked, type RendererObject, type Tokens } from "marked";
+import { Marked, type RendererObject, type TokenizerAndRendererExtension, type Tokens } from "marked";
 import { isExternal, resolveRelative, slugify } from "./link.ts";
 import { renderCodeBlock } from "../extensions/code.ts";
 import { getExtensions } from "../extensions/registry.ts";
@@ -27,6 +27,8 @@ export interface MarkdownOptions {
   currentPath?: string;
   /** 站内链接后缀（SSG 形态 ".html"；dev 缺省 "" 保持 .md 链接，见 05 §5.3） */
   linkSuffix?: string;
+  /** PLUG-006：插件提供的额外 marked 扩展（追加到注册表扩展之后） */
+  extraMarkedExtensions?: unknown[];
 }
 
 /** 将 Markdown 渲染为（未消毒的）HTML 片段。调用方必须再过 sanitizeHtml。 */
@@ -68,6 +70,12 @@ export function renderMarkdown(md: string, options: MarkdownOptions = {}): strin
   // REND-002：挂载注册表中启用的扩展（容器 / KaTeX 等）
   for (const ext of getExtensions()) {
     if (ext.markedExtensions?.length) marked.use({ extensions: ext.markedExtensions });
+  }
+  // PLUG-006：挂载插件提供的额外 marked 扩展（extendMarked 钩子收集）
+  if (options.extraMarkedExtensions?.length) {
+    for (const ext of options.extraMarkedExtensions) {
+      if (ext) marked.use({ extensions: ext as TokenizerAndRendererExtension[] });
+    }
   }
   // 本项目始终同步渲染（不启用 async），parse 返回 Promise 的分支不会被触发
   return marked.parse(md) as string;
