@@ -2,7 +2,7 @@
 
 > 状态：✅ **核心应用场景**——这是 DocLight 产品发力的核心方向，不是愿景，而是应用场景本身
 > 对应原则：原则零 Agent-First、无锁入、内容即 Markdown
-> 上游依据：[research-report.md](../research-report.md)、[02-architecture](./02-architecture.md)、[06-ai-native](./06-ai-native.md)、[13-deployment-distribution](./13-deployment-distribution.md)
+> 上游依据：[research-report.md](../research/research-report.md)、[02-architecture](./02-architecture.md)、[06-ai-native](./06-ai-native.md)、[13-deployment-distribution](./13-deployment-distribution.md)
 
 ---
 

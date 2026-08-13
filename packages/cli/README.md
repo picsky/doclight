@@ -1,7 +1,7 @@
 # packages/cli — DocLight CLI
 
 > 状态：Phase 0 占位（功能实现见 Phase 3）
-> 对应设计：[05-ssg-build](./tech-design/05-ssg-build.md)、[13-deployment-distribution](./tech-design/13-deployment-distribution.md)
+> 对应设计：[05-ssg-build](../../docs/tech-design/05-ssg-build.md)、[13-deployment-distribution](../../docs/tech-design/13-deployment-distribution.md)
 
 ## 为什么存在（意图文档，12 §4.1）
 

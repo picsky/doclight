@@ -1,7 +1,7 @@
 # packages/display — 浏览器展示层
 
 > 状态：✅ Phase 1 最简骨架已实现（theme / router / sidebar，见 `src/`）
-> 对应设计：[02-architecture §2.2.2](./tech-design/02-architecture.md) / [03-runtime-engine §3.2/§3.6](./tech-design/03-runtime-engine.md)
+> 对应设计：[02-architecture §2.2.2](../../docs/tech-design/02-architecture.md) / [03-runtime-engine §3.2/§3.6](../../docs/tech-design/03-runtime-engine.md)
 
 ## 为什么存在（意图文档，12 §4.1）
 

@@ -1,13 +1,13 @@
 # Contributing to DocLight
 
 > 本文件面向两类贡献者：**Code Agent**（本项目主要开发者）与**人类贡献者**（开源协作）。
-> 规范总纲见 [tech-design/12-development-standards](./tech-design/12-development-standards.md)，流程见 [15-development-process](./tech-design/15-development-process.md)。
+> 规范总纲见 [tech-design/12-development-standards](./docs/tech-design/12-development-standards.md)，流程见 [15-development-process](./docs/tech-design/15-development-process.md)。
 
 ## 0. 一页纸：这个仓库怎么运转
 
 - **原则零 Agent-First**：Agent 是主要开发者，人是审批者。决策先问「Agent 能否理解/使用/修改」。
 - **流程**：目标声明（人确认）→ 拆解 → 实现+测试 → `npm run verify` 全绿 → 评审 Agent → 合入 → 沉淀（ADR）。
-- **追溯**：调研 → 设计（tech-design/）→ 规格（specs/）→ 实现（packages/），全程引用需求 ID。
+- **追溯**：调研 → 设计（docs/tech-design/）→ 规格（specs/）→ 实现（packages/），全程引用需求 ID。
 
 ## 1. 架构地图
 

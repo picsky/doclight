@@ -6,11 +6,12 @@
 
 ## 当前状态（2026-08-12，晚间）
 
-- **阶段**：Phase 1 ✅ 完整收官 + Phase 2 搜索 ✅ 主体完成（`npm run verify` 6/6 全绿，含 e2e 门禁 33/33 × 三浏览器）；**下一步 = Phase 2 剩余体验项（代码高亮/复制/自定义容器等）或进 Phase 3（SSG），见 08-roadmap 与 PHASE-2 交接**
+- **阶段**：Phase 1 ✅ 完整收官 + Phase 2 搜索 ✅ 主体完成（`npm run verify` 6/6 全绿，含 e2e 门禁 33/33 × 三浏览器）；**下一步 = Phase 2 扩展语法渲染（Agent 原生能力，调研确认的差异化核心：Mermaid 容错/代码高亮+复制/自定义容器/KaTeX + 双读验证）**，与 Phase 3（SSG）并行小步推进；演示形态为第二阶段（先做 Claude Code artifacts 差异化评估），见 08-roadmap 与 PHASE-2 交接
 - **已完成（Phase 0 + Phase 1 全部 + Phase 2 搜索）**：自迭代环境（verify 命令族/契约层/CI）+ **REND-001 渲染内核**（marked v18 + DOMPurify+jsdom sanitize + frontmatter，安全测试集全过）+ **NAV-001 导航树**（docs.json）+ **DEV-001 dev server**（`doclight dev` 启动：首屏直出 + SSE 热重载 + 路径穿越防护）+ **展示层**（主题/SPA 路由+路由钩子 PLUG-002/移动端侧边栏）+ **TOC-001 本页目录**（桌面导轨/移动端面板/滚动高亮）+ **THEME-001 完整主题令牌**（03 §3.6 全量设计令牌）+ **PLUG-001 事件总线** + **SRCH-001 内置搜索**（Cmd/Ctrl+K + 中文 bigram 检索 + 索引懒加载 + 最近搜索）+ **verify:e2e 门禁**（Playwright 三浏览器端到端纳入 `npm run verify`）
 - **体积门禁（ADR-0002 修订）**：展示层 < 25KB gzip（实测 **9.8KB**）/ Node 内核 < 30KB（实测 27.9KB）
 - **决策记录**：搜索未引真实 MiniSearch（零依赖构建约束），以同形状 API 自研落地，Phase 3 可一处替换（见 PHASE-2 交接 §决策记录）
-- **遗留**：Phase 2 剩余体验项（代码高亮/复制按钮/自定义容器/专注模式/字号调节/打印样式）；搜索索引持久化（localStorage+版本校验，SSG 预构建待 Phase 3）；doclight.json 配置系统（02 §2.5）；视觉回归/同构快照（Phase 0 遗留）；npm 包名注册与域名（待用户决策）
+- **遗留**：**Phase 2 扩展语法渲染**（REND-002 扩展语法注册表 / REND-003 Mermaid 容错 / 代码高亮+复制 / 自定义容器 / KaTeX / REND-004 双读验证）；体验细节（专注模式/字号调节/打印样式/Powered by）；搜索索引持久化（localStorage+版本校验，SSG 预构建待 Phase 3）；doclight.json 配置系统（02 §2.5）；视觉回归/同构快照（Phase 0 遗留）；npm 包名注册与域名（待用户决策）
+- **调研结论（2026-08-13，两版并排）**：`research-report-agent-content-opportunity.md`（机会 7.5/10：零构建+扩展语法渲染+双读 三位一体空白，文档站优先、演示次之）+ `research-report-agent-content-demand-validation.md`（批判 3/10：否决独立「展示层」产品，保留「喂 markdown 给 agent」半边）——结论：扩展渲染是**引擎增量功能**而非新独立产品，已落入 08-roadmap Phase 2 优先级
 - **交接详情**：`docs/agent-handoffs/PHASE-2-search-complete.md`（换会话先读它；Phase 1 见 PHASE-1-complete.md、Phase 0 见 PHASE-0-complete.md）
 - **开工前**：先跑 `npm run verify` 确认从全绿基线出发（现含 e2e，需本机/CI 已装 Playwright 浏览器）
 
@@ -18,7 +19,7 @@
 
 **原则零：Agent-First。** 本项目主要由 Code Agent 自主开发，几乎没有人手搓代码。任何设计决策先问「Agent 能否理解、使用、修改它」，再问「人是否方便」。覆盖两个维度：使用端（消费文档站的 Agent）+ 开发端（开发本项目的 Agent）。
 
-## 文档地图（tech-design/）
+## 文档地图（docs/tech-design/）
 
 | 文档 | 内容 |
 |---|---|
@@ -48,6 +49,7 @@
 - **不发明术语**：遵循 `09-appendix` 术语表；新增术语须登记
 - **改动先看文档**：动手前先读相关 design 文档，遵循既有设计，不另起炉灶
 - **阶段完成必交接**：完成一个阶段/里程碑后，**必须**同步更新本文档与 AGENT.md 的「当前状态」（阶段/已完成/下一步），并在 `docs/agent-handoffs/` 写交接文档（格式见该目录）；不交接 = 任务未完成（15 文档 §6.2，contract 门禁校验）
+- **Agent Reach 工具约束**：进行外部调研时，**禁止使用 WebSearch/WebFetch**，仅使用项目定义的 Agent Reach 通道（Exa、Jina Reader、GitHub CLI、OpenCLI 等）。该约束应写入任何相关 workflow 的 meta/指令中并严格执行。
 
 ## 常用命令
 

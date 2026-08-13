@@ -1,6 +1,6 @@
 # docs/agent-handoffs/ — Agent 交接文档
 
-> 对应规范：[12-development-standards §6.3](./tech-design/12-development-standards.md)、[AGENT.md](../../AGENT.md)
+> 对应规范：[12-development-standards §6.3](../tech-design/12-development-standards.md)、[AGENT.md](../../AGENT.md)
 
 ## 为什么存在
 

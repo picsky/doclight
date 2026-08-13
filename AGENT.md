@@ -10,7 +10,8 @@ DocLight 是一款**主要由 Agent 自主开发**的开源文档站引擎。你
 
 - **Phase 1 ✅ 完整收官**：REND-001 渲染内核（marked+DOMPurify+frontmatter）、NAV-001 导航树、DEV-001 dev server、展示层（主题/SPA 路由+钩子 PLUG-002/移动端侧边栏）+ **TOC-001 本页目录** + **THEME-001 完整主题令牌** + **PLUG-001 事件总线**
 - **Phase 2 搜索 ✅ 主体**：**SRCH-001** 内置搜索（Cmd/Ctrl+K、中文 bigram 检索、索引懒加载、最近搜索）；**未引真实 MiniSearch**（零依赖构建约束），同形状 API 自研，Phase 3 可一处替换
-- **verify:e2e 门禁 ✅**：`npm run verify` 6/6 全绿（含 Playwright 三浏览器端到端 33/33）；**下一步 = Phase 2 剩余体验项或 Phase 3（SSG）**，交接见 `docs/agent-handoffs/PHASE-2-search-complete.md`
+- **verify:e2e 门禁 ✅**：`npm run verify` 6/6 全绿（含 Playwright 三浏览器端到端 33/33）；**下一步 = Phase 2 扩展语法渲染（REND-002 扩展语法注册表 / REND-003 Mermaid 容错 / 代码高亮+复制 / 自定义容器 / KaTeX / REND-004 双读验证）**，与 Phase 3（SSG）并行小步推进，交接见 `docs/agent-handoffs/PHASE-2-search-complete.md`
+- **调研结论（2026-08-13，两版并排）**：`research-report-agent-content-opportunity.md`（机会 7.5/10，零构建+扩展语法渲染+双读 三位一体空白，文档站优先）+ `research-report-agent-content-demand-validation.md`（批判 3/10，否决独立「展示层」产品、保留 AI 原生消费半边）→ 扩展渲染是**引擎增量功能**而非新独立产品，见 08-roadmap Phase 2 优先级
 - **monorepo 结构**：`packages/{renderer,display,core,cli,mcp-server}`（renderer 受保护 `src/core/`——markdown/sanitize/frontmatter/link）
 - **契约文件**：`contracts/`（doclight.schema.json）、`specs/features/{render,nav,dev,toc,theme,plugin,search}.feature`（需求 ID 溯源）、`docs/agent-handoffs/`
 - **决策记录**：`adr/`（ADR-0001 包命名 renderer、ADR-0002 内核预算 30KB）；搜索自研决策见 PHASE-2 交接
@@ -21,14 +22,14 @@ DocLight 是一款**主要由 Agent 自主开发**的开源文档站引擎。你
 
 ```
 1. 读 CLAUDE.md / 本文件 → 了解项目状态与约定
-2. 读相关设计文档（tech-design/）→ 遵循既有设计，不另起炉灶
+2. 读相关设计文档（docs/tech-design/）→ 遵循既有设计，不另起炉灶
 3. 读相关规格 → 定位需求 ID 与 DoD
 4. 跑基线验证（npm run verify）→ 确认从全绿起点出发
 5. 实现 → 写测试 → 自验证 → 提交
 6. 读反馈（CI 失败 / 评审 findings）→ 修复 → 直至全绿
 ```
 
-## 必须遵守的规范（详见 tech-design/12-development-standards.md）
+## 必须遵守的规范（详见 docs/tech-design/12-development-standards.md）
 
 ### 硬性红线（违反即 blocker，不可合入）
 - **不加依赖，除非走审批**：任何新依赖必须说明用途 / 体积 / 许可证 / 替代方案；展示层 < 25KB gzip / Node 内核 < 30KB（ADR-0002 修订）是硬门禁

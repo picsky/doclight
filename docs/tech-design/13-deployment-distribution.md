@@ -2,7 +2,7 @@
 
 > 状态：待评审（🟡）
 > 对应原则：[内容是主角，工具是透明的](./01-product-positioning.md)、原则零 Agent-First
-> 上游依据：[research-report.md](../research-report.md)（动机链与使用场景）、[02-architecture](./02-architecture.md)（三形态）、[05-ssg-build](./05-ssg-build.md)
+> 上游依据：[research-report.md](../research/research-report.md)（动机链与使用场景）、[02-architecture](./02-architecture.md)（三形态）、[05-ssg-build](./05-ssg-build.md)
 > 使用对象：产品设计、Phase 3+ 实施
 
 ---

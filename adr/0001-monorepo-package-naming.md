@@ -40,5 +40,5 @@
 
 ## 关联需求
 
-- [02-architecture](./tech-design/02-architecture.md) §2.2
-- [12-development-standards](./tech-design/12-development-standards.md) §1.2 / §5.2 / §6.2
+- [02-architecture](../docs/tech-design/02-architecture.md) §2.2
+- [12-development-standards](../docs/tech-design/12-development-standards.md) §1.2 / §5.2 / §6.2

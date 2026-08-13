@@ -1,7 +1,7 @@
 # TASK: Phase 0 完成交接（Agent 自迭代开发环境）
 
 > 状态：✅ done（2026-08-11）
-> 上游：tech-design/08-roadmap Phase 0、tech-design/10-agent-dev-environment（五层规格）
+> 上游：docs/tech-design/08-roadmap Phase 0、docs/tech-design/10-agent-dev-environment（五层规格）
 > **下一步：Phase 1 —— Node 渲染内核 + dev server（~2 周，见 08-roadmap）**
 
 > 本文件是换会话的第一入口。开工前：先跑 `npm run verify` 确认从全绿基线出发（AGENT.md 流程第 4 步）。

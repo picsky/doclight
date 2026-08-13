@@ -60,7 +60,7 @@ REND-001 实现后实测内核足迹（size 门禁口径：内核逻辑 + 运行
 
 ## 关联需求
 
-- [02-architecture](./tech-design/02-architecture.md) §2.2 / §2.3.1 / §2.3.7
-- [08-roadmap](./tech-design/08-roadmap.md) Phase 0 任务清单 / Phase 1 交付物
-- [12-development-standards](./tech-design/12-development-standards.md) §1.4
+- [02-architecture](../docs/tech-design/02-architecture.md) §2.2 / §2.3.1 / §2.3.7
+- [08-roadmap](../docs/tech-design/08-roadmap.md) Phase 0 任务清单 / Phase 1 交付物
+- [12-development-standards](../docs/tech-design/12-development-standards.md) §1.4
 - Phase 1 目标声明 `docs/goals/PHASE-1-goal.md`

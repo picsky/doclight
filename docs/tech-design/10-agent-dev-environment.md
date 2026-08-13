@@ -2,7 +2,7 @@
 
 > 状态：待评审（🟡）
 > 对应原则：[原则零 Agent-First](./01-product-positioning.md)
-> 上游依据：[research-report.md](../research-report.md)、[08-roadmap.md](./08-roadmap.md)
+> 上游依据：[research-report.md](../research/research-report.md)、[08-roadmap.md](./08-roadmap.md)
 
 ---
 
@@ -94,7 +94,7 @@ Feature: 内置搜索
 ```
 research-report.md   ← 为什么做（证据）
   ↓ 引用
-tech-design/*.md     ← 做什么（设计）
+docs/tech-design/*.md     ← 做什么（设计）
   ↓ 引用（需求 ID）
 specs/*.feature      ← 怎么验收（行为规格）
   ↓ 实现（提交信息引用需求 ID）

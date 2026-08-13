@@ -4,7 +4,7 @@ import { marked } from 'marked';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const realContent = fs.readFileSync('../research-report.md', 'utf-8');
+const realContent = fs.readFileSync('../docs/research/research-report.md', 'utf-8');
 console.log(`测试内容：research-report.md（${realContent.length} 字符）\n`);
 
 const start = performance.now();

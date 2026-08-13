@@ -1,7 +1,7 @@
 # packages/renderer — Node 渲染内核
 
 > 状态：✅ REND-001 渲染管线已实现（marked + DOMPurify + frontmatter，见 `src/core/`）
-> 对应设计：[02-architecture §2.2.1](./tech-design/02-architecture.md) / [03-runtime-engine §3.3](./tech-design/03-runtime-engine.md)
+> 对应设计：[02-architecture §2.2.1](../../docs/tech-design/02-architecture.md) / [03-runtime-engine §3.3](../../docs/tech-design/03-runtime-engine.md)
 
 ## 为什么存在（意图文档，12 §4.1）
 

@@ -1,7 +1,7 @@
 # packages/mcp-server — MCP Server（读取端）
 
 > 状态：Phase 0 占位（功能实现见 Phase 4）
-> 对应设计：[06-ai-native](./tech-design/06-ai-native.md)、[14-agent-content-space](./tech-design/14-agent-content-space.md)
+> 对应设计：[06-ai-native](../../docs/tech-design/06-ai-native.md)、[14-agent-content-space](../../docs/tech-design/14-agent-content-space.md)
 
 ## 为什么存在（意图文档，12 §4.1）
 

@@ -1,7 +1,7 @@
 # TASK: Phase 1 主体完成交接（Node 渲染内核 + dev server + 展示层骨架）
 
 > 状态：✅ 主体完成（2026-08-12）——M1 内核可用
-> 上游：tech-design/08-roadmap Phase 1、docs/goals/PHASE-1-goal.md（对齐点 A 已确认）
+> 上游：docs/tech-design/08-roadmap Phase 1、docs/goals/PHASE-1-goal.md（对齐点 A 已确认）
 > **下一步：Phase 1 遗留收尾（TOC/事件总线等）或直接进 Phase 2（搜索）**
 
 > 本文件是换会话的第一入口。开工前：先跑 `npm run verify` 确认从全绿基线出发。

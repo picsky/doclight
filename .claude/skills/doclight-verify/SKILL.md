@@ -5,7 +5,7 @@ description: 校验 DocLight 开发环境契约（Phase 0 产出）是否落实�
 
 # doclight-verify — 开发环境契约校验
 
-> 校验对象：Phase 0「Agent 自迭代开发环境」交付物（[10-agent-dev-environment §7 验收清单](./tech-design/10-agent-dev-environment.md)）
+> 校验对象：Phase 0「Agent 自迭代开发环境」交付物（[10-agent-dev-environment §7 验收清单](../../../docs/tech-design/10-agent-dev-environment.md)）
 > 使用时机：代码实现后 / 环境被改动后，确认环境契约未退化。
 
 ## 三个子技能

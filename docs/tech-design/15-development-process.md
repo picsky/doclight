@@ -192,4 +192,4 @@
 | [12-development-standards](./12-development-standards.md) | 阶段 ③④⑤ 的执行规范（任务模板/提交/review/ADR） |
 | [08-roadmap](./08-roadmap.md) | 目标来源（roadmap → 目标声明） |
 | [14-agent-content-space](./14-agent-content-space.md) | 核心应用场景的落地遵循本流程 |
-| [AGENT.md](../AGENT.md) | Agent 的操作手册（本流程的执行视角） |
+| [AGENT.md](../../AGENT.md) | Agent 的操作手册（本流程的执行视角） |

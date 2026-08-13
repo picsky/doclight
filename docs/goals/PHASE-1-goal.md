@@ -1,7 +1,7 @@
 # 目标声明：Phase 1 —— Node 渲染内核 + dev server（M1 内核可用）
 
 > 需求 ID 前缀：`REND`（渲染）/ `NAV`（导航）/ `DEV`（dev server）
-> 上游：tech-design/08-roadmap Phase 1、02-architecture §2.2、03-runtime-engine §3.1-3.3
+> 上游：docs/tech-design/08-roadmap Phase 1、02-architecture §2.2、03-runtime-engine §3.1-3.3
 > 状态：✅ 对齐点 A 已确认（2026-08-11）
 > 决策：① Node 内核预算 20KB → **30KB**（ADR-0002 修订，实测 27.9KB）② dev server 放 **packages/cli/** ③ 展示层骨架 **最简可用**
 > 流程：15-development-process §2（目标声明 → 对齐点 A → 拆解）
