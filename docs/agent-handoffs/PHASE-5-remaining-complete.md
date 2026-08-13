@@ -45,13 +45,16 @@ npm run spec:check      # 41/41（PLUG-007/010/011 + MIG-001/002 + THEME-002 全
 e2e/plugins.spec.ts     # 4 例：extendMarked 自定义语法（接线修复回归防线）/ 官方插件全链路 / onBuild 落盘 / dev server 形态
 ```
 
-## 遗留（v1.0 后）
+## 遗留（v1.0 收尾）
 
-- **plugin-mermaid 迁移**（从内置迁出）：涉及渲染内核/注册表/展示层/vendor 按需策略，单独任务；当前 mermaid 仍为内置默认扩展
-- **ESM-only 插件包与 TS 插件文件加载**：加载器同步 require，需异步 import 升级（与脚手架任务同批评估）
-- **插件运行时配置接线**：doclight.json 插件在浏览器端的 init/onMount 自动注册（当前运行时钩子走 doclight.use 程序化注册）
+> **更新（2026-08-13 同日）**：以下遗留三项已全部完成——①plugin-mermaid 迁移 → **PLUG-012**（`PHASE-5-mermaid-plugin-complete.md`）；②ESM-only/TS 插件加载 → **PLUG-013**（`PHASE-5-plugin-loader-esm-ts-complete.md`）；③插件运行时配置自动注册 → **PLUG-014**（`PHASE-5-plugin-runtime-autoregister-complete.md`）。云端托管用户已排除。
+
+- ~~**plugin-mermaid 迁移**（从内置迁出）~~：涉及渲染内核/注册表/展示层/vendor 按需策略——已随 PLUG-012 完成
+- ~~**ESM-only 插件包与 TS 插件文件加载**~~：加载器同步 require 升级——Node ≥ 23.6 原生 + 异步热重载（PLUG-013）
+- ~~**插件运行时配置接线**~~：doclight.json 插件在浏览器端的 init/onMount 自动注册——已随 PLUG-014 完成
 - **主题市场（多主题站展示）**：docs/themes.md 文档化展示；在线画廊待定
-- 云端 DocLight Space 托管 / npm 包名注册与域名（待用户决策，与 Phase 4 同源）
+- ~~云端 DocLight Space 托管~~：**用户已排除，不做**
+- npm 包名注册与域名：待用户决策（v1.0 发布前置）
 
 ## 验证命令
 
