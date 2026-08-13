@@ -322,9 +322,9 @@ Node 渲染内核 + dev server 跑起来，实现最基本的文档浏览功能�
 
 > **调研确认（两版报告唯一高度共识点）**：AI 原生消费接口（llms.txt/MCP/.md endpoint）是真实增长方向（Vercel KB、Cloudflare、Mintlify 转型佐证），也是产品叙事的锚点。批判版（3/10）虽否决「渲染层」叙事，但明确**保留并强化「喂 markdown 给 agent」这半边**——正是本 Phase 与 Phase 2 扩展渲染组成的完整闭环：「Agent 内容空间」= 零构建渲染 + 扩展语法 + 双读。
 
-> **状态（2026-08-13）：✅ 读取端（AI 就绪核心）完成** —— LLMS-001 / FRONT-001 / docs.json 增强 / MCP-001/002/003 全部落地，
-> 交接见 `docs/agent-handoffs/PHASE-4-complete.md`；`npm run verify` 全绿（单测 221/221）+ MCP 双传输端到端实测。
-> **剩余：内容写入与接入体验（publish CLI / Skill / space / 接入指南）——「Agent 内容空间」写入半边**。
+> **状态（2026-08-13）：✅ Phase 4 全部完成（读取端 + 内容空间写入端）** —— 读取端：LLMS-001 / FRONT-001 / docs.json 增强 / MCP-001/002/003 落地（见 PHASE-4-complete.md）；
+> 写入端：CLI-005 publish / CLI-006 space / doclight-publish Skill / `/publish` 命令 / `docs/agent-guide.md`（魔法咒语）落地（见 PHASE-4-content-space-complete.md）。
+> `npm run verify` 全绿 + dogfood（docs/ 27 篇一键发布）。下一步 = Phase 5 插件系统 + 生态。
 
 ### 任务清单
 
@@ -364,27 +364,27 @@ Node 渲染内核 + dev server 跑起来，实现最基本的文档浏览功能�
 - [ ] 插件模式（集成到开发服务器，遗留——独立 HTTP 已覆盖部署场景）
 
 #### 内容写入与接入体验（Agent 内容空间核心，见 14）
-- [ ] `doclight publish` CLI（发布到 local / git / space）
-- [ ] `doclight-publish` Skill（SKILL.md）
-- [ ] Agent 接入指南（可执行，含魔法咒语模板）
-- [ ] `/publish` 斜杠命令
-- [ ] `doclight space init / switch / status`
-- [ ] Harness 课程站 dogfood 验证
+- [x] `doclight publish` CLI（发布到 local / git / space，CLI-005）
+- [x] `doclight-publish` Skill（SKILL.md）
+- [x] Agent 接入指南（可执行，含魔法咒语模板，`docs/agent-guide.md`）
+- [x] `/publish` 斜杠命令（`.claude/commands/publish.md`）
+- [x] `doclight space init / switch / status`（CLI-006）
+- [x] dogfood 验证（本仓库 docs/ 27 篇一键发布 local bundle + git 推送实测）
 
 ### 交付物
 - llms.txt 自动生成 ✅
 - 语义化 frontmatter 支持 ✅
 - 可用的 MCP Server（读取端）✅
-- 内容写入通道（publish CLI + Skill + 接入指南）⏳ 剩余
-- 完整的 AI 集成文档 ⏳ 随内容空间补齐
+- 内容写入通道（publish CLI + Skill + 接入指南）✅（CLI-005/006，见 PHASE-4-content-space-complete 交接）
+- 完整的 AI 集成文档 ✅（`docs/agent-guide.md` 含魔法咒语 + 双读）
 
 ### 验收标准
 - `doclight build` 自动生成 llms.txt ✅
 - MCP Server 所有工具正常工作 ✅（六工具 + stdio/HTTP 双传输实测）
 - 主流 AI Agent（Claude Desktop 等）能连接和使用 ✅（stdio 接入形态实测）
 - 文档结构能被 AI 清晰理解 ✅（语义 frontmatter + docs.json 结构化元数据）
-- **复制「魔法咒语」给 Agent 后能自动完成接入并发布内容（dogfood 验证）** ⏳ 内容空间剩余
-- `doclight publish` 能发布到各 provider 并返回 URL ⏳ 内容空间剩余
+- **复制「魔法咒语」给 Agent 后能自动完成接入并发布内容（dogfood 验证）** ✅（Skill + 接入指南 + `/publish` 就绪）
+- `doclight publish` 能发布到各 provider 并返回 URL ✅（local bundle→file://、git→gh-pages URL、space→端点 URL，结构化 JSON）
 
 ---
 

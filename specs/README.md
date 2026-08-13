@@ -52,6 +52,26 @@
 
 > 配套：MCP 只服务 dist-site（产物）而非 docs/；`build.llmsTxt` 用户分级/排除宽松读取（schema 扩展待批准）。
 
+## Phase 4 内容空间（CLI-005 publish / CLI-006 space，2026-08-13 已落地）
+
+> 对应 08-roadmap Phase 4 剩余 + 14-agent-content-space §3/§4。**「Agent 内容空间」写入半边**：
+> 内容 = 纯 Markdown，发布 = 构建 + 落到某处（local / git / space）。CLI 是唯一事实来源，
+> 所有命令输出结构化 JSON（`--json`，Agent 直接消费），无伪造成功（无远程/无端点 → 引导步骤）。
+> 落地形态：`specs/features/space.feature` + `packages/cli/src/{space,publish}.ts` + index.ts（--json）+
+> `.claude/skills/doclight-publish/SKILL.md`（默认入口）+ `.claude/commands/publish.md`（用户触发）+
+> `docs/agent-guide.md`（可执行接入指南 + 魔法咒语，DocLight 自身构建=dogfood）。
+
+| 需求 ID | 名称 | 说明 | 状态 |
+|---|---|---|---|
+| CLI-005 | doclight publish | 发布到 local（bundle→file://）/ git（build+gh-pages→公网 URL）/ space（POST 站点清单→端点 URL）；`--json` 结构化输出 | 已实现 |
+| CLI-006 | doclight space | init（默认 local，幂等）/ switch / status；`.doclight/space.json`（不入契约 schema，运行时状态） | 已实现 |
+| — | doclight-publish Skill | `.claude/skills/doclight-publish/SKILL.md`：Agent 用 CLI 三步发布（整理→发布→验证反馈），对外动作先确认 | 已实现 |
+| — | /publish 斜杠命令 | `.claude/commands/publish.md`：用户明确触发的「现在发布」入口 | 已实现 |
+| — | Agent 接入指南 | `docs/agent-guide.md`：可执行指南（每步含命令+验证输出）+ 魔法咒语模板 + 失败处理表 | 已实现 |
+
+> 配套：space provider 抽象（14 §3.1 可插拔）、`--json` 布尔 flag 解析修正（index.ts parseArgs）。
+> 云端 Space（托管）未开通：`--to space` 无端点时结构化引导（不伪造成功），可指向自建兼容 API。
+
 ## 目录结构约定
 
 ```

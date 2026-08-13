@@ -16,6 +16,8 @@ import { deploySite } from "./deploy.ts";
 import { initProject } from "./init.ts";
 import { migrateDocsify } from "./migrate.ts";
 import { startPreviewServer } from "./preview.ts";
+import { publishSite, type PublishResult } from "./publish.ts";
+import { spaceInit, spaceStatus, spaceSwitch } from "./space.ts";
 
 export const cliVersion = "0.1.0";
 
@@ -32,7 +34,7 @@ export interface CliOptions {
   remoteUrl?: string;
 }
 
-/** 解析命令行参数（支持 --key value 与 --key=value），返回字面字符串映射 */
+/** 解析命令行参数（支持 --key value 与 --key=value）。无值 flag（如 --json）记为 "true"。 */
 export function parseArgs(argv: string[]): Record<string, string> {
   const options: Record<string, string> = {};
   for (let i = 0; i < argv.length; i++) {
@@ -40,9 +42,11 @@ export function parseArgs(argv: string[]): Record<string, string> {
     if (!arg.startsWith("--")) continue;
     const eq = arg.indexOf("=");
     const key = eq >= 0 ? arg.slice(2, eq) : arg.slice(2);
-    const value = eq >= 0 ? arg.slice(eq + 1) : argv[i + 1] ?? "true";
+    const next = argv[i + 1];
+    // 布尔 flag：后接 token 若以 -- 开头或无 token → 视为 true（不吞掉下一个 flag）
+    const value = eq >= 0 ? arg.slice(eq + 1) : next !== undefined && !next.startsWith("--") ? next : "true";
     options[key] = value;
-    if (eq < 0 && !argv[i + 1]?.startsWith("--")) i++; // 消费值 token
+    if (eq < 0 && value !== "true" && next !== undefined && !next.startsWith("--")) i++; // 消费值 token
   }
   return options;
 }
@@ -67,6 +71,8 @@ function printHelp(): void {
   bundle    构建单文件便携包（离线分发，05 §5.3.4）
   deploy    一键部署（GitHub Pages / Cloudflare / Netlify 检测）
   migrate-docsify  从 docsify 站点迁移内容到 DocLight 约定
+  publish   发布到内容空间（local / git / space，14 §4.3）
+  space     内容空间管理（init / switch / status，14 §3.4）
 
 选项:
   --port <n>      监听端口（默认 3000）
@@ -78,7 +84,12 @@ function printHelp(): void {
   --description   站点描述（缺省页面 description 优先）
   --author <名>   全局作者（JSON-LD author，缺省 frontmatter.author）
   --platform <p>  deploy 平台（gh-pages / cloudflare-pages / netlify，默认自动检测）
-  --remote <url>  deploy 覆盖 git 远程地址检测
+  --remote <url>  deploy / publish 覆盖 git 远程地址检测
+  --to <provider> publish 目标空间类型（local / git / space，缺省 active 空间）
+  --space <name>  publish 指定已注册的空间名
+  --endpoint <u>  publish --to space 的 API 端点
+  --root <path>   publish / space 的项目根目录（缺省当前目录）
+  --json          publish / space 输出纯 JSON（Agent 直接解析）
   --help, -h      显示帮助`);
 }
 
@@ -206,8 +217,89 @@ if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
         console.log(`\n  DocLight 部署需要人工步骤\n`);
         for (const s of result.steps) console.log(`  ${s}`);
       }
+    } else if (command === "publish") {
+      const result: PublishResult = await publishSite({
+        root: opts["root"],
+        dir: opts["dir"],
+        to: opts["to"] as "local" | "git" | "space" | undefined,
+        spaceName: opts["space"],
+        outDir: opts["out-dir"],
+        title: opts["title"],
+        remoteUrl: opts["remote"],
+        endpoint: opts["endpoint"],
+      });
+      if (opts["json"] === "true") {
+        console.log(JSON.stringify(result, null, 2));
+      } else if (result.ok) {
+        console.log(`\n  DocLight 发布完成 ✓\n`);
+        console.log(`  空间: ${result.spaceName}（${result.provider}）`);
+        if (result.file) console.log(`  产物: ${result.file}`);
+        console.log(`  URL:  ${result.url}`);
+      } else {
+        console.log(`\n  DocLight 发布未能自动完成\n`);
+        console.log(`  空间: ${result.spaceName}（${result.provider}）`);
+        if (result.error) console.log(`  原因: ${result.error}`);
+        for (const s of result.steps) console.log(`  ${s}`);
+        process.exitCode = 1;
+      }
+    } else if (command === "space") {
+      const sub = rest[0] ?? "";
+      const root = opts["root"];
+      if (sub === "init") {
+        const result = spaceInit({
+          root,
+          provider: opts["provider"] as "local" | "git" | "space" | undefined,
+          name: opts["name"],
+          label: opts["label"],
+          outputDir: opts["out-dir"],
+          remoteUrl: opts["remote"],
+          branch: opts["branch"],
+          endpoint: opts["endpoint"],
+        });
+        if (opts["json"] === "true") {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log(`\n  DocLight 空间已初始化 ✓（${result.created ? "新建" : "已有"}）\n`);
+          console.log(`  空间: ${result.space}（${result.config.spaces[result.space]?.provider ?? ""}）`);
+          if (result.url) console.log(`  URL:  ${result.url}`);
+          for (const s of result.steps) console.log(`  ${s}`);
+          console.log(`\n  发布: doclight publish   |   状态: doclight space status\n`);
+        }
+      } else if (sub === "switch") {
+        const name = rest[1] ?? opts["name"];
+        if (!name) {
+          console.error(`✗ space switch 需要空间名（用法: doclight space switch <name>）`);
+          process.exit(1);
+        }
+        const result = spaceSwitch(root ?? ".", name);
+        if (opts["json"] === "true") {
+          console.log(JSON.stringify(result, null, 2));
+        } else if (result.ok) {
+          console.log(`\n  已切换到空间: ${result.active}\n`);
+        } else {
+          console.error(`✗ ${result.error}`);
+          process.exitCode = 1;
+        }
+      } else if (sub === "status") {
+        const result = spaceStatus(root ?? ".");
+        if (opts["json"] === "true") {
+          console.log(JSON.stringify(result, null, 2));
+        } else if (!result.initialized) {
+          console.log(`\n  尚未初始化空间（运行 doclight space init 创建默认 local 空间）\n`);
+        } else {
+          console.log(`\n  DocLight 内容空间状态\n`);
+          console.log(`  激活: ${result.label ?? result.active}（${result.provider}）`);
+          if (result.url) console.log(`  URL:  ${result.url}`);
+          for (const s of result.spaces.filter((x) => x.active).flatMap((x) => x.steps)) console.log(`  ${s}`);
+          console.log(`\n  全部空间:`);
+          for (const s of result.spaces) console.log(`   ${s.active ? "*" : " "} ${s.name}（${s.provider}）${s.url ? " → " + s.url : ""}`);
+        }
+      } else {
+        console.error(`未知 space 子命令：${sub || "(空)"}（支持 init / switch / status）`);
+        process.exit(1);
+      }
     } else {
-      console.error(`未知命令：${command ?? "(空)"}（支持 dev / build / preview / init / bundle / deploy / migrate-docsify）`);
+      console.error(`未知命令：${command ?? "(空)"}（支持 dev / build / preview / init / bundle / deploy / migrate-docsify / publish / space）`);
       process.exit(1);
     }
   } catch (err) {
