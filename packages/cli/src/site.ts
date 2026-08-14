@@ -720,7 +720,13 @@ ${seoHead}
   blockquote > :first-child { margin-top: 0; }
   blockquote > :last-child { margin-bottom: 0; }
   /* 表格（精致化：垂直呼吸感 padding + 2px 表头分隔线 + 行 hover 微反馈） */
-  .table-wrap { overflow-x: auto; margin-bottom: 1.5em; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
+  .table-wrap { position: relative; overflow-x: auto; margin-bottom: 1.5em; border: 1px solid var(--color-border); border-radius: var(--radius-lg); scrollbar-width: thin; scrollbar-color: var(--color-border) transparent; }
+  .table-wrap::-webkit-scrollbar { height: 8px; }
+  .table-wrap::-webkit-scrollbar-track { background: transparent; }
+  .table-wrap::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; border: 2px solid var(--color-bg); }
+  .table-wrap::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+  /* 右侧渐隐提示（04 §4.4.5 兑现）：内容在可滚动时淡出，滚到底消失；JS 切换 .at-end */
+  .table-wrap.more-right { box-shadow: inset -16px 0 16px -16px rgba(0, 0, 0, 0.14); }
   table { border-collapse: collapse; width: 100%; }
   th, td { border-bottom: 1px solid var(--color-border-soft); padding: 10px var(--space-4); text-align: left; line-height: 1.6; vertical-align: top; }
   th { background: var(--color-bg-soft); font-weight: 600; color: var(--color-text-strong); border-bottom: 2px solid var(--color-border); white-space: nowrap; }

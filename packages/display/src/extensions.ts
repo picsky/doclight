@@ -78,6 +78,31 @@ function loadStyle(href: string): Promise<void> {
   });
 }
 
+/* ===== 表格滚动提示（04 §4.4.5 兑现，VIS-002 精致化）：可滚动时右侧渐隐，滚到底消失 ===== */
+
+/** 纯函数：判断表格容器是否需要右侧渐隐提示（内容溢出且未滚到底） */
+export function tableNeedsFade(scrollLeft: number, scrollWidth: number, clientWidth: number): boolean {
+  const overflow = scrollWidth - clientWidth;
+  if (overflow <= 4) return false; // 未溢出（容差抗亚像素）
+  return scrollLeft < overflow - 4; // 未滚到底
+}
+
+/** 接线：监听 .table-wrap 滚动/尺寸变化，切换 .more-right 类（路由变化后由 enhance 重扫） */
+function addTableScrollHints(scope: HTMLElement): void {
+  scope.querySelectorAll<HTMLElement>(".table-wrap").forEach((wrap) => {
+    if (wrap.dataset.scrollHint) return; // 防重复
+    wrap.dataset.scrollHint = "1";
+    const update = () => {
+      const on = tableNeedsFade(wrap.scrollLeft, wrap.scrollWidth, wrap.clientWidth);
+      wrap.classList.toggle("more-right", on);
+    };
+    update();
+    wrap.addEventListener("scroll", update, { passive: true });
+    // 内容渲染（KaTeX/高亮）后尺寸变化，滚动事件外兜底重算
+    new ResizeObserver(update).observe(wrap);
+  });
+}
+
 /** 纯函数：从 code 元素 class 提取语言（如 "language-js" → "js"；无语言返回 null） */
 export function extractLanguage(className: string): string | null {
   const m = /\blanguage-([\w-]+)/.exec(className);
@@ -249,9 +274,10 @@ export function initExtensions(root?: HTMLElement): ExtensionsApi {
 
   function enhance(scope?: HTMLElement): void {
     const target = scope ?? scopeRoot;
-    // 同步：复制按钮 + 标题锚点（零依赖）
+    // 同步：复制按钮 + 标题锚点 + 表格滚动提示（零依赖）
     addCopyButtons(target);
     addAnchors(target);
+    addTableScrollHints(target);
     // 异步：懒加载增强（各扩展内部自判断是否有标记，无则零开销返回）
     void highlightCode(target);
     void renderKatex(target);
