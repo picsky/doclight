@@ -665,10 +665,10 @@ ${seoHead}
   .sidebar ul { list-style: none; padding-left: var(--space-3); margin: 0; }
   .sidebar > ul { padding-left: 0; }
   .sidebar li { margin: 0; }
-  /* 分组：安静小标签（设计证据：Mintlify = 12px/600/深色/无字距无 uppercase；
-     分组比导航项更醒目——目录结构用深色，内容项用灰色；左边缘与导航项对齐） */
+  /* 分组：安静小标签（设计证据：Tailwind = 12px/600/深色；分组比导航项更醒目——
+     目录结构用深色，内容项用灰色；左边缘与导航项对齐 10px） */
   .sidebar .group { margin-top: var(--space-6); }
-  .sidebar .group > a, .sidebar .group { display: block; font-size: var(--font-size-xs); font-weight: 600; color: var(--color-text-strong); letter-spacing: var(--tracking-normal); text-transform: none; padding: 0 var(--space-4); margin-bottom: var(--space-2); }
+  .sidebar .group > a, .sidebar .group { display: block; font-size: var(--font-size-xs); font-weight: 600; color: var(--color-text-strong); letter-spacing: var(--tracking-normal); text-transform: none; padding: 0 10px; margin-bottom: var(--space-2); }
   .sidebar .group > a:hover { color: var(--color-primary); background: none; }
   /* 当前分组状态（设计师手笔：不仅当前页有状态，所在分组标题也高亮——
      纯 CSS :has()，随页面 active 自动联动，零 JS） */
@@ -676,13 +676,12 @@ ${seoHead}
   /* 嵌套分组（二级+）：层级降级——间距收紧 + 次级色（弱于一级分组的深色） */
   .sidebar .group .group { margin-top: var(--space-4); }
   .sidebar .group .group > a, .sidebar .group .group { color: var(--color-text-secondary); margin-bottom: var(--space-1); }
-  /* 导航项：极致安静（设计证据：Mintlify = 14px/400/无圆角/不对称 padding/行高 20px；
-     hover = 文字变深 + 3% 超淡背景，active = 主色+字重+静态短竖线；
-     行高 1.5 防止继承正文 1.75 导致列表松散） */
-  .sidebar a { display: block; padding: 5px var(--space-3) 5px var(--space-4); border-radius: 0; color: var(--color-text-secondary); text-decoration: none; transition: color var(--transition-fast), background var(--transition-fast); position: relative; }
-  .sidebar a:hover { color: var(--color-text-strong); background: color-mix(in srgb, var(--color-text-strong) 3%, transparent); }
-  .sidebar a.active { color: var(--color-primary); font-weight: 600; background: none; box-shadow: none; }
-  .sidebar a.active::before { content: ""; position: absolute; left: var(--space-2); top: 50%; transform: translateY(-50%); width: 2px; height: 12px; border-radius: 1px; background: var(--color-primary); }
+  /* 导航项：现代文档站主流（调研证据：Next.js/shadcn/Nuxt = 14px/500 + 圆角 + 状态背景块；
+     hover = 文字变深 + 5% 浅背景，active = 主色 600 + 8% teal 背景块（Starlight 背景块的克制版）；
+     行高 1.5 防继承正文 1.75 松散） */
+  .sidebar a { display: block; padding: 5px 10px; border-radius: 6px; color: var(--color-text-secondary); text-decoration: none; transition: color var(--transition-fast), background var(--transition-fast); }
+  .sidebar a:hover { color: var(--color-text-strong); background: color-mix(in srgb, var(--color-text-strong) 5%, transparent); }
+  .sidebar a.active { color: var(--color-primary); font-weight: 600; background: color-mix(in srgb, var(--color-primary) 8%, transparent); box-shadow: none; }
   main { grid-column: 2; min-width: 0; max-width: var(--max-width-content); width: 100%; margin: 0 auto; padding: var(--space-12) var(--space-6) var(--space-16); }
   /* 正文排版（04 §4.2：16px × 1.75，680px 行宽） */
   article h1 { font-size: var(--font-size-3xl); line-height: var(--line-height-tight); font-weight: 700; margin: 0 0 0.8em; color: var(--color-text-strong); letter-spacing: -0.01em; }
@@ -753,11 +752,12 @@ ${seoHead}
   .toc-label { display: block; font-size: var(--font-size-xs); font-weight: 600; color: var(--color-text-strong); letter-spacing: var(--tracking-normal); text-transform: none; margin-bottom: var(--space-3); padding: 0 var(--space-2); }
   .toc-dots { display: none; }
   .toc-panel { display: flex; flex-direction: column; gap: 1px; }
-  /* TOC 项：与侧边栏同设计语言——hover 文字变深+3% 微背景，active 主色+字重+静态竖线（无背景无光晕） */
-  .toc-link { display: block; padding: 4px var(--space-2); border-radius: 0; font-size: var(--font-size-sm); line-height: var(--line-height-normal); color: var(--color-text-secondary); text-decoration: none; cursor: pointer; border-left: 2px solid transparent; transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast); }
+  /* TOC 项：与侧边栏同设计语言（现代文档站主流——圆角 + 状态背景块；
+     hover = 文字变深 + 5% 背景，active = 主色 600 + 8% teal 背景块） */
+  .toc-link { display: block; padding: 4px 8px; border-radius: 6px; font-size: var(--font-size-sm); line-height: var(--line-height-normal); color: var(--color-text-secondary); text-decoration: none; cursor: pointer; transition: color var(--transition-fast), background var(--transition-fast); }
   .toc-link-l3 { padding-left: var(--space-4); font-size: var(--font-size-xs); }
-  .toc-link:hover { color: var(--color-text-strong); background: color-mix(in srgb, var(--color-text-strong) 3%, transparent); }
-  .toc-link.active { color: var(--color-primary); font-weight: 600; border-left-color: var(--color-primary); background: none; box-shadow: none; }
+  .toc-link:hover { color: var(--color-text-strong); background: color-mix(in srgb, var(--color-text-strong) 5%, transparent); }
+  .toc-link.active { color: var(--color-primary); font-weight: 600; background: color-mix(in srgb, var(--color-primary) 8%, transparent); box-shadow: none; }
   /* 移动端 TOC：右下角浮动按钮 + 底部面板 */
   .toc-fab { display: none; position: fixed; right: var(--space-4); bottom: var(--space-6); z-index: 40; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--color-border); background: var(--color-bg-soft); color: var(--color-text-secondary); font-size: 18px; cursor: pointer; box-shadow: var(--shadow); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
   .toc-sheet { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; max-height: 70%; background: var(--color-bg); border-top: 1px solid var(--color-border); border-radius: var(--radius-lg) var(--radius-lg) 0 0; transform: translateY(100%); transition: transform var(--transition); box-shadow: var(--shadow); }

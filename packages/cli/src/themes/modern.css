@@ -66,5 +66,4 @@ article code:not(pre code) { background: var(--color-primary-light); color: var(
 /* 搜索面板：玻璃 + 大圆角 */
 .search-box { border-radius: var(--radius-lg); border-color: rgba(255, 255, 255, 0.08); }
 [data-theme="light"] .search-box { border-color: rgba(15, 23, 42, 0.08); }
-/* 侧边栏 active：主色文字（极致安静——玻璃面板保留，无背景块） */
-.sidebar a.active { color: var(--color-primary); }
+/* 侧边栏 active：默认主题已定义（主色 + 8% 背景块——现代文档站主流） */
