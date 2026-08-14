@@ -29,3 +29,7 @@ Thumbs.db
 .idea/
 .vscode/
 *.log
+
+# 本地工具配置（AutoGLM 浏览器 agent 等）
+config/
+
