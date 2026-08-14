@@ -132,6 +132,22 @@
 > 配套：组件定制三入口文档 `docs/component-gallery.md`（CSS 覆盖 / extendMarked / 插件插槽——Astryx 式可定制）；
 > 主题 CSS 独立成文件 = 未来主题市场载体；`npm run verify:visual` / `verify:visual:update` 命令。
 
+## Phase 6 P1 预览-确认-发布 + MCP 写入端（WORK-001 / MCP-006，2026-08-13 已落地）
+
+> 对应 08-roadmap Phase 6 P1 + research §五（工作流层：Agent 写入先进预览态，人确认后才发布；
+> Mutable "The CMS for AI agents" 模式）。「写入 → 实时预览 → 人确认 → 发布 → 可回滚」闭环。
+> 落地形态：`specs/features/work.feature` + `packages/cli/src/snapshot.ts`（快照/回滚）
+> + publish.ts（发布前自动快照）+ index.ts（publish --preview / TTY 确认门 / rollback 命令）
+> + dev-server.ts（增量渲染缓存）+ `packages/mcp-server/src/tools.ts`（write_doc/update_doc/delete_doc）。
+
+| 需求 ID | 名称 | 说明 | 状态 |
+|---|---|---|---|
+| WORK-001 | 预览-确认-发布 | 发布前自动快照（`.doclight/snapshots/`，内容哈希幂等去重；`--no-snapshot` 关闭；快照失败发布中止）+ 回滚（`doclight rollback <id>` / `--list`，清空恢复 + ID 安全校验）+ `publish --preview` 预览态（构建 + 预览服务，不发布）+ TTY 确认门（y/N，`--yes` 跳过；非 TTY 直行）+ dev 增量渲染缓存（mtime+字节数 键，只重渲染变更文档） | 已实现 |
+| MCP-006 | MCP 写入端 | write_doc/update_doc/delete_doc（`.md` 白名单 + 穿越/绝对路径防护；未配置 `--write-dir` 时可读错误不伪造写能力）；dev --mcp 写入 → watcher 置脏 → 下次 MCP 请求增量重建（写入触发增量重渲染联动） | 已实现 |
+
+> 配套：publish 结果携带 snapshot 信息；rollback 支持 `--json`（Agent 直接消费）；MCP 工具注册表扩至十个
+> （读七 + 写三）；ai.feature 同步十工具契约。
+
 ## 目录结构约定
 
 ```
@@ -145,7 +161,7 @@ specs/
 ## 需求 ID 与追溯（10 §1.4）
 
 - 每个需求项有唯一 ID：`<前缀>-<序号>`（如 `SRCH-001`）
-- 前缀表：`SRCH`(搜索) / `REND`(渲染) / `NAV`(导航) / `TOC` / `THEME` / `SSG` / `MCP` / `PLUG`(插件) / `SPACE`(内容空间) / `CLI` / `SEO`(搜索优化，Phase 3 新增) / `DEV`(dev server，Phase 1 新增) / `LLMS`(llms.txt，Phase 4 新增) / `FRONT`(语义 frontmatter，Phase 4 新增) / `SNAP`(同构快照，Phase 4 补强新增) / `CAP`(能力协议，Phase 6 P0 新增) / `AEO`(Agent 发布优化/发布产物 Agent 友好，Phase 6 P0 新增) / `VIS`(表现层设计系统化，Phase 6 P1 新增) — 新增前缀须登记（注：ID 正则限 2-5 大写字母，过长前缀不被 spec:check 识别）
+- 前缀表：`SRCH`(搜索) / `REND`(渲染) / `NAV`(导航) / `TOC` / `THEME` / `SSG` / `MCP` / `PLUG`(插件) / `SPACE`(内容空间) / `CLI` / `SEO`(搜索优化，Phase 3 新增) / `DEV`(dev server，Phase 1 新增) / `LLMS`(llms.txt，Phase 4 新增) / `FRONT`(语义 frontmatter，Phase 4 新增) / `SNAP`(同构快照，Phase 4 补强新增) / `CAP`(能力协议，Phase 6 P0 新增) / `AEO`(Agent 发布优化/发布产物 Agent 友好，Phase 6 P0 新增) / `VIS`(表现层设计系统化，Phase 6 P1 新增) / `WORK`(预览-确认-发布工作流，Phase 6 P1 新增) — 新增前缀须登记（注：ID 正则限 2-5 大写字母，过长前缀不被 spec:check 识别）
 - Agent 在**提交信息与代码中引用需求 ID**（`feat(SRCH-001): ...`）
 - `npm run spec:check` 校验链路：specs 中的每个 ID 在 `packages/*` 的源码或测试中有引用
 - 只有 `.feature` 与编号 RFC 规格（`NNN-*.md`）承载需求 ID；本 README 中的示例 ID 仅供说明，不计入追溯（spec:check 不扫描约定文档）

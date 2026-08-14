@@ -12,7 +12,7 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { buildIndex, type SearchDoc, type SearchIndex } from "./search.ts";
 
 export interface SiteDocMeta {
@@ -48,6 +48,15 @@ export interface SiteData {
   /** CAP-001：capabilities.json（渲染能力清单：扩展语法/插件/frontmatter 约定/Agent 端点）。
    *  产物缺失时为 null——get_capabilities 工具据此诚实降级（不伪造）。 */
   capabilities: Record<string, unknown> | null;
+  /** MCP-006：内容源写入目录（write_doc/update_doc/delete_doc 的目标；null = 写入端未启用，
+   *  写工具返回可读错误——不伪造写能力） */
+  writeDir: string | null;
+}
+
+/** loadSite 选项（MCP-006：--write-dir 启用写入端） */
+export interface LoadSiteOptions {
+  /** 内容源目录（docs/），写入工具的目标；缺省 null（只读模式） */
+  writeDir?: string;
 }
 
 function readJson<T>(dir: string, file: string): T | null {
@@ -82,8 +91,8 @@ export function parseLlmsFull(content: string): Map<string, string> {
   return map;
 }
 
-/** 加载产物站点数据（缺文件时优雅降级，不抛错） */
-export function loadSite(siteDir: string): SiteData {
+/** 加载产物站点数据（缺文件时优雅降级，不抛错）。options.writeDir 启用 MCP-006 写入端。 */
+export function loadSite(siteDir: string, options: LoadSiteOptions = {}): SiteData {
   // 键名遵循 06 §6.2.2 docs.json 契约：siteTitle / siteDescription / siteUrl
   const docsJson = readJson<{
     siteTitle?: string;
@@ -113,5 +122,6 @@ export function loadSite(siteDir: string): SiteData {
     search: buildIndex(searchJson?.docs ?? []),
     fullByPath,
     capabilities,
+    writeDir: options.writeDir ? resolve(options.writeDir) : null,
   };
 }

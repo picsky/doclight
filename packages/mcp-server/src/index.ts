@@ -1,15 +1,18 @@
 /**
- * doclight-mcp-server 入口（MCP-001/002/003，Phase 4 实现）
+ * doclight-mcp-server 入口（MCP-001/002/003 + MCP-006，Phase 4 + Phase 6 P1 实现）
  *
  * 读取端 MCP Server：只服务产物站点（dist-site，doclight build 产出），
  * 不服务源码 docs/（决策：MCP 面向已发布内容，见 README 边界）。
+ * MCP-006 写入端（--write-dir）：write_doc/update_doc/delete_doc 写入内容源目录，
+ * 与 dev --mcp 联动（写入 → watcher 增量重渲染，Agent 实时输出实时预览）。
  *
  * 两种运行方式：
  * - stdio（默认，无 --port）：Claude Desktop 等 MCP 客户端的标准接入
  * - HTTP（--port <n>）：独立服务 + /.well-known/mcp 发现，远程 Agent 连接
  *
  * 用法：
- *   node packages/mcp-server/src/index.ts --site ./dist-site            # stdio
+ *   node packages/mcp-server/src/index.ts --site ./dist-site            # stdio（只读）
+ *   node packages/mcp-server/src/index.ts --site ./dist-site --write-dir ./docs  # + 写入端
  *   node packages/mcp-server/src/index.ts --site ./dist-site --port 3100  # HTTP
  */
 
@@ -22,9 +25,10 @@ import { TOOLS, findTool, McpError, toolDescriptors } from "./tools.ts";
 
 export const mcpServerVersion = MCP_SERVER_VERSION;
 
-/** 组合入口：加载产物站点 → 返回 MCP 服务实例（程序化/插件模式用） */
-export function createMcpServer(siteDir: string): McpServer {
-  return new McpServer(loadSite(siteDir));
+/** 组合入口：加载产物站点 → 返回 MCP 服务实例（程序化/插件模式用）。
+ *  MCP-006：writeDir 提供时启用写入端工具。 */
+export function createMcpServer(siteDir: string, options: { writeDir?: string } = {}): McpServer {
+  return new McpServer(loadSite(siteDir, options));
 }
 
 export { loadSite, parseLlmsFull, McpServer, runStdio, startHttpServer, mcpHttpHandler, TOOLS, findTool, McpError, toolDescriptors };
@@ -46,11 +50,11 @@ function parseArgs(argv: string[]): Record<string, string> {
   return options;
 }
 
-// 直接运行：node packages/mcp-server/src/index.ts --site <dir> [--port <n>]
+// 直接运行：node packages/mcp-server/src/index.ts --site <dir> [--port <n>] [--write-dir <dir>]
 if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
   const opts = parseArgs(process.argv.slice(2));
   const siteDir = opts["site"] ?? "dist-site";
-  const site = loadSite(siteDir);
+  const site = loadSite(siteDir, { writeDir: opts["write-dir"] });
   const server = new McpServer(site);
   const port = Number(opts["port"] ?? "0");
 
@@ -60,6 +64,7 @@ if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
       console.log(`  端点:     ${h.url}mcp（POST JSON-RPC）`);
       console.log(`  发现:     ${h.url}.well-known/mcp`);
       console.log(`  产物站点: ${siteDir}（${site.docs.length} 篇文档）`);
+      if (site.writeDir) console.log(`  写入端:   ${site.writeDir}（write_doc/update_doc/delete_doc，MCP-006）`);
       console.log(`  按 Ctrl+C 停止`);
     });
   } else {

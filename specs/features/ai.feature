@@ -37,7 +37,7 @@ Feature: AI 就绪（llms.txt / 语义 frontmatter / MCP Server，Phase 4）
     Then 产物含 docs.json（version/generatedAt/siteTitle/totalDocs/docs[]）
     And 每篇含 path/url/title/summary/tags/category/priority/readingTime/wordCount/headings/hasCode/updatedAt
 
-  Scenario: MCP-001 七个工具正常（CAP-001 增 get_capabilities）
+  Scenario: MCP-001 七个读取端工具正常（CAP-001 增 get_capabilities）
     Given MCP Server 加载产物站点
     Then get_capabilities 返回渲染能力清单（扩展/插件/frontmatter 约定/Agent 端点；缺失时诚实降级）
     And search_docs 全文搜索返回结构化结果（path/score/snippet/url）
@@ -48,10 +48,20 @@ Feature: AI 就绪（llms.txt / 语义 frontmatter / MCP Server，Phase 4）
     And find_examples 只搜代码块（按语言/内容过滤）
     And 工具失败返回 isError=true 且消息可读（无堆栈泄露）
 
+  Scenario: MCP-006 写入端工具（write_doc / update_doc / delete_doc）
+    Given 以 --write-dir <docs 目录> 启动 MCP Server（或 doclight dev --mcp）
+    Then write_doc 写入/覆盖 .md（含子目录自动创建）
+    And update_doc 更新已存在文档（不存在 → 报错，不静默新建）
+    And delete_doc 删除已存在文档（不存在 → 报错，不静默成功）
+    And 路径安全：非 .md / .. 穿越 / 绝对路径越界全部拒绝
+    And 写入后 dev --mcp 自动增量重渲染（watcher 置脏 → 下次 MCP 请求重建）
+    Given 未配置 --write-dir
+    Then 写工具返回可读错误（不伪造写能力）
+
   Scenario: MCP-002 stdio 传输（JSON-RPC 2.0）
     Given 通过 stdin/stdout 以逐行 JSON 与 MCP Server 通信
     Then initialize 返回协议版本 + tools 能力 + serverInfo
-    And tools/list 返回七工具（get_capabilities 置首；name/description/inputSchema）
+    And tools/list 返回十工具（读取端七 + MCP-006 写入端三；get_capabilities 置首）
     And tools/call 返回 { content: [{type:text}], isError }
     And notification（无 id）不发响应
 

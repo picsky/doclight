@@ -18,6 +18,7 @@ import { buildSite } from "./build.ts";
 import { bundleSite, type BundleOptions } from "./bundle.ts";
 import { deploySite } from "./deploy.ts";
 import { loadConfiguredPlugins } from "./plugin-loader.ts";
+import { takeSnapshot, type SnapshotInfo } from "./snapshot.ts";
 import {
   DEFAULT_SPACE_ENDPOINT,
   DEFAULT_SPACE_NAME,
@@ -47,6 +48,8 @@ export interface PublishOptions {
   token?: string;
   /** 跳过构建（复用既有产物，git/space 测试用） */
   skipBuild?: boolean;
+  /** WORK-001：发布前自动快照（默认 true；--no-snapshot 关闭） */
+  snapshot?: boolean;
 }
 
 export interface PublishResult {
@@ -64,6 +67,8 @@ export interface PublishResult {
   error?: string;
   /** 构建统计（skipBuild 时为空） */
   build?: BuildResult;
+  /** WORK-001：本次发布前自动拍摄的内容快照（--no-snapshot 时为空） */
+  snapshot?: SnapshotInfo;
   /** 耗时（ms） */
   ms: number;
 }
@@ -291,8 +296,8 @@ async function publishSpace(target: PublishTarget, options: PublishOptions, star
 }
 
 /**
- * 执行发布（供命令与测试复用）：解析目标 → 按 provider 分发 → 结构化结果。
- * 默认路径：active 空间（无配置 → local bundle），一句话即可发布。
+ * 执行发布（供命令与测试复用）：解析目标 → 发布前自动快照（WORK-001，可回滚）→
+ * 按 provider 分发 → 结构化结果。默认路径：active 空间（无配置 → local bundle）。
  */
 export async function publishSite(options: PublishOptions = {}): Promise<PublishResult> {
   const start = Date.now();
@@ -300,7 +305,30 @@ export async function publishSite(options: PublishOptions = {}): Promise<Publish
   if ("error" in target) {
     return { ok: false, provider: "local", spaceName: options.spaceName ?? DEFAULT_SPACE_NAME, steps: [target.error], error: target.error, ms: Date.now() - start };
   }
-  if (target.provider === "local") return publishLocal(target, options, start);
-  if (target.provider === "git") return publishGit(target, options, start);
-  return publishSpace(target, options, start);
+  // WORK-001：发布前对内容源自动快照（--no-snapshot 关闭；快照失败不阻断发布，但写入结果提示）
+  let snapshot: SnapshotInfo | undefined;
+  if (options.snapshot !== false) {
+    const snap = takeSnapshot(resolve(options.root ?? "."), options.dir ?? "docs");
+    if ("error" in snap) {
+      return {
+        ok: false,
+        provider: target.provider,
+        spaceName: target.spaceName,
+        steps: [snap.error, "快照失败 → 发布中止（内容安全优先；--no-snapshot 可强制跳过）"],
+        error: snap.error,
+        ms: Date.now() - start,
+      };
+    }
+    snapshot = snap;
+  }
+  if (target.provider === "local") {
+    const r = await publishLocal(target, options, start);
+    return { ...r, snapshot };
+  }
+  if (target.provider === "git") {
+    const r = publishGit(target, options, start);
+    return { ...r, snapshot };
+  }
+  const r = await publishSpace(target, options, start);
+  return { ...r, snapshot };
 }

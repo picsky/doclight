@@ -31,12 +31,13 @@ describe("MCP 协议（MCP-002 JSON-RPC）", () => {
     expect(server.handle({ jsonrpc: "2.0", method: "notifications/initialized" })).toBeNull();
   });
 
-  it("tools/list → 七工具（name/description/inputSchema；CAP-001 get_capabilities 置首）", () => {
+  it("tools/list → 十工具（name/description/inputSchema；CAP-001 置首 + MCP-006 写工具置尾）", () => {
     const res = server.handle({ jsonrpc: "2.0", id: 2, method: "tools/list" })!;
     const tools = (res.result as { tools: Array<{ name: string; description: string; inputSchema: { type: string } }> }).tools;
-    expect(tools.length).toBe(7);
+    expect(tools.length).toBe(10);
     expect(tools.map((t) => t.name)[0]).toBe("get_capabilities");
     expect(tools.map((t) => t.name)).toContain("search_docs");
+    expect(tools.map((t) => t.name)).toContain("write_doc");
     for (const t of tools) {
       expect(t.description.length).toBeGreaterThan(10);
       expect(t.inputSchema.type).toBe("object");

@@ -154,7 +154,10 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
         try {
           const fresh = await options.reloadPlugins!();
           // null = 加载期错误（文件缺失/语法错误）：保留旧管线，迭代中的半成品不打断浏览
-          if (fresh) pipeline.setPlugins(fresh);
+          if (fresh) {
+            pipeline.setPlugins(fresh);
+            renderCache.clear(); // WORK-001：插件管线替换 → 页面渲染缓存失效（旧管线产物不得继续直出）
+          }
         } catch {
           /* 解析异常保留旧管线（下轮变更再试） */
         }
@@ -203,6 +206,12 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
   /** 搜索索引缓存（启动即建 + 文件变更后重建；version 内联进页面供持久化校验，03 §3.8.5） */
   let searchIndexCache: ReturnType<typeof buildSearchData> = buildSearchData(docsDir, mdFiles);
 
+  /**
+   * WORK-001 增量渲染：页面渲染缓存（路径 + mtime + 字节数 为键）——只重渲染变更文档。
+   * 文件变更（onFsChange）时整体失效；未变更文档从缓存直出（dev 大站点往返渲染成本归零）。
+   */
+  const renderCache = new Map<string, { key: string; html: string }>();
+
   // MCP 插件模式（MCP-005）：懒构建快照到临时目录，文件变更置脏后下次 MCP 请求重建。
   // 首次请求才 build（不拖慢 dev 启动）；与页面热重载解耦（MCP 面向 Agent 查询，容忍秒级滞后）。
   let mcpSiteDir: string | null = null;
@@ -214,10 +223,12 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
       buildSite({ dir: docsDir, outDir: mcpSiteDir, title: siteTitle });
       mcpDirty = false;
     }
-    return loadSite(mcpSiteDir);
+    // MCP-006：dev --mcp 写入端指向内容源 docs/——Agent 写入 → 本函数触发的 watcher
+    // onFsChange 置脏 → 下次 MCP 请求增量重建（写入触发增量重渲染联动，WORK-001）
+    return loadSite(mcpSiteDir, { writeDir: docsDir });
   }
 
-  /** 文件变更：重建导航 + 搜索索引 + 推送 reload +（MCP 模式）置脏快照 */
+  /** 文件变更：重建导航 + 搜索索引 + 失效渲染缓存 + 推送 reload +（MCP 模式）置脏快照 */
   function onFsChange() {
     try {
       mdFiles = walkMd(docsDir);
@@ -226,6 +237,7 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
     } catch {
       /* 扫描失败（目录临时不可读）时保留旧导航 */
     }
+    renderCache.clear(); // WORK-001：变更后缓存整体失效（下次请求只重渲染被请求的文档）
     mcpDirty = true;
     for (const res of sseClients) res.write("data: reload\n\n");
   }
@@ -347,6 +359,15 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
 
   function serveDoc(res: ServerResponse, doc: string): void {
     try {
+      // WORK-001 增量渲染：源文件 mtime+字节数 未变 → 缓存直出（只重渲染变更文档）
+      const stat = statSync(join(docsDir, doc));
+      const cacheKey = `${doc}:${stat.mtimeMs}:${stat.size}`;
+      const cached = renderCache.get(doc);
+      if (cached && cached.key === cacheKey) {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(cached.html);
+        return;
+      }
       const source = readFileSync(join(docsDir, doc), "utf8");
       const fallbackTitle = doc.replace(/\.md$/, "");
       const fm = extractFrontmatter(source);
@@ -360,22 +381,22 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
       const html = pipeline.runAfterRender(renderedHtml, ctx);
       const slotContent = pipeline.collectSlotContent(ctx);
 
+      const page = renderPage({
+        title,
+        siteTitle,
+        navHtml,
+        contentHtml: html,
+        form: "dev",
+        searchVersion: searchIndexCache.version,
+        slotContent,
+        themeCss: options.themeCss,
+        defaultTheme: options.defaultTheme, // VIS-001：modern 等默认暗色主题在 dev 形态同样生效
+        pluginCss: pipeline.collectPluginStyles(),
+        pluginConfigs: options.pluginConfigs, // PLUG-014：dev 形态注入运行时配置
+      });
+      renderCache.set(doc, { key: cacheKey, html: page });
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      res.end(
-        renderPage({
-          title,
-          siteTitle,
-          navHtml,
-          contentHtml: html,
-          form: "dev",
-          searchVersion: searchIndexCache.version,
-          slotContent,
-          themeCss: options.themeCss,
-          defaultTheme: options.defaultTheme, // VIS-001：modern 等默认暗色主题在 dev 形态同样生效
-          pluginCss: pipeline.collectPluginStyles(),
-          pluginConfigs: options.pluginConfigs, // PLUG-014：dev 形态注入运行时配置
-        })
-      );
+      res.end(page);
     } catch (err) {
       send404(res, `渲染失败：${doc}（${(err as Error).message}）`);
     }

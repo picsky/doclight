@@ -477,14 +477,14 @@ Node 渲染内核 + dev server 跑起来，实现最基本的文档浏览功能�
 - [x] 主题预览对比页 + 视觉回归 + 设计合规门禁（verify 增 visual check：WCAG AA/8pt/1.25 机器断言 + verify:visual 像素级回归）
 - [x] 前端设计打磨（默认主题字号 1.25 模块化缩放 + 每套主题组件级特征样式 + 暗色令牌强化）
 
-#### P1 · 预览-确认-发布（WORK-001）
-- [ ] 增量渲染（dev 只重渲染变更文档）
-- [ ] 版本快照 + 回滚（publish 前快照，可恢复）
-- [ ] `doclight publish --preview` / 确认门（Agent 写入不自动发布）
+#### P1 · 预览-确认-发布（WORK-001）✅
+- [x] 增量渲染（dev 只重渲染变更文档——mtime+字节数 渲染缓存）
+- [x] 版本快照 + 回滚（publish 前快照，可恢复——.doclight/snapshots/ + `doclight rollback <id>`）
+- [x] `doclight publish --preview` / 确认门（Agent 写入不自动发布——TTY y/N + 预览态）
 
-#### P1 · MCP 写入端（MCP-006）
-- [ ] `write_doc` / `update_doc` / `delete_doc` 工具
-- [ ] 写入后触发增量重渲染（与 WORK-001 联动）
+#### P1 · MCP 写入端（MCP-006）✅
+- [x] `write_doc` / `update_doc` / `delete_doc` 工具（--write-dir 启停 + 路径安全 + 未启用诚实报错）
+- [x] 写入后触发增量重渲染（dev --mcp：写入 → watcher 置脏 → 下次 MCP 请求重建，与 WORK-001 联动）
 
 #### P2 · 演示形态（DEMO-001）
 - [ ] 演示专用视觉设计系统（布局/图表/动效/封面模板组件）

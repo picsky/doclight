@@ -10,6 +10,7 @@
  *   doclight deploy [--dir] [--title]                          一键部署（GitHub Pages 等，05 §5.5）
  */
 import { join, resolve } from "node:path";
+import { createInterface } from "node:readline";
 import { startDevServer } from "./dev-server.ts";
 import { buildSite } from "./build.ts";
 import { bundleSite } from "./bundle.ts";
@@ -18,6 +19,7 @@ import { initProject } from "./init.ts";
 import { migrateDocsify, migrateGitBook, migrateMkDocs } from "./migrate.ts";
 import { startPreviewServer } from "./preview.ts";
 import { publishSite, type PublishResult } from "./publish.ts";
+import { listSnapshots, rollbackSnapshot } from "./snapshot.ts";
 import { spaceInit, spaceStatus, spaceSwitch } from "./space.ts";
 import { embedSite } from "./embed.ts";
 import { loadConfig } from "./config.ts";
@@ -26,6 +28,47 @@ import { pluginList, pluginNew } from "./plugin-new.ts";
 import { loadConfiguredTheme } from "./themes.ts";
 
 export const cliVersion = "0.1.0";
+
+/** WORK-001 确认门：TTY 交互提示（Agent/CI 非 TTY 场景不调用） */
+function readLine(prompt: string): Promise<string> {
+  return new Promise((resolvePrompt) => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(prompt, (answer) => {
+      rl.close();
+      resolvePrompt(answer);
+    });
+  });
+}
+
+/** 正式发布执行（publish 命令主体：publishSite + 结果输出；WORK-001 快照在 publishSite 内部） */
+async function doPublish(opts: Record<string, string>): Promise<void> {
+  const result: PublishResult = await publishSite({
+    root: opts["root"],
+    dir: opts["dir"],
+    to: opts["to"] as "local" | "git" | "space" | undefined,
+    spaceName: opts["space"],
+    outDir: opts["out-dir"],
+    title: opts["title"],
+    remoteUrl: opts["remote"],
+    endpoint: opts["endpoint"],
+    snapshot: opts["no-snapshot"] === "true" ? false : undefined,
+  });
+  if (opts["json"] === "true") {
+    console.log(JSON.stringify(result, null, 2));
+  } else if (result.ok) {
+    console.log(`\n  DocLight 发布完成 ✓\n`);
+    console.log(`  空间: ${result.spaceName}（${result.provider}）`);
+    if (result.file) console.log(`  产物: ${result.file}`);
+    console.log(`  URL:  ${result.url}`);
+    if (result.snapshot) console.log(`  快照: ${result.snapshot.id}（${result.snapshot.files} 文件；回滚: doclight rollback ${result.snapshot.id}）`);
+  } else {
+    console.log(`\n  DocLight 发布未能自动完成\n`);
+    console.log(`  空间: ${result.spaceName}（${result.provider}）`);
+    if (result.error) console.log(`  原因: ${result.error}`);
+    for (const s of result.steps) console.log(`  ${s}`);
+    process.exitCode = 1;
+  }
+}
 
 export interface CliOptions {
   port: number;
@@ -87,7 +130,8 @@ function printHelp(): void {
   migrate-docsify  从 docsify 站点迁移内容到 DocLight 约定
   migrate-mkdocs   从 MkDocs 站点迁移（含 admonition 转换）
   migrate-gitbook  从 GitBook 站点迁移（含 hint/code 块转换）
-  publish   发布到内容空间（local / git / space，14 §4.3）
+  publish   发布到内容空间（local / git / space，14 §4.3；发布前自动快照）
+  rollback  回滚内容到发布前快照（WORK-001：rollback <id> / rollback --list）
   space     内容空间管理（init / switch / status，14 §3.4）
   embed     生成嵌入代码（snippet.js + iframe 片段，13 §3.1）
   plugin    插件开发（new 生成脚手架 / list 列出官方插件）
@@ -112,6 +156,9 @@ function printHelp(): void {
   --qr <url>      bundle 生成下载二维码（bundle-qr.png，13 §3.2）
   --inline-vendor bundle 内联扩展库（Prism/KaTeX + 启用插件 vendor，file:// 下可用；体积增大）
   --themes        build/preview 构建主题画廊（4 套设计语言 × 亮暗对比页，产物 gallery/）
+  --preview       publish 预览态（构建 + 预览服务，不发布——人确认后再正式发布，WORK-001）
+  --yes           publish 跳过交互确认（TTY 模式下默认 y/N 确认门）
+  --no-snapshot   publish 关闭发布前自动快照（默认开启，可 rollback 回滚）
   --help, -h      显示帮助`);
 }
 
@@ -308,29 +355,61 @@ if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
         for (const s of result.steps) console.log(`  ${s}`);
       }
     } else if (command === "publish") {
-      const result: PublishResult = await publishSite({
-        root: opts["root"],
-        dir: opts["dir"],
-        to: opts["to"] as "local" | "git" | "space" | undefined,
-        spaceName: opts["space"],
-        outDir: opts["out-dir"],
-        title: opts["title"],
-        remoteUrl: opts["remote"],
-        endpoint: opts["endpoint"],
-      });
-      if (opts["json"] === "true") {
-        console.log(JSON.stringify(result, null, 2));
-      } else if (result.ok) {
-        console.log(`\n  DocLight 发布完成 ✓\n`);
-        console.log(`  空间: ${result.spaceName}（${result.provider}）`);
-        if (result.file) console.log(`  产物: ${result.file}`);
-        console.log(`  URL:  ${result.url}`);
+      // WORK-001 确认门：TTY 交互模式发布前 y/N 确认（--yes 跳过）；非 TTY（Agent/CI 自动化）直行——
+      // 自动化场景的「先确认」由 doclight-publish Skill 流程保证（对外动作先问人）
+      const interactive = opts["yes"] !== "true" && !opts["json"] && process.stdin.isTTY;
+      if (interactive) {
+        const target = opts["to"] ?? "默认空间";
+        const answer = await readLine(`确认发布到 ${target}？（y/N）`);
+        if (!/^y(es)?$/i.test(answer.trim())) {
+          console.log(`\n  已取消发布（预览：doclight publish --preview）\n`);
+        } else {
+          await doPublish(opts);
+        }
+      } else if (opts["preview"] === "true") {
+        // WORK-001 预览态：--preview = 构建 + 预览服务，不发布（Agent 写入先进预览态，人确认后再正式发布）
+        const outDir = opts["out-dir"] ?? "dist-site";
+        runBuild({ dir: opts["dir"], outDir, title: opts["title"] });
+        const preview = await startPreviewServer({ dir: outDir, port: numOption(opts, "port", 3000), base: opts["base"] });
+        const payload = { ok: true, mode: "preview", url: preview.url, gallery: opts["themes"] === "true" ? `${preview.url}gallery/` : undefined, steps: ["预览态（未发布）：确认无误后运行 doclight publish 正式发布；发布前将自动快照"] };
+        if (opts["json"] === "true") {
+          console.log(JSON.stringify(payload, null, 2));
+        } else {
+          console.log(`\n  DocLight 预览态已启动（未发布）\n`);
+          console.log(`  预览:  ${preview.url}`);
+          if (payload.gallery) console.log(`  画廊:  ${payload.gallery}`);
+          console.log(`  正式发布: doclight publish${opts["to"] ? ` --to ${opts["to"]}` : ""}\n`);
+        }
       } else {
-        console.log(`\n  DocLight 发布未能自动完成\n`);
-        console.log(`  空间: ${result.spaceName}（${result.provider}）`);
-        if (result.error) console.log(`  原因: ${result.error}`);
-        for (const s of result.steps) console.log(`  ${s}`);
-        process.exitCode = 1;
+        await doPublish(opts);
+      }
+    } else if (command === "rollback") {
+      // WORK-001：版本回滚（publish 前自动快照 → 此处恢复内容源）
+      const id = rest[0] ?? opts["id"];
+      const root = opts["root"] ?? ".";
+      if (opts["list"] === "true" || !id) {
+        const snaps = listSnapshots(root);
+        if (opts["json"] === "true") {
+          console.log(JSON.stringify({ snapshots: snaps }, null, 2));
+        } else if (snaps.length === 0) {
+          console.log(`\n  暂无快照（publish 前自动产生，见 .doclight/snapshots/）\n`);
+        } else {
+          console.log(`\n  DocLight 内容快照（新 → 旧）\n`);
+          for (const s of snaps) console.log(`   ${s.id}  ${s.createdAt.slice(0, 19).replace("T", " ")}  ${s.files} 文件  ${(s.bytes / 1024).toFixed(1)} KB  [${s.root}]`);
+          console.log(`\n  回滚: doclight rollback <id>\n`);
+        }
+      } else {
+        const result = rollbackSnapshot(root, id, opts["dir"] ?? "docs");
+        if (opts["json"] === "true") {
+          console.log(JSON.stringify(result, null, 2));
+        } else if (result.ok) {
+          console.log(`\n  DocLight 已回滚到快照 ${id} ✓\n`);
+          console.log(`  恢复: ${result.restored.length} 个文件`);
+          console.log(`  预览: doclight dev / doclight publish --preview\n`);
+        } else {
+          console.error(`✗ ${result.error}`);
+          process.exitCode = 1;
+        }
       }
     } else if (command === "space") {
       const sub = rest[0] ?? "";
@@ -424,7 +503,7 @@ if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
         process.exit(1);
       }
     } else {
-      console.error(`未知命令：${command ?? "(空)"}（支持 dev / build / preview / init / bundle / deploy / migrate-docsify / migrate-mkdocs / migrate-gitbook / publish / space / embed / plugin）`);
+      console.error(`未知命令：${command ?? "(空)"}（支持 dev / build / preview / init / bundle / deploy / migrate-docsify / migrate-mkdocs / migrate-gitbook / publish / rollback / space / embed / plugin）`);
       process.exit(1);
     }
   } catch (err) {

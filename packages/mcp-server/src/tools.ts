@@ -9,8 +9,8 @@
  * 不返回渲染后 HTML——Agent 消费与源文件一致。
  */
 
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join, relative, sep } from "node:path";
 import { makeSnippet, search } from "./search.ts";
 import type { SiteData, SiteDocMeta } from "./site.ts";
 
@@ -370,8 +370,138 @@ const getCapabilities: McpTool = {
   },
 };
 
-/** 工具注册表（顺序即 tools/list 顺序；get_capabilities 置首——写内容前的第一查） */
-export const TOOLS: McpTool[] = [getCapabilities, searchDocs, readDoc, listDocs, getSiteSummary, getOutline, findExamples];
+/* ---- MCP-006 写入端工具（WORK-001 联动：dev --mcp 写入 → watcher 增量重渲染） ---- */
+
+/** 写入端是否启用：writeDir 未配置 → 可读错误（不伪造写能力） */
+function requireWriteDir(site: SiteData): string {
+  if (!site.writeDir) {
+    throw new McpError("写入端未启用：以 --write-dir <docs 目录> 启动 MCP Server（或 doclight dev --mcp 开发模式）");
+  }
+  return site.writeDir;
+}
+
+/** 写入路径安全校验：.md 白名单 + 无 .. + 非绝对路径 + 解析后必须落在 writeDir 内（穿越防护） */
+function resolveWritePath(writeDir: string, raw: string): string {
+  // 绝对路径（/ 开头或 Windows 盘符）直接拒绝——相对路径才是契约
+  if (/^[/\\]/.test(raw) || /^[a-zA-Z]:[/\\]/.test(raw)) throw new McpError(`路径越界：${raw}（只允许相对路径）`);
+  const rel = raw.replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!/\.md$/i.test(rel)) throw new McpError(`写入路径必须是 .md 文件：${raw}`);
+  if (rel.split("/").includes("..")) throw new McpError(`路径非法：${raw}（不允许 ..）`);
+  const full = join(writeDir, rel);
+  if (full !== writeDir && !full.startsWith(writeDir + sep)) throw new McpError(`路径越界：${raw}`);
+  return full;
+}
+
+/** 写入工具返回的相对路径（正斜杠，与产物路径约定一致） */
+function relOf(writeDir: string, full: string): string {
+  return relative(writeDir, full).split(sep).join("/");
+}
+
+/* ---- write_doc：新建/覆盖 ---- */
+const writeDoc: McpTool = {
+  name: "write_doc",
+  description:
+    "写入或覆盖一篇文档（MCP-006 写入端，需 --write-dir 启用）。内容为纯 markdown（frontmatter 可选）。写入后 dev --mcp 自动增量重渲染——Agent 实时输出实时预览。",
+  inputSchema: {
+    type: "object",
+    properties: {
+      path: { type: "string", description: "文档相对路径（.md，如 guide/new.md；可含子目录）" },
+      content: { type: "string", description: "markdown 全文（frontmatter 约定见 get_capabilities）" },
+    },
+    required: ["path", "content"],
+  },
+  handler(site: SiteData, args: Record<string, unknown>) {
+    const writeDir = requireWriteDir(site);
+    const raw = pickString(args, "path");
+    if (!raw) throw new McpError("write_doc 需要 path 参数");
+    const content = args.content;
+    if (typeof content !== "string") throw new McpError("write_doc 需要 content（markdown 文本）");
+    const full = resolveWritePath(writeDir, raw);
+    mkdirSync(dirname(full), { recursive: true });
+    writeFileSync(full, content, "utf8");
+    return {
+      ok: true,
+      action: "write",
+      path: relOf(writeDir, full),
+      bytes: Buffer.byteLength(content, "utf8"),
+      note: "已写入内容源；dev --mcp 已监听，页面将自动热重载（或运行 doclight build 重新构建产物）",
+    };
+  },
+};
+
+/* ---- update_doc：更新已存在文档（不存在 → 明确错误，不静默新建） ---- */
+const updateDoc: McpTool = {
+  name: "update_doc",
+  description:
+    "更新一篇已存在的文档（MCP-006 写入端，需 --write-dir 启用）。文档不存在时报错（新建请用 write_doc）。写入后 dev --mcp 自动增量重渲染。",
+  inputSchema: {
+    type: "object",
+    properties: {
+      path: { type: "string", description: "文档相对路径（.md）" },
+      content: { type: "string", description: "替换后的 markdown 全文" },
+    },
+    required: ["path", "content"],
+  },
+  handler(site: SiteData, args: Record<string, unknown>) {
+    const writeDir = requireWriteDir(site);
+    const raw = pickString(args, "path");
+    if (!raw) throw new McpError("update_doc 需要 path 参数");
+    const content = args.content;
+    if (typeof content !== "string") throw new McpError("update_doc 需要 content（markdown 文本）");
+    const full = resolveWritePath(writeDir, raw);
+    if (!existsSync(full)) throw new McpError(`文档不存在：${raw}（新建请用 write_doc）`);
+    writeFileSync(full, content, "utf8");
+    return {
+      ok: true,
+      action: "update",
+      path: relOf(writeDir, full),
+      bytes: Buffer.byteLength(content, "utf8"),
+      note: "已更新内容源；dev --mcp 已监听，页面将自动热重载",
+    };
+  },
+};
+
+/* ---- delete_doc：删除已存在文档 ---- */
+const deleteDoc: McpTool = {
+  name: "delete_doc",
+  description: "删除一篇文档（MCP-006 写入端，需 --write-dir 启用）。文档不存在时报错（不静默成功）。",
+  inputSchema: {
+    type: "object",
+    properties: {
+      path: { type: "string", description: "文档相对路径（.md）" },
+    },
+    required: ["path"],
+  },
+  handler(site: SiteData, args: Record<string, unknown>) {
+    const writeDir = requireWriteDir(site);
+    const raw = pickString(args, "path");
+    if (!raw) throw new McpError("delete_doc 需要 path 参数");
+    const full = resolveWritePath(writeDir, raw);
+    if (!existsSync(full)) throw new McpError(`文档不存在：${raw}`);
+    rmSync(full);
+    return {
+      ok: true,
+      action: "delete",
+      path: relOf(writeDir, full),
+      note: "已从内容源删除；dev --mcp 已监听，页面将自动热重载",
+    };
+  },
+};
+
+/** 工具注册表（顺序即 tools/list 顺序；get_capabilities 置首——写内容前的第一查；
+ *  MCP-006 写入工具置尾——writeDir 未配置时调用返回可读错误，工具可见、能力诚实） */
+export const TOOLS: McpTool[] = [
+  getCapabilities,
+  searchDocs,
+  readDoc,
+  listDocs,
+  getSiteSummary,
+  getOutline,
+  findExamples,
+  writeDoc,
+  updateDoc,
+  deleteDoc,
+];
 
 export function findTool(name: string): McpTool | undefined {
   return TOOLS.find((t) => t.name === name);

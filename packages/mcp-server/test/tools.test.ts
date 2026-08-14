@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadSite, type SiteData } from "../src/site.ts";
@@ -24,8 +24,8 @@ const call = (name: string, args: Record<string, unknown>) => {
   return tool.handler(site, args) as Record<string, unknown>;
 };
 
-describe("MCP 工具注册表（MCP-001 + CAP-001）", () => {
-  it("七工具齐备，顺序稳定（get_capabilities 置首——写内容前第一查）", () => {
+describe("MCP 工具注册表（MCP-001 + CAP-001 + MCP-006）", () => {
+  it("十工具齐备，顺序稳定（读工具 + 写工具置尾）", () => {
     expect(TOOLS.map((t) => t.name)).toEqual([
       "get_capabilities",
       "search_docs",
@@ -34,6 +34,9 @@ describe("MCP 工具注册表（MCP-001 + CAP-001）", () => {
       "get_site_summary",
       "get_outline",
       "find_examples",
+      "write_doc",
+      "update_doc",
+      "delete_doc",
     ]);
   });
 
@@ -204,5 +207,60 @@ describe("find_examples", () => {
 
   it("语言不匹配返回空", () => {
     expect((call("find_examples", { language: "python" }) as { total: number }).total).toBe(0);
+  });
+});
+
+describe("MCP-006 写入端工具", () => {
+  it("writeDir 未配置 → 可读错误（不伪造写能力）", () => {
+    expect(() => call("write_doc", { path: "a.md", content: "# A" })).toThrow(/写入端未启用/);
+    expect(() => call("update_doc", { path: "a.md", content: "# A" })).toThrow(/写入端未启用/);
+    expect(() => call("delete_doc", { path: "a.md" })).toThrow(/写入端未启用/);
+  });
+
+  it("write_doc 写入内容源（含子目录）；update/delete 闭环", () => {
+    const writeDir = mkdtempSync(join(tmpdir(), "doclight-mcp-write-"));
+    try {
+      const writable = loadSite(siteDir, { writeDir });
+      const tool = (name: string, args: Record<string, unknown>) => {
+        const t = findTool(name);
+        return t!.handler(writable, args) as Record<string, unknown>;
+      };
+      // write_doc：新建（含子目录自动创建）
+      const w = tool("write_doc", { path: "guide/new.md", content: "# 新文档\n\n内容。" });
+      expect(w.ok).toBe(true);
+      expect(w.action).toBe("write");
+      expect(w.path).toBe("guide/new.md");
+      expect(existsSync(join(writeDir, "guide", "new.md"))).toBe(true);
+      expect(readFileSync(join(writeDir, "guide", "new.md"), "utf8")).toContain("新文档");
+      // update_doc：更新已存在
+      const u = tool("update_doc", { path: "guide/new.md", content: "# 更新后" });
+      expect(u.ok).toBe(true);
+      expect(readFileSync(join(writeDir, "guide", "new.md"), "utf8")).toContain("更新后");
+      // update_doc 不存在 → 报错（不静默新建）
+      expect(() => tool("update_doc", { path: "nope.md", content: "# x" })).toThrow(/不存在/);
+      // delete_doc：删除；再删 → 报错
+      const d = tool("delete_doc", { path: "guide/new.md" });
+      expect(d.ok).toBe(true);
+      expect(existsSync(join(writeDir, "guide", "new.md"))).toBe(false);
+      expect(() => tool("delete_doc", { path: "guide/new.md" })).toThrow(/不存在/);
+    } finally {
+      rmSync(writeDir, { recursive: true, force: true });
+    }
+  });
+
+  it("路径安全：非 .md / .. 穿越 / 绝对路径全部拒绝", () => {
+    const writeDir = mkdtempSync(join(tmpdir(), "doclight-mcp-write-safe-"));
+    try {
+      const writable = loadSite(siteDir, { writeDir });
+      const t = findTool("write_doc")!;
+      expect(() => t.handler(writable, { path: "evil.txt", content: "x" })).toThrow(/必须是 \.md/);
+      expect(() => t.handler(writable, { path: "../evil.md", content: "x" })).toThrow(/非法/);
+      expect(() => t.handler(writable, { path: "/etc/evil.md", content: "x" })).toThrow(/越界/);
+      // 安全路径不受影响
+      const r = t.handler(writable, { path: "guide/ok.md", content: "# ok" }) as { ok: boolean };
+      expect(r.ok).toBe(true);
+    } finally {
+      rmSync(writeDir, { recursive: true, force: true });
+    }
   });
 });

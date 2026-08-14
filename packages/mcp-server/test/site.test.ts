@@ -51,6 +51,15 @@ describe("loadSite（加载 dist 产物）", () => {
     expect(site.docs).toEqual([]);
     expect(site.fullByPath.size).toBe(0);
     expect(site.capabilities).toBeNull();
+    expect(site.writeDir).toBeNull(); // 缺省只读
+    rmSync(empty, { recursive: true, force: true });
+  });
+
+  it("MCP-006：--write-dir 启用写入端（writeDir 解析为绝对路径）", () => {
+    const empty = mkdtempSync(join(tmpdir(), "doclight-mcp-write-dir-"));
+    const site = loadSite(empty, { writeDir: "docs" });
+    expect(site.writeDir).not.toBeNull();
+    expect(site.writeDir!.endsWith("docs")).toBe(true);
     rmSync(empty, { recursive: true, force: true });
   });
 });
