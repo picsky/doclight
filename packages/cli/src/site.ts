@@ -672,6 +672,12 @@ ${seoHead}
   .sidebar .group { margin-top: var(--space-6); }
   .sidebar .group > a, .sidebar .group { display: block; font-size: var(--font-size-xs); font-weight: 600; color: var(--color-text-strong); letter-spacing: var(--tracking-normal); text-transform: none; padding: 0 var(--space-3); margin-bottom: var(--space-2); }
   .sidebar .group > a:hover { color: var(--color-primary); background: none; }
+  /* 当前分组状态（设计师手笔：不仅当前页有状态，所在分组标题也高亮——
+     纯 CSS :has()，随页面 active 自动联动，零 JS） */
+  .sidebar .group:has(a.active) > a, .sidebar .group:has(a.active) { color: var(--color-primary); }
+  /* 嵌套分组（二级+）：层级降级——间距收紧 + 次级色（弱于一级分组的深色） */
+  .sidebar .group .group { margin-top: var(--space-4); }
+  .sidebar .group .group > a, .sidebar .group .group { color: var(--color-text-secondary); margin-bottom: var(--space-1); }
   /* 导航项：极致安静（设计证据：Mintlify = 14px/400/无圆角/不对称 padding；
      hover = 文字变深 + 3% 超淡背景（rgba(10,13,12,0.03) 实测），active = 主色+字重+静态短竖线；
      hover≠active 是设计师手笔——3% 背景几乎不可见但提供微妙反馈） */
@@ -693,6 +699,12 @@ ${seoHead}
   .doclight-anchor:hover { color: var(--color-primary); }
   .doclight-anchor.copied { color: var(--color-success); opacity: 1; }
   article p { margin: 0 0 1.5em; text-indent: 0; }
+  /* 列表（精致化：marker 用主色柔化 + 呼吸感行距） */
+  article ul, article ol { margin: 0 0 1.5em; padding-left: 1.6em; }
+  article li { margin: 0.35em 0; line-height: 1.7; }
+  article li > ul, article li > ol { margin: 0.35em 0; }
+  article ul li::marker { color: var(--color-primary); }
+  article ol li::marker { color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
   article a { color: var(--color-primary); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent); transition: color var(--transition-fast), border-color var(--transition-fast); }
   article a:hover { color: var(--color-primary-hover); border-bottom-color: var(--color-primary); }
   /* 面包屑（05 §5.4.2：结构化数据 + 可见 UI） */
@@ -709,11 +721,15 @@ ${seoHead}
   blockquote { margin: 0 0 1.5em; padding: var(--space-3) var(--space-4); border-left: 3px solid var(--color-primary); border-radius: 0 var(--radius) var(--radius) 0; background: var(--color-bg-soft); color: var(--color-text-secondary); }
   blockquote > :first-child { margin-top: 0; }
   blockquote > :last-child { margin-bottom: 0; }
-  .table-wrap { overflow-x: auto; margin-bottom: 1.5em; border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+  /* 表格（精致化：垂直呼吸感 padding + 2px 表头分隔线 + 行 hover 微反馈） */
+  .table-wrap { overflow-x: auto; margin-bottom: 1.5em; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
   table { border-collapse: collapse; width: 100%; }
-  th, td { border-bottom: 1px solid var(--color-border-soft); padding: var(--space-2) var(--space-3); text-align: left; }
-  tr:last-child td { border-bottom: none; }
-  th { background: var(--color-bg-soft); font-weight: 600; color: var(--color-text-strong); }
+  th, td { border-bottom: 1px solid var(--color-border-soft); padding: 10px var(--space-4); text-align: left; line-height: 1.6; vertical-align: top; }
+  th { background: var(--color-bg-soft); font-weight: 600; color: var(--color-text-strong); border-bottom: 2px solid var(--color-border); white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: color-mix(in srgb, var(--color-text-strong) 2%, transparent); }
+  /* 表格内行内代码/链接：与正文一致但不额外拥挤 */
+  th code, td code { white-space: nowrap; }
   img { max-width: 100%; border-radius: var(--radius); }
   hr { border: none; border-top: 1px solid var(--color-border); margin: var(--space-8) 0; }
   /* 键盘可达性：全局焦点环（WCAG 2.4.7） */
@@ -726,17 +742,18 @@ ${seoHead}
   article.page-enter { animation: doclight-page-in 150ms var(--ease-out); }
   /* 主题切换过渡（亮暗交替平滑；reduced-motion 下禁用） */
   body, .topbar, .sidebar, main, .toc-rail { transition: background-color var(--transition), color var(--transition), border-color var(--transition); }
-  /* ===== TOC（03 §3.7，TOC-001；重设计：宽屏常驻右侧目录面板） ===== */
+  /* ===== TOC（03 §3.7，TOC-001；宽屏常驻右侧目录面板） ===== */
   .toc-rail { position: sticky; top: var(--topbar-height); height: calc(100vh - var(--topbar-height)); overflow-y: auto; overscroll-behavior: contain; padding: var(--space-8) 0 var(--space-16); width: var(--toc-width); scrollbar-width: thin; scrollbar-color: var(--color-border) transparent; }
   .toc-rail::-webkit-scrollbar { width: 8px; }
   .toc-rail::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; }
-  .toc-label { display: block; font-size: var(--font-size-xs); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: var(--space-3); padding: 0 var(--space-2); }
+  .toc-label { display: block; font-size: var(--font-size-xs); font-weight: 600; color: var(--color-text-strong); letter-spacing: var(--tracking-normal); text-transform: none; margin-bottom: var(--space-3); padding: 0 var(--space-2); }
   .toc-dots { display: none; }
   .toc-panel { display: flex; flex-direction: column; gap: 1px; }
-  .toc-link { display: block; padding: 4px var(--space-2); border-radius: var(--radius-sm); font-size: var(--font-size-sm); line-height: var(--line-height-normal); color: var(--color-text-secondary); text-decoration: none; cursor: pointer; border-left: 2px solid transparent; transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast); }
+  /* TOC 项：与侧边栏同设计语言——hover 文字变深+3% 微背景，active 主色+字重+静态竖线（无背景无光晕） */
+  .toc-link { display: block; padding: 4px var(--space-2); border-radius: 0; font-size: var(--font-size-sm); line-height: var(--line-height-normal); color: var(--color-text-secondary); text-decoration: none; cursor: pointer; border-left: 2px solid transparent; transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast); }
   .toc-link-l3 { padding-left: var(--space-4); font-size: var(--font-size-xs); }
-  .toc-link:hover { color: var(--color-primary); background: var(--color-bg-soft); }
-  .toc-link.active { color: var(--color-primary); font-weight: 600; border-left-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 6%, var(--color-bg)); box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 10%, transparent); }
+  .toc-link:hover { color: var(--color-text-strong); background: color-mix(in srgb, var(--color-text-strong) 3%, transparent); }
+  .toc-link.active { color: var(--color-primary); font-weight: 600; border-left-color: var(--color-primary); background: none; box-shadow: none; }
   /* 移动端 TOC：右下角浮动按钮 + 底部面板 */
   .toc-fab { display: none; position: fixed; right: var(--space-4); bottom: var(--space-6); z-index: 40; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--color-border); background: var(--color-bg-soft); color: var(--color-text-secondary); font-size: 18px; cursor: pointer; box-shadow: var(--shadow); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
   .toc-sheet { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; max-height: 70%; background: var(--color-bg); border-top: 1px solid var(--color-border); border-radius: var(--radius-lg) var(--radius-lg) 0 0; transform: translateY(100%); transition: transform var(--transition); box-shadow: var(--shadow); }
