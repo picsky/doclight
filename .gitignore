@@ -1,4 +1,4 @@
-# 依赖
+﻿# 依赖
 node_modules/
 
 # 构建产物
@@ -14,7 +14,11 @@ coverage/
 test-results/
 
 # 验证产物（结构化报告/截图/diff，可再生成）
-artifacts/
+artifacts/*
+!artifacts/visual/
+artifacts/visual/*
+!artifacts/visual/snapshots/
+# 视觉回归基线（VIS-001）随仓库锁定：artifacts/visual/snapshots/*.png 除外，其余 artifacts 全部忽略
 
 # 环境与编辑器
 .env

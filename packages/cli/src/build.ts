@@ -24,10 +24,11 @@ import { dirname, join, resolve, sep } from "node:path";
 import { Resvg } from "@resvg/resvg-js";
 import { analyzeDoc, buildNavTree, render } from "doclight-renderer";
 import { loadConfig, loadLlmsTxtConfig } from "./config.ts";
-import { resolveThemeCss } from "./themes.ts";
+import { resolveThemePackage } from "./themes.ts";
 import { buildLlmsFullTxt, buildLlmsTxt, classifyPriority } from "./llms.ts";
 import { buildCapabilityManifest } from "./capabilities.ts";
 import { estimateTokens, totalTokens } from "./tokens.ts";
+import { buildGallery } from "./gallery.ts";
 import { BuildPluginPipeline } from "./plugins.ts";
 import type { BuildContext, PluginDef, RenderContext } from "../../core/src/plugin.ts";
 import {
@@ -78,6 +79,8 @@ export interface BuildOptions {
   /** PLUG-014：插件运行时配置（doclight.json plugins，注入页面供展示层自动注册；
    *  缺省回退 buildSite 内部 loadConfig 解析结果） */
   pluginConfigs?: Array<{ name: string; config?: Record<string, unknown>; enabled?: boolean }>;
+  /** VIS-001：构建主题画廊（产物 gallery/——4 套设计语言 × 亮暗对比页，可部署可截图） */
+  themes?: boolean;
 }
 
 export interface BuildResult {
@@ -230,8 +233,8 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
 
   // PLUG-009：构建管线（插件由 CLI 层注入，或从配置加载内置插件）
   const pipeline = new BuildPluginPipeline(options.buildPlugins ?? []);
-  // THEME-002：主题 CSS 覆盖层（内置主题 / 用户 CSS 文件；空 = 默认主题零注入）
-  const themeCss = resolveThemeCss(cfg.theme);
+  // THEME-002 + VIS-001：主题包（CSS 覆盖层 + 默认模式；空 CSS = 默认主题零注入）
+  const theme = resolveThemePackage(cfg.theme);
 
   rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
@@ -298,7 +301,8 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
         seo,
         searchVersion,
         slotContent,
-        themeCss,
+        themeCss: theme.css,
+        defaultTheme: theme.defaultTheme, // VIS-001：modern 默认暗色在 SSG 形态生效
         pluginCss,
         pluginConfigs: options.pluginConfigs ?? cfg.plugins, // PLUG-014：doclight.json 插件配置注入（浏览器端自动注册）
       })
@@ -436,6 +440,11 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
     throw new Error(
       `展示层 bundle 缺失：${displayBundle}（先运行 npm run build；SSG 页面已服务端直出，但交互需 display.js）`
     );
+  }
+
+  // VIS-001：主题画廊（4 套设计语言 × 亮暗对比页；视觉回归基线来源）
+  if (options.themes) {
+    buildGallery({ outDir: join(outDir, "gallery"), siteTitle });
   }
 
   // 扩展 vendor：自包含产物（SSG-002 决策——拷贝 dist/vendor，离线可用）。

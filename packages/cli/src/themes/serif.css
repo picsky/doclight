@@ -1,0 +1,54 @@
+/*
+ * serif —— Serif（学术）设计语言（11-default-themes §3.2，VIS-001）
+ *
+ * 定位：课程站 / 知识库 / 长文阅读——纸感 + 衬线标题，读起来像「一本好书」。
+ * 特征：
+ * - 深靛蓝 #1e3a5f 强调（克制、安静、学究气）
+ * - 米白纸感底 #faf8f5 + 暖墨色文字（非纯白纯黑）
+ * - 衬线标题（Noto Serif SC / Source Han Serif SC / Georgia 栈）+ 无衬线正文
+ * - 2px 克制的圆角、几乎无阴影、表格只有横线、代码块浅纸色
+ * - 章节间留白更大（书的分篇感）
+ *
+ * 主题 = CSS 变量覆盖层（THEME-002）+ 组件级规则；合规：WCAG AA / 8pt / 1.25。
+ */
+:root {
+  --color-primary: #1e3a5f; --color-primary-hover: #162d4a; --color-primary-light: #e2e8f0;
+  --color-bg: #faf8f5; --color-bg-soft: #f2efe9; --color-bg-code: #f4f1ea;
+  --color-border: #e0dbd2; --color-border-soft: #ebe7df;
+  --color-text-muted: #8f8a80; --color-text-secondary: #6b675f;
+  --color-text: #3b3a38; --color-text-strong: #262522;
+  --color-success: #3f6212; --color-warning: #92400e; --color-error: #991b1b; --color-info: #1e40af;
+  --font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun", Georgia, "Times New Roman", serif;
+  --radius-sm: 1px; --radius: 2px; --radius-lg: 3px;
+  --max-width-content: 720px;
+  --shadow-sm: none; --shadow: 0 1px 2px rgba(60, 50, 30, 0.06);
+}
+[data-theme="dark"] {
+  --color-primary: #9db8d9; --color-primary-hover: #b8cde8; --color-primary-light: #1e2a3a;
+  --color-bg: #171512; --color-bg-soft: #201d19; --color-bg-code: #26221c;
+  --color-border: #3a352e; --color-border-soft: #2c2822;
+  --color-text-muted: #7a746b; --color-text-secondary: #a39d93;
+  --color-text: #d8d2c8; --color-text-strong: #f0ece4;
+  --color-success: #84cc16; --color-warning: #f59e0b; --color-error: #f87171; --color-info: #60a5fa;
+  --shadow-sm: none; --shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+/* ===== 组件级特征（纸感 / 书的分篇感） ===== */
+/* 衬线标题 + 无衬线正文（现代中文学术读物的通行组合） */
+article h1, article h2, article h3, article h4 { font-family: var(--font-serif); font-weight: 700; }
+/* 章节间留白更大：书的分篇感 */
+article h2 { margin-top: 3.2em; }
+article h3 { margin-top: 2.2em; }
+/* 表格只有横线（无竖线无底色），弱化网格强调内容 */
+.table-wrap table th { background: transparent; font-weight: 600; }
+/* 引用：纸感浅棕左边线 */
+article blockquote { border-left-color: #c9b79c; }
+/* 代码块：浅纸色底 + 细边框，无阴影（几乎无阴影原则） */
+article pre { background: var(--color-bg-code); border: 1px solid var(--color-border-soft); box-shadow: none; }
+/* 行内代码：纸色底 + 靛蓝文字 */
+article code:not(pre code) { background: var(--color-bg-code); color: var(--color-primary); }
+/* 容器：浅纸色 + 2px 左边线（克制的圆角） */
+.doclight-container { border-left-width: 2px; background: var(--color-bg-soft); }
+/* 正文行高略宽（衬线正文更疏朗），行宽 720px（衬线字号小可略宽） */
+article { line-height: 1.8; }
+/* 顶栏与侧边栏：纸色一体，无浮起感 */
+.topbar { background: var(--color-bg); }

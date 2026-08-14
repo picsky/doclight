@@ -16,8 +16,8 @@ import { buildNavTree, render } from "doclight-renderer";
 import { toFile as qrToFile } from "qrcode";
 import { loadConfig } from "./config.ts";
 import { buildCapabilityManifest } from "./capabilities.ts";
+import { resolveThemePackage } from "./themes.ts";
 import { BuildPluginPipeline } from "./plugins.ts";
-import { resolveThemeCss } from "./themes.ts";
 import { buildSearchData, displayBundlePath, nodeModulesBase, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
 import type { PluginDef, RenderContext } from "../../core/src/plugin.ts";
 
@@ -150,6 +150,8 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
   const bundleData = { version: 1, pages, titles, nav: navTree, searchIndex: searchData };
 
   const displayScript = readFileSync(displayBundle, "utf8");
+  // THEME-002 + VIS-001：主题包（bundle 形态同样生效——单文件内主题切换）
+  const theme = resolveThemePackage(cfg.theme);
 
   const html = renderPage({
     title: homeTitle,
@@ -161,7 +163,8 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
     bundleData,
     extraHead: options.inlineVendor ? inlineVendorHtml(pipeline.collectVendorFiles()) : "",
     slotContent: homeSlotContent,
-    themeCss: resolveThemeCss(cfg.theme),
+    themeCss: theme.css,
+    defaultTheme: theme.defaultTheme, // VIS-001：modern 默认暗色在 bundle 形态生效
     pluginCss: pipeline.collectPluginStyles(),
     pluginConfigs: options.pluginConfigs ?? cfg.plugins, // PLUG-014：bundle 形态同样注入运行时配置（展示层自动注册）
   });

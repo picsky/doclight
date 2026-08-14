@@ -44,6 +44,8 @@ export interface CliOptions {
   qrUrl?: string;
   /** bundle --inline-vendor：内联扩展库（C3，file:// 下扩展可用，体积增大） */
   inlineVendor?: boolean;
+  /** build/preview --themes：构建主题画廊（VIS-001，4 套设计语言 × 亮暗对比页） */
+  themes?: boolean;
 }
 
 /** 解析命令行参数（支持 --key value 与 --key=value）。无值 flag（如 --json）记为 "true"。 */
@@ -109,6 +111,7 @@ function printHelp(): void {
   --mcp           dev 模式启用 MCP 插件（同端口 /mcp + /.well-known/mcp）
   --qr <url>      bundle 生成下载二维码（bundle-qr.png，13 §3.2）
   --inline-vendor bundle 内联扩展库（Prism/KaTeX + 启用插件 vendor，file:// 下可用；体积增大）
+  --themes        build/preview 构建主题画廊（4 套设计语言 × 亮暗对比页，产物 gallery/）
   --help, -h      显示帮助`);
 }
 
@@ -118,10 +121,13 @@ export async function runDev(options: Partial<CliOptions> = {}): Promise<{ url: 
   // PLUG-009 接线：doclight.json plugins → 构建管线；THEME-002 主题同步；PLUG-011 插件热重载
   // PLUG-014：doclight.json 插件配置注入页面（展示层自动注册 init/onMount）
   const cfg = loadConfig([join(process.cwd(), "doclight.json"), join(resolve(merged.dir), "doclight.json")]);
+  const theme = loadConfiguredTheme(merged.dir);
   return startDevServer({
     ...merged,
     buildPlugins: loadConfiguredPlugins(merged.dir),
-    themeCss: loadConfiguredTheme(merged.dir),
+    // THEME-002 + VIS-001：主题包（css + defaultTheme 默认模式）
+    themeCss: theme.css,
+    defaultTheme: theme.defaultTheme,
     pluginFiles: configuredPluginWatchFiles(merged.dir),
     reloadPlugins: () => reloadConfiguredPluginsAsync(merged.dir),
     pluginConfigs: cfg.plugins,
@@ -144,13 +150,19 @@ export function runBuild(options: Partial<CliOptions> = {}): ReturnType<typeof b
     // PLUG-009 接线：doclight.json plugins → 构建管线
     buildPlugins: loadConfiguredPlugins(dir),
     pluginConfigs: cfg.plugins,
+    // VIS-001：--themes 构建主题画廊（产物 gallery/）
+    themes: options.themes,
   });
 }
 
-/** 启动 preview 服务器（供命令与测试复用） */
+/** 启动 preview 服务器（供命令与测试复用）。--themes：先构建主题画廊再预览（11 §4）。 */
 export async function runPreview(
   options: Partial<CliOptions> = {}
 ): Promise<{ url: string; port: number; close(): Promise<void> }> {
+  if (options.themes) {
+    // 画廊预览 = 构建（含 gallery/）→ 静态服务产物（与 build --themes 同一产物）
+    runBuild({ ...options, outDir: options.outDir ?? "dist-site" });
+  }
   return startPreviewServer({ dir: options.dir ?? "dist-site", port: options.port ?? 3000, base: options.base });
 }
 
@@ -222,21 +234,25 @@ if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
         siteUrl: opts["site-url"],
         description: opts["description"],
         author: opts["author"],
+        themes: opts["themes"] === "true",
       });
       console.log(`\n  DocLight 静态构建完成 ✓\n`);
       console.log(`  页面: ${result.pages} 篇 + ${result.assets} 个静态资源`);
       console.log(`  输出: ${result.outDir}（${(result.bytes / 1024).toFixed(1)} KB，${result.ms}ms）`);
       if (opts["site-url"]) console.log(`  SEO: sitemap.xml + robots.txt + OG 卡片 + canonical 已生成`);
+      if (opts["themes"] === "true") console.log(`  画廊: ${result.outDir}/gallery/（4 套设计语言 × 亮暗，11 §4）`);
       console.log(`  预览: doclight preview${opts["base"] ? ` --base ${opts["base"]}` : ""}\n`);
     } else if (command === "preview") {
       const preview = await runPreview({
         port: numOption(opts, "port", 3000),
         dir: opts["dir"],
         base: opts["base"],
+        themes: opts["themes"] === "true",
       });
       console.log(`\n  DocLight preview 已启动\n`);
       console.log(`  本地预览:  ${preview.url}`);
       console.log(`  产物目录:  ${opts["dir"] ?? "dist-site"}`);
+      if (opts["themes"] === "true") console.log(`  主题画廊:  ${preview.url}gallery/（11 §4）`);
       console.log(`  按 Ctrl+C 停止\n`);
     } else if (command === "init") {
       const result = initProject({ dir: opts["dir"], title: opts["title"], description: opts["description"] });

@@ -46,6 +46,8 @@ export interface DevServerOptions {
   buildPlugins?: PluginDef[];
   /** THEME-002：主题 CSS 覆盖层（由 CLI 层从配置解析后注入；缺省空 = 默认主题） */
   themeCss?: string;
+  /** VIS-001：主题包默认模式（如 modern="dark"；由 CLI 层从主题包解析后注入） */
+  defaultTheme?: "light" | "dark";
   /** PLUG-011：插件热重载 watch 文件（绝对路径；由 CLI 层用 configuredPluginWatchFiles 计算） */
   pluginFiles?: string[];
   /** PLUG-011：插件重新解析回调（watch 触发后调用；返回 null 表示加载期错误 → 保留旧管线；
@@ -369,6 +371,7 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
           searchVersion: searchIndexCache.version,
           slotContent,
           themeCss: options.themeCss,
+          defaultTheme: options.defaultTheme, // VIS-001：modern 等默认暗色主题在 dev 形态同样生效
           pluginCss: pipeline.collectPluginStyles(),
           pluginConfigs: options.pluginConfigs, // PLUG-014：dev 形态注入运行时配置
         })

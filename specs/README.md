@@ -117,6 +117,21 @@
 > 配套：PluginDef 新增 `capabilities?: string[]`（插件能力声明，官方插件 6 个已声明）；llms.txt Agent 端点补
 > /capabilities.json；well-known 发现补 capabilitiesEndpoint；docs.json 补 totalTokens；sitemap 不含 .md（SEO 不重复收录）。
 
+## Phase 6 P1 表现层设计系统化（VIS-001，2026-08-13 已落地）
+
+> 对应 08-roadmap Phase 6 P1 + ADR-0004（v3 定位「把 Markdown 变成作品」）+ 11-default-themes（4 套设计语言规格）。
+> 表现层是产品价值主线（v3 原则一）：同样的 md 内容经 DocLight 呈现后视觉质量显著更高，视觉质量机器化保障。
+> 落地形态：`specs/features/visual.feature` + `packages/cli/src/themes/*.css`（4 套设计语言独立 CSS 文件）
+> + `themes.ts`（主题包模型：css + defaultTheme）+ `gallery.ts`（主题画廊）+ `design-compliance.ts`（机器化合规）
+> + `scripts/checks/visual.mjs`（verify visual check）+ `scripts/visual-regression.spec.ts`（像素级回归，基线人工锁定）。
+
+| 需求 ID | 名称 | 说明 | 状态 |
+|---|---|---|---|
+| VIS-001 | 表现层设计系统化 | 4 套设计语言兑现（minimal 与默认一致 / serif 学术 / modern 暗色优先 / warm 温暖，各含亮暗令牌 + 组件级特征）+ 主题包模型（defaultTheme，modern 首次进入即暗色）+ 主题画廊（build/preview --themes：4×2 面板 + 内置示例文档 + fixedTheme 钉死）+ 设计合规门禁（verify 增 visual check：WCAG AA 对比度 / 8pt 网格 / 1.25 字号节奏，直读 CSS 断言）+ 像素级视觉回归（verify:visual：24 组截图基线，人工锁定后 diff）+ 默认主题字号打磨（1.25 模块化缩放） | 已实现 |
+
+> 配套：组件定制三入口文档 `docs/component-gallery.md`（CSS 覆盖 / extendMarked / 插件插槽——Astryx 式可定制）；
+> 主题 CSS 独立成文件 = 未来主题市场载体；`npm run verify:visual` / `verify:visual:update` 命令。
+
 ## 目录结构约定
 
 ```
@@ -130,7 +145,7 @@ specs/
 ## 需求 ID 与追溯（10 §1.4）
 
 - 每个需求项有唯一 ID：`<前缀>-<序号>`（如 `SRCH-001`）
-- 前缀表：`SRCH`(搜索) / `REND`(渲染) / `NAV`(导航) / `TOC` / `THEME` / `SSG` / `MCP` / `PLUG`(插件) / `SPACE`(内容空间) / `CLI` / `SEO`(搜索优化，Phase 3 新增) / `DEV`(dev server，Phase 1 新增) / `LLMS`(llms.txt，Phase 4 新增) / `FRONT`(语义 frontmatter，Phase 4 新增) / `SNAP`(同构快照，Phase 4 补强新增) / `CAP`(能力协议，Phase 6 P0 新增) / `AEO`(Agent 发布优化/发布产物 Agent 友好，Phase 6 P0 新增) — 新增前缀须登记（注：ID 正则限 2-5 大写字母，过长前缀不被 spec:check 识别）
+- 前缀表：`SRCH`(搜索) / `REND`(渲染) / `NAV`(导航) / `TOC` / `THEME` / `SSG` / `MCP` / `PLUG`(插件) / `SPACE`(内容空间) / `CLI` / `SEO`(搜索优化，Phase 3 新增) / `DEV`(dev server，Phase 1 新增) / `LLMS`(llms.txt，Phase 4 新增) / `FRONT`(语义 frontmatter，Phase 4 新增) / `SNAP`(同构快照，Phase 4 补强新增) / `CAP`(能力协议，Phase 6 P0 新增) / `AEO`(Agent 发布优化/发布产物 Agent 友好，Phase 6 P0 新增) / `VIS`(表现层设计系统化，Phase 6 P1 新增) — 新增前缀须登记（注：ID 正则限 2-5 大写字母，过长前缀不被 spec:check 识别）
 - Agent 在**提交信息与代码中引用需求 ID**（`feat(SRCH-001): ...`）
 - `npm run spec:check` 校验链路：specs 中的每个 ID 在 `packages/*` 的源码或测试中有引用
 - 只有 `.feature` 与编号 RFC 规格（`NNN-*.md`）承载需求 ID；本 README 中的示例 ID 仅供说明，不计入追溯（spec:check 不扫描约定文档）

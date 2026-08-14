@@ -471,11 +471,11 @@ Node 渲染内核 + dev server 跑起来，实现最基本的文档浏览功能�
 - [x] llms.txt v2 Link 关系（rel="describedby" 指向 llms.txt）
 - [x] token 计数（llms.txt 条目 + 页面 meta + docs.json）
 
-#### P1 · 表现层设计系统化（VIS-001）
-- [ ] 4 套设计语言兑现（Minimal/Serif/Modern/Warm——当前仅 minimal/warm）
-- [ ] 组件库（Astryx 式：可 swizzle、CSS 变量主题、Agent/人同构）
-- [ ] 主题预览对比页 + 视觉回归 + 设计合规门禁（verify 增 visual check）
-- [ ] 前端设计打磨（当前最大短板，用户反馈③）
+#### P1 · 表现层设计系统化（VIS-001）✅
+- [x] 4 套设计语言兑现（Minimal/Serif/Modern/Warm——当前仅 minimal/warm）
+- [x] 组件库（Astryx 式：可 swizzle、CSS 变量主题、Agent/人同构——组件清单 + 定制三入口，见 docs/component-gallery.md）
+- [x] 主题预览对比页 + 视觉回归 + 设计合规门禁（verify 增 visual check：WCAG AA/8pt/1.25 机器断言 + verify:visual 像素级回归）
+- [x] 前端设计打磨（默认主题字号 1.25 模块化缩放 + 每套主题组件级特征样式 + 暗色令牌强化）
 
 #### P1 · 预览-确认-发布（WORK-001）
 - [ ] 增量渲染（dev 只重渲染变更文档）

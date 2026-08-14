@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "doclight",
   "version": "0.1.0",
   "private": true,
@@ -16,6 +16,8 @@
     "verify:test": "node scripts/run-check.mjs test",
     "verify:size": "node scripts/run-check.mjs size",
     "verify:contract": "node scripts/run-check.mjs contract",
+    "verify:visual": "playwright test -c playwright.visual.config.ts",
+    "verify:visual:update": "playwright test -c playwright.visual.config.ts --update-snapshots",
     "verify:e2e": "node scripts/run-check.mjs e2e",
     "spec:check": "node scripts/run-check.mjs spec",
     "build": "node scripts/build.mjs",

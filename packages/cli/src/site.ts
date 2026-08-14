@@ -352,6 +352,10 @@ export interface RenderPageOptions {
   /** PLUG-014：插件运行时配置（doclight.json plugins 序列化，注入 window.DOCLIGHT_PLUGIN_CONFIGS
    *  供展示层自动注册 init/onMount——与页面脚本挂载的 DOCLIGHT_PLUGINS 定义表接线） */
   pluginConfigs?: Array<{ name: string; config?: Record<string, unknown>; enabled?: boolean }>;
+  /** VIS-001：主题包默认模式（如 modern="dark"：首次进入即暗色，无 localStorage 记录时生效） */
+  defaultTheme?: "light" | "dark";
+  /** VIS-001：固定主题模式（主题画廊面板用——忽略 localStorage/系统偏好，钉死亮或暗） */
+  fixedTheme?: "light" | "dark";
 }
 
 /**
@@ -416,6 +420,54 @@ function breadcrumbHtml(crumbs: Array<{ label: string; href: string }>): string 
     .join("");
   return `<nav class="breadcrumb" aria-label="面包屑"><ol>${items}</ol></nav>`;
 }
+
+/**
+ * 默认主题设计令牌（THEME-001 + VIS-001）：即 Minimal 设计语言（11 §3.1——
+ * teal/白/6px/680px，与 04-reading-experience 排版系统一致）。
+ * 独立导出：设计合规门禁（design-compliance）对默认主题同样断言（WCAG AA/8pt/1.25）。
+ */
+export const DEFAULT_THEME_CSS = `  :root {
+    /* 颜色 - 品牌（单一强调色 teal） */
+    --color-primary: #0d9488; --color-primary-hover: #0f766e; --color-primary-light: #ccfbf1;
+    /* 颜色 - 中性灰阶（8 级） */
+    --color-bg: #ffffff; --color-bg-soft: #f9fafb; --color-bg-code: #f3f4f6;
+    --color-border: #e5e7eb; --color-border-soft: #f3f4f6;
+    --color-text-muted: #71717a; --color-text-secondary: #6b7280;
+    --color-text: #374151; --color-text-strong: #111827;
+    /* 语义色（克制使用） */
+    --color-success: #059669; --color-warning: #d97706; --color-error: #dc2626; --color-info: #2563eb;
+    /* 字体（不引 Web Font，用系统最佳） */
+    --font-sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-mono: "JetBrains Mono", "SF Mono", "Cascadia Code", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
+    /* 字号（模块化缩放 1.25，VIS-001：从 base 起严格 ×1.25——lg 20px / xl 25px / 2xl 31.25px / 3xl 39px；
+       xs/sm 为基础 UI 字号（12/14px），不在正文节奏链上（design-compliance 门禁校验）） */
+    --font-size-xs: 0.75rem; --font-size-sm: 0.875rem; --font-size-base: 1rem;
+    --font-size-lg: 1.25rem; --font-size-xl: 1.5625rem;
+    --font-size-2xl: 1.953rem; --font-size-3xl: 2.441rem;
+    /* 行高 */
+    --line-height-tight: 1.3; --line-height-normal: 1.5; --line-height-relaxed: 1.75;
+    /* 间距（4px 基准，8pt 网格） */
+    --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+    --space-6: 24px; --space-8: 32px; --space-12: 48px; --space-16: 64px;
+    /* 布局 */
+    --max-width-content: 680px; --sidebar-width: 280px; --toc-width: 220px; --topbar-height: 52px;
+    /* 圆角 */
+    --radius-sm: 4px; --radius: 6px; --radius-lg: 8px;
+    /* 阴影（克制使用） */
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05); --shadow: 0 1px 3px rgba(0,0,0,0.1);
+    /* 过渡 */
+    --transition-fast: 150ms ease; --transition: 200ms ease;
+  }
+  [data-theme="dark"] {
+    --color-bg: #0a0a0a; --color-bg-soft: #171717; --color-bg-code: #262626;
+    --color-border: #262626; --color-border-soft: #1f1f1f;
+    --color-text-muted: #737373; --color-text-secondary: #a3a3a3;
+    --color-text: #d4d4d4; --color-text-strong: #f5f5f5;
+    --color-primary-light: #134e4a;
+    --color-success: #10b981; --color-warning: #f59e0b; --color-error: #ef4444; --color-info: #3b82f6;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3); --shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+`;
 
 /**
  * 组装完整 HTML 页（首屏直出：内容 + 导航服务端渲染）。
@@ -529,55 +581,24 @@ ${metaDescription}
 ${seoHead}
 <script>
   // 防闪烁（03 §3.6.2）：同步确定主题，在 CSS 前执行
+  // VIS-001：优先级 = fixedTheme（画廊面板钉死）→ localStorage → 主题包默认模式（modern 暗色）→ 系统偏好
   (function () {
     try {
-      var t = localStorage.getItem('doclight-theme');
-      if (!t || t === 'auto') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      var fixed = ${options.fixedTheme ? `'${options.fixedTheme}'` : "null"};
+      var def = ${options.defaultTheme ? `'${options.defaultTheme}'` : "null"};
+      var t = null;
+      if (fixed) { t = fixed; }
+      else {
+        t = localStorage.getItem('doclight-theme');
+        if (!t || t === 'auto') t = def || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      }
       document.documentElement.setAttribute('data-theme', t);
     } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
   })();
 </script>
 <style>
-  /* ===== 设计令牌（03 §3.6 + 04 §4.3，THEME-001）===== */
-  :root {
-    /* 颜色 - 品牌（单一强调色 teal） */
-    --color-primary: #0d9488; --color-primary-hover: #0f766e; --color-primary-light: #ccfbf1;
-    /* 颜色 - 中性灰阶（8 级） */
-    --color-bg: #ffffff; --color-bg-soft: #f9fafb; --color-bg-code: #f3f4f6;
-    --color-border: #e5e7eb; --color-border-soft: #f3f4f6;
-    --color-text-muted: #9ca3af; --color-text-secondary: #6b7280;
-    --color-text: #374151; --color-text-strong: #111827;
-    /* 语义色（克制使用） */
-    --color-success: #059669; --color-warning: #d97706; --color-error: #dc2626; --color-info: #2563eb;
-    /* 字体（不引 Web Font，用系统最佳） */
-    --font-sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --font-mono: "JetBrains Mono", "SF Mono", "Cascadia Code", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
-    /* 字号（模块化缩放 1.25） */
-    --font-size-xs: 0.75rem; --font-size-sm: 0.875rem; --font-size-base: 1rem; --font-size-lg: 1.125rem;
-    --font-size-xl: 1.25rem; --font-size-2xl: 1.5rem; --font-size-3xl: 2rem;
-    /* 行高 */
-    --line-height-tight: 1.3; --line-height-normal: 1.5; --line-height-relaxed: 1.75;
-    /* 间距（4px 基准） */
-    --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
-    --space-6: 24px; --space-8: 32px; --space-12: 48px; --space-16: 64px;
-    /* 布局 */
-    --max-width-content: 680px; --sidebar-width: 280px; --toc-width: 220px; --topbar-height: 52px;
-    /* 圆角 */
-    --radius-sm: 4px; --radius: 6px; --radius-lg: 8px;
-    /* 阴影（克制使用） */
-    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05); --shadow: 0 1px 3px rgba(0,0,0,0.1);
-    /* 过渡 */
-    --transition-fast: 150ms ease; --transition: 200ms ease;
-  }
-  [data-theme="dark"] {
-    --color-bg: #0a0a0a; --color-bg-soft: #171717; --color-bg-code: #262626;
-    --color-border: #262626; --color-border-soft: #1f1f1f;
-    --color-text-muted: #737373; --color-text-secondary: #a3a3a3;
-    --color-text: #d4d4d4; --color-text-strong: #f5f5f5;
-    --color-primary-light: #134e4a;
-    --color-success: #10b981; --color-warning: #f59e0b; --color-error: #ef4444; --color-info: #3b82f6;
-    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3); --shadow: 0 1px 3px rgba(0,0,0,0.4);
-  }
+  /* ===== 设计令牌（03 §3.6 + 04 §4.3，THEME-001；即 Minimal 设计语言，VIS-001）===== */
+  ${DEFAULT_THEME_CSS}
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   @media (prefers-reduced-motion: reduce) {

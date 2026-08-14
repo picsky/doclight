@@ -1,0 +1,43 @@
+/*
+ * minimal —— Minimal（默认）设计语言显式主题包（11-default-themes §3.1，VIS-001）
+ *
+ * 定位：技术文档事实标准审美——teal 唯一彩色 + 纯灰阶、克制的 6px 圆角、680px 行宽。
+ * 默认主题（零注入）即本设计语言；`theme: "minimal"` 显式选择时加载本包，
+ * 与默认视觉完全一致（令牌对齐），另附少量组件级打磨：
+ * - 侧边栏当前项：teal 左竖线（导航定位更清晰）
+ * - 行内代码：浅 teal 底（技术文章可读性关键，04 §4.2）
+ * - 表格行 hover：浅灰提示
+ * - 中文标题：微字距（标题密度）
+ *
+ * 主题 = CSS 变量覆盖层（THEME-002）：只覆盖公开令牌 + 组件级规则，不侵入核心结构。
+ * 合规：对比度 WCAG AA / 8pt 网格 / 1.25 字号节奏（design-compliance 门禁）。
+ */
+:root {
+  --color-primary: #0d9488; --color-primary-hover: #0f766e; --color-primary-light: #ccfbf1;
+  --color-bg: #ffffff; --color-bg-soft: #f9fafb; --color-bg-code: #f3f4f6;
+  --color-border: #e5e7eb; --color-border-soft: #f3f4f6;
+  --color-text-muted: #71717a; --color-text-secondary: #6b7280;
+  --color-text: #374151; --color-text-strong: #111827;
+  --color-success: #059669; --color-warning: #d97706; --color-error: #dc2626; --color-info: #2563eb;
+  --radius-sm: 4px; --radius: 6px; --radius-lg: 8px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05); --shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+[data-theme="dark"] {
+  --color-primary: #2dd4bf; --color-primary-hover: #5eead4; --color-primary-light: #134e4a;
+  --color-bg: #0a0a0a; --color-bg-soft: #171717; --color-bg-code: #262626;
+  --color-border: #262626; --color-border-soft: #1f1f1f;
+  --color-text-muted: #737373; --color-text-secondary: #a3a3a3;
+  --color-text: #d4d4d4; --color-text-strong: #f5f5f5;
+  --color-success: #10b981; --color-warning: #f59e0b; --color-error: #ef4444; --color-info: #3b82f6;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3); --shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+/* ===== 组件级打磨（默认 Minimal 语言之上的增量） ===== */
+/* 侧边栏当前项：teal 左竖线（默认主题无竖线，此处补足导航定位） */
+.sidebar a.active { position: relative; color: var(--color-primary); font-weight: 600; }
+.sidebar a.active::before { content: ""; position: absolute; left: -12px; top: 2px; bottom: 2px; width: 3px; border-radius: 2px; background: var(--color-primary); }
+/* 行内代码：浅 teal 底 + teal 文字（技术文章强调） */
+article code:not(pre code) { background: var(--color-primary-light); color: var(--color-primary-hover); }
+/* 表格行 hover：浅灰提示 */
+.table-wrap table tr:hover td { background: var(--color-bg-soft); }
+/* 中文标题微字距（标题密度，04 §4.4） */
+article h1, article h2 { letter-spacing: 0.01em; }

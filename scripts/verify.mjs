@@ -4,8 +4,9 @@
 import { writeReport, printSummary } from "./lib/report.mjs";
 import { runBuild } from "./build.mjs";
 
-const CHECKS = ["lint", "typecheck", "test", "size", "contract", "e2e"];
+const CHECKS = ["lint", "typecheck", "test", "size", "contract", "visual", "e2e"];
 // Phase 1 启用：visual / isomorphic / perf（见 10 §2.1 验证矩阵）；e2e = 展示层真实浏览器门禁
+// VIS-001：visual = 设计合规（WCAG AA/8pt/1.25）+ 主题画廊产物；像素级截图回归独立命令 verify:visual
 
 export async function verify() {
   // 1) 先构建（体积门禁与产物验证的前提）

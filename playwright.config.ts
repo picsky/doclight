@@ -20,6 +20,8 @@ export default defineConfig({
     // 反馈层：机器可消费的 JSON 报告（10 §3.1）
     ["json", { outputFile: "artifacts/e2e/results.json" }],
   ],
+  // VIS-001 视觉回归基线（scripts/visual-regression.spec.ts 用；e2e 不用快照，互不影响）
+  snapshotPathTemplate: "artifacts/visual/snapshots/{arg}{ext}",
   use: {
     trace: "on-first-retry",
   },
