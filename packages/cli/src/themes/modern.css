@@ -21,6 +21,8 @@
   --radius-sm: 6px; --radius: 8px; --radius-lg: 12px;
   --max-width-content: 720px;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.4); --shadow: 0 4px 16px rgba(0,0,0,0.35);
+  /* 代码块：深色玻璃（VIS-002 令牌覆盖——继承默认深色代码区，改玻璃质感） */
+  --code-bg: rgba(15, 21, 36, 0.8); --code-text: #e2e8f0; --code-border: rgba(255, 255, 255, 0.08);
 }
 [data-theme="light"] {
   --color-primary: #6d28d9; --color-primary-hover: #5b21b6; --color-primary-light: #ede9fe;
@@ -30,14 +32,19 @@
   --color-text: #334155; --color-text-strong: #0f172a;
   --color-success: #059669; --color-warning: #d97706; --color-error: #dc2626; --color-info: #2563eb;
   --shadow-sm: 0 1px 2px rgba(15,23,42,0.05); --shadow: 0 4px 16px rgba(15,23,42,0.08);
+  /* 亮色：浅玻璃代码区（Modern 亮色保持浅玻璃性格） */
+  --code-bg: rgba(241, 245, 249, 0.9); --code-text: #1e293b; --code-border: rgba(15, 23, 42, 0.08);
+  --code-token-comment: #64748b; --code-token-punct: #64748b; --code-token-keyword: #6d28d9;
+  --code-token-string: #b45309; --code-token-number: #7c3aed; --code-token-func: #0d9488;
+  --code-token-tag: #0d9488; --code-token-attr: #b45309; --code-token-class: #7c3aed;
+  --code-token-op: #1e293b; --code-token-regex: #b45309;
 }
 /* ===== 组件级特征（玻璃拟态 / 紧凑标题 / 锐利） ===== */
 /* 侧边栏：一层克制玻璃面板（backdrop-blur 仅此一处） */
 .sidebar { background: rgba(17, 24, 39, 0.55); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-right: 1px solid rgba(255, 255, 255, 0.06); }
 [data-theme="light"] .sidebar { background: rgba(255, 255, 255, 0.7); border-right: 1px solid rgba(15, 23, 42, 0.06); }
-/* 代码块：深色玻璃质感 + violet 边框微光 */
-article pre { background: rgba(15, 21, 36, 0.8); border: 1px solid rgba(255, 255, 255, 0.07); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-[data-theme="light"] article pre { background: rgba(241, 245, 249, 0.9); border-color: rgba(15, 23, 42, 0.07); }
+/* 代码块：深色玻璃质感 + violet 边框微光（令牌已覆盖底色，保留玻璃细节） */
+article pre { border-color: var(--code-border); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 /* 标题：更紧凑（行高 1.25）+ 轻微字距压缩（高密度） */
 article h1, article h2, article h3, article h4 { line-height: 1.25; letter-spacing: -0.015em; }
 /* 顶栏：深色玻璃与页面一体 */

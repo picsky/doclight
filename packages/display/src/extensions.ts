@@ -84,6 +84,51 @@ export function extractLanguage(className: string): string | null {
   return m ? m[1]! : null;
 }
 
+/* ===== 标题锚点（VIS-002 惊艳化）：h2/h3 注入 # 锚点，hover 显示，点击复制节链接 ===== */
+
+/** 纯函数：生成锚点链接 HTML（供测试与注入复用） */
+export function anchorHtml(id: string): string {
+  return `<a class="doclight-anchor" href="#${encodeURIComponent(id)}" data-anchor-id="${encodeURIComponent(id)}" aria-label="链接到本节" title="复制节链接">#</a>`;
+}
+
+/** 注入锚点：给 article 内 h2/h3（有 id）追加 # 链接；点击复制完整节 URL */
+function addAnchors(scope: HTMLElement): void {
+  scope.querySelectorAll<HTMLElement>("article h2[id], article h3[id]").forEach((h) => {
+    if (h.querySelector(".doclight-anchor")) return; // 防重复
+    const id = h.id;
+    const a = document.createElement("a");
+    a.className = "doclight-anchor";
+    a.href = `#${encodeURIComponent(id)}`;
+    a.dataset.anchorId = id;
+    a.setAttribute("aria-label", "链接到本节");
+    a.title = "复制节链接";
+    a.textContent = "#";
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      const url = `${location.origin}${location.pathname}${location.search}#${encodeURIComponent(id)}`;
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard
+          .writeText(url)
+          .then(() => {
+            a.textContent = "✓";
+            a.classList.add("copied");
+            setTimeout(() => {
+              a.textContent = "#";
+              a.classList.remove("copied");
+            }, 1500);
+          })
+          .catch(() => {
+            /* 剪贴板不可用：降级为普通锚点跳转 */
+            location.hash = encodeURIComponent(id);
+          });
+      } else {
+        location.hash = encodeURIComponent(id);
+      }
+    });
+    h.appendChild(a);
+  });
+}
+
 /* ===== code-block：复制按钮（零依赖，同步） ===== */
 
 /** 复制动作完成后的短暂反馈 */
@@ -204,8 +249,9 @@ export function initExtensions(root?: HTMLElement): ExtensionsApi {
 
   function enhance(scope?: HTMLElement): void {
     const target = scope ?? scopeRoot;
-    // 同步：复制按钮（零依赖）
+    // 同步：复制按钮 + 标题锚点（零依赖）
     addCopyButtons(target);
+    addAnchors(target);
     // 异步：懒加载增强（各扩展内部自判断是否有标记，无则零开销返回）
     void highlightCode(target);
     void renderKatex(target);

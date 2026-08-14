@@ -19,6 +19,12 @@
   --radius-sm: 8px; --radius: 12px; --radius-lg: 16px;
   --max-width-content: 680px;
   --shadow-sm: 0 1px 3px rgba(120, 90, 40, 0.10); --shadow: 0 4px 12px rgba(120, 90, 40, 0.12);
+  /* 代码块：暖纸卡片色（VIS-002 令牌覆盖——Warm 代码区暖色性格） */
+  --code-bg: #f5eee2; --code-text: #4a4238; --code-border: #eadfce;
+  --code-token-comment: #8d7f6b; --code-token-punct: #746a59; --code-token-keyword: #b45309;
+  --code-token-string: #1d4ed8; --code-token-number: #92400e; --code-token-func: #b45309;
+  --code-token-tag: #b45309; --code-token-attr: #1d4ed8; --code-token-class: #92400e;
+  --code-token-op: #4a4238; --code-token-regex: #1d4ed8;
 }
 [data-theme="dark"] {
   --color-primary: #f59e0b; --color-primary-hover: #fbbf24; --color-primary-light: #451a03;
@@ -28,6 +34,12 @@
   --color-text: #d6d3d1; --color-text-strong: #f5f5f4;
   --color-success: #a3e635; --color-warning: #fbbf24; --color-error: #f87171; --color-info: #60a5fa;
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.3); --shadow: 0 4px 12px rgba(0,0,0,0.35);
+  /* 暗色：深暖褐代码区 */
+  --code-bg: #2f2a26; --code-text: #d6d3d1; --code-border: #44403c;
+  --code-token-comment: #78716c; --code-token-punct: #a8a29e; --code-token-keyword: #fbbf24;
+  --code-token-string: #93c5fd; --code-token-number: #fbbf24; --code-token-func: #fbbf24;
+  --code-token-tag: #fbbf24; --code-token-attr: #93c5fd; --code-token-class: #fbbf24;
+  --code-token-op: #d6d3d1; --code-token-regex: #93c5fd;
 }
 /* ===== 组件级特征（卡片感 / 大圆角 / 亲和） ===== */
 /* 容器：卡片感（无左边线，浅暖底 + 软阴影 + 大圆角；图标保持语义色） */

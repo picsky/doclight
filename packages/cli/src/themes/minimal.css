@@ -32,9 +32,8 @@
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.3); --shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 /* ===== 组件级打磨（默认 Minimal 语言之上的增量） ===== */
-/* 侧边栏当前项：teal 左竖线（默认主题无竖线，此处补足导航定位） */
-.sidebar a.active { position: relative; color: var(--color-primary); font-weight: 600; }
-.sidebar a.active::before { content: ""; position: absolute; left: -12px; top: 2px; bottom: 2px; width: 3px; border-radius: 2px; background: var(--color-primary); }
+/* 侧边栏当前项：teal 左指示条（默认主题已含，此处保持语义一致） */
+.sidebar a.active { font-weight: 600; }
 /* 行内代码：浅 teal 底 + teal 文字（技术文章强调） */
 article code:not(pre code) { background: var(--color-primary-light); color: var(--color-primary-hover); }
 /* 表格行 hover：浅灰提示 */
