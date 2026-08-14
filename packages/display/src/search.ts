@@ -97,10 +97,25 @@ function makeSnippet(doc: SearchDoc, terms: string[], width = 60): string {
   return (start > 0 ? "…" : "") + text.slice(start, end) + (end < text.length ? "…" : "");
 }
 
+/**
+ * 拉丁词前缀展开（2026-08-14 修复：搜 "eng" 应命中 "engine"）。
+ * 索引为完整词倒排（tokenize 按 [a-z0-9]+ 整词切分），查询词可能只是前缀——
+ * 扫描倒排词表做 startsWith 匹配（文档站词表规模下 O(词表) 可接受，零索引体积增量）。
+ * 长度 <2 不展开（"e" 前缀爆炸）；仅拉丁词（CJK bigram 不受影响）。
+ */
+function expandLatinPrefix(index: SearchIndex, term: string): string[] {
+  if (term.length < 2 || !/^[a-z0-9]+$/.test(term)) return [term];
+  const out: string[] = [];
+  for (const key of index.postings.keys()) {
+    if (/^[a-z0-9]+$/.test(key) && key.startsWith(term)) out.push(key);
+  }
+  return out.length > 0 ? out : [term];
+}
+
 /** 纯函数：查询 → 按得分 Top N 结果（含命中摘要）。
  *  准确性修复（2026-08-14）：① CJK 单字 AND 约束——查询的每个中文字必须全部出现在文档中
- *  （修复"搜二字词被单字噪音淹没"）；② bigram/拉丁词加权 ×4——连续词命中显著优先
- *  （修复"快速"被只含"速"的文档抢位）。 */
+ *  （修复"搜二字词被单字噪音淹没"）；② bigram/拉丁词加权 ×4——连续词命中显著优先；
+ *  ③ 拉丁词前缀匹配——"eng" 命中 "engine"（精确 ×4，前缀 ×2）。 */
 export function search(index: SearchIndex, query: string, limit = 10): SearchResult[] {
   const tokens = tokenize(query);
   if (tokens.length === 0) return [];
@@ -109,17 +124,20 @@ export function search(index: SearchIndex, query: string, limit = 10): SearchRes
   const scores = new Map<number, number>();
   const termHits = new Map<number, Set<string>>();
   for (const term of tokens) {
-    const postings = index.postings.get(term);
-    if (!postings) continue;
-    const weight = term.length >= 2 ? 4 : 1; // bigram/拉丁词 ×4
-    for (const [docId, w] of postings) {
-      scores.set(docId, (scores.get(docId) ?? 0) + w * weight);
-      let set = termHits.get(docId);
-      if (!set) {
-        set = new Set();
-        termHits.set(docId, set);
+    for (const t of expandLatinPrefix(index, term)) {
+      const postings = index.postings.get(t);
+      if (!postings) continue;
+      // 精确命中 ×4（bigram/拉丁完整词），前缀命中 ×2（匹配但非整词）
+      const weight = t === term ? (term.length >= 2 ? 4 : 1) : 2;
+      for (const [docId, w] of postings) {
+        scores.set(docId, (scores.get(docId) ?? 0) + w * weight);
+        let set = termHits.get(docId);
+        if (!set) {
+          set = new Set();
+          termHits.set(docId, set);
+        }
+        set.add(t);
       }
-      set.add(term);
     }
   }
   // AND：CJK 单字必须全部命中（拉丁词查询无此约束——保持 OR）

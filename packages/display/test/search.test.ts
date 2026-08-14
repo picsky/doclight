@@ -77,6 +77,26 @@ describe("索引与检索（SRCH-001）", () => {
     expect(results[0]!.score).toBeGreaterThan(results[1]!.score); // bigram ×4 拉开差距
   });
 
+  it("拉丁词前缀匹配：搜 eng 命中含 engine 的文档（2026-08-14 前缀修复）", () => {
+    const docs: SearchDoc[] = [
+      { path: "engine.md", title: "Engine Guide", headings: [], text: "The engine powers rendering." },
+      { path: "other.md", title: "Other", headings: [], text: "Nothing about engines here." }, // 无 eng 前缀词
+    ];
+    const index = buildIndex(docs);
+    const results = search(index, "eng");
+    expect(results.map((r) => r.path)).toContain("engine.md");
+  });
+
+  it("前缀匹配排序：完整词命中仍优先于前缀命中", () => {
+    const docs: SearchDoc[] = [
+      { path: "engine.md", title: "Engine Guide", headings: [], text: "The engine is fast." },
+      { path: "engineering.md", title: "Engineering", headings: [], text: "Engineering practices." },
+    ];
+    const index = buildIndex(docs);
+    const results = search(index, "engine");
+    expect(results[0]!.path).toBe("engine.md"); // 精确完整词 ×4 > 前缀 ×2
+  });
+
   it("标题命中权重高于正文命中（排序）", () => {
     const index = buildIndex(DOCS);
     const results = search(index, "参考");
