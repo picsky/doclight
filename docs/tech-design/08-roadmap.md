@@ -486,10 +486,10 @@ Node 渲染内核 + dev server 跑起来，实现最基本的文档浏览功能�
 - [x] `write_doc` / `update_doc` / `delete_doc` 工具（--write-dir 启停 + 路径安全 + 未启用诚实报错）
 - [x] 写入后触发增量重渲染（dev --mcp：写入 → watcher 置脏 → 下次 MCP 请求重建，与 WORK-001 联动）
 
-#### P2 · 演示形态（DEMO-001）
-- [ ] 演示专用视觉设计系统（布局/图表/动效/封面模板组件）
-- [ ] `doclight slides`（或插件形态）——同一内容源，独立演示输出
-- [ ] doclight-slides Skill（教 Agent 编排演示）
+#### P2 · 演示形态（DEMO-001）✅
+- [x] 演示专用视觉设计系统（布局 cover/section/content/end + 3 主题 dark/light/warm + 壳层导航/进度/全屏/备注）
+- [x] `doclight slides`——同一内容源（渲染内核），独立演示输出（markdown `---` 分页 → 自包含单文件）
+- [x] doclight-slides Skill（教 Agent 编排演示：每页一观点/布局指令/备注/同源不同形原则）
 
 #### 并行 · 开源化准备（OSS-001）
 - [ ] LICENSE 文件（MIT/Apache-2.0，待用户确认）

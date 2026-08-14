@@ -10,6 +10,7 @@
  *   doclight deploy [--dir] [--title]                          一键部署（GitHub Pages 等，05 §5.5）
  */
 import { join, resolve } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { startDevServer } from "./dev-server.ts";
 import { buildSite } from "./build.ts";
@@ -26,6 +27,7 @@ import { loadConfig } from "./config.ts";
 import { configuredPluginWatchFiles, loadConfiguredPlugins, reloadConfiguredPluginsAsync } from "./plugin-loader.ts";
 import { pluginList, pluginNew } from "./plugin-new.ts";
 import { loadConfiguredTheme } from "./themes.ts";
+import { buildSlidesHtml, parseSlides } from "./slides.ts";
 
 export const cliVersion = "0.1.0";
 
@@ -134,6 +136,7 @@ function printHelp(): void {
   rollback  回滚内容到发布前快照（WORK-001：rollback <id> / rollback --list）
   space     内容空间管理（init / switch / status，14 §3.4）
   embed     生成嵌入代码（snippet.js + iframe 片段，13 §3.1）
+  slides    生成演示（markdown --- 分页 → 自包含单页 HTML，01 §原则二，DEMO-001）
   plugin    插件开发（new 生成脚手架 / list 列出官方插件）
 
 选项:
@@ -159,6 +162,8 @@ function printHelp(): void {
   --preview       publish 预览态（构建 + 预览服务，不发布——人确认后再正式发布，WORK-001）
   --yes           publish 跳过交互确认（TTY 模式下默认 y/N 确认门）
   --no-snapshot   publish 关闭发布前自动快照（默认开启，可 rollback 回滚）
+  --theme <名>    slides 演示主题（dark / light / warm 或 CSS 文件；缺省 dark）
+  --author <名>   slides 封面署名（作者 · 日期）
   --help, -h      显示帮助`);
 }
 
@@ -233,6 +238,23 @@ export function runBundle(options: Partial<CliOptions> = {}): ReturnType<typeof 
 /** 执行嵌入分发（供命令与测试复用） */
 export function runEmbed(options: Partial<CliOptions> = {}): ReturnType<typeof embedSite> {
   return embedSite({ dir: options.dir, outDir: options.outDir, title: options.title, siteUrl: options.siteUrl });
+}
+
+/** 执行演示构建（DEMO-001）：markdown `---` 分页 → 自包含单页 HTML（与 bundle 同哲学） */
+export function runSlides(options: { file: string; outDir?: string; title?: string; theme?: string; author?: string }): {
+  file: string;
+  bytes: number;
+  pages: number;
+} {
+  const source = readFileSync(resolve(options.file), "utf8");
+  const deck = parseSlides(source, options.title);
+  const html = buildSlidesHtml(source, { title: options.title, theme: options.theme, author: options.author });
+  const name = options.file.replace(/\\/g, "/").split("/").pop()!.replace(/\.md$/i, "") || "slides";
+  const outDir = resolve(options.outDir ?? "dist-slides");
+  mkdirSync(outDir, { recursive: true });
+  const out = join(outDir, `${name}.html`);
+  writeFileSync(out, html, "utf8");
+  return { file: out, bytes: Buffer.byteLength(html, "utf8"), pages: deck.pages.length };
 }
 
 /** 执行部署（供命令与测试复用） */
@@ -479,6 +501,18 @@ if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
       console.log(`\n  或复制以下 <iframe> 代码（嵌入语雀/飞书/博客/官网）：\n`);
       for (const line of result.iframeHtml.split("\n")) console.log(`  ${line}`);
       console.log(`\n  示例 URL: ${result.url}\n`);
+    } else if (command === "slides") {
+      // DEMO-001：markdown `---` 分页 → 自包含单页 HTML 演示（与文档同源不同形）
+      const file = rest[0] ?? opts["file"];
+      if (!file) {
+        console.error(`✗ slides 需要演示源文件（用法: doclight slides <file.md> [--theme dark|light|warm] [--out-dir <p>]）`);
+        process.exit(1);
+      }
+      const result = runSlides({ file, outDir: opts["out-dir"], title: opts["title"], theme: opts["theme"], author: opts["author"] });
+      console.log(`\n  DocLight 演示已生成 ✓（${result.pages} 页）\n`);
+      console.log(`  产物: ${result.file}（${(result.bytes / 1024).toFixed(1)} KB，自包含单文件）`);
+      console.log(`  打开: 双击文件（file:// 离线可用）或 doclight preview --dir dist-slides`);
+      console.log(`  导航: ← → 翻页 · F 全屏 · S 演讲者备注 · #N 直达第 N 页\n`);
     } else if (command === "plugin") {
       const sub = rest[0] ?? "";
       if (sub === "new") {
@@ -503,7 +537,7 @@ if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
         process.exit(1);
       }
     } else {
-      console.error(`未知命令：${command ?? "(空)"}（支持 dev / build / preview / init / bundle / deploy / migrate-docsify / migrate-mkdocs / migrate-gitbook / publish / rollback / space / embed / plugin）`);
+      console.error(`未知命令：${command ?? "(空)"}（支持 dev / build / preview / init / bundle / deploy / migrate-docsify / migrate-mkdocs / migrate-gitbook / publish / rollback / space / embed / slides / plugin）`);
       process.exit(1);
     }
   } catch (err) {

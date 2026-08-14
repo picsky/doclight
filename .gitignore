@@ -5,6 +5,7 @@ node_modules/
 dist/
 dist-site/
 dist-bundle/
+dist-slides/
 build/
 out/
 

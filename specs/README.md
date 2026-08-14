@@ -148,6 +148,21 @@
 > 配套：publish 结果携带 snapshot 信息；rollback 支持 `--json`（Agent 直接消费）；MCP 工具注册表扩至十个
 > （读七 + 写三）；ai.feature 同步十工具契约。
 
+## Phase 6 P2 演示形态（DEMO-001，2026-08-13 已落地）
+
+> 对应 08-roadmap Phase 6 P2 + ADR-0004 + 01 §原则二（文档与演示同源不同形）+ research §五 P2。
+> 演示 = 每页一个观点、强视觉、少文字、逐页叙事；**绝不做「文档切页成演示」的机械转换**；
+> 质量由演示专用视觉组件保证（内置布局 + 3 套主题 + 壳层导航），不引外部库、自包含分发（与 bundle 同哲学）。
+> 落地形态：`specs/features/slides.feature` + `packages/cli/src/slides.ts`（parseSlides/buildSlidesHtml）
+> + index.ts（`doclight slides` 命令）+ `.claude/skills/doclight-slides/`（Agent 编排）+ `docs/slides.md`。
+
+| 需求 ID | 名称 | 说明 | 状态 |
+|---|---|---|---|
+| DEMO-001 | 演示形态 | markdown `---` 分页（frontmatter/布局指令 `<!-- layout: -->`/演讲者备注 `<!-- notes: -->`，首页自动 cover）+ 自包含单文件输出（内嵌 CSS+壳层 JS：键盘/触摸导航、URL #N 直达、进度/页码、全屏、演讲者备注视图、打印、reduced-motion）+ 演示设计系统 3 主题（dark/light/warm + 自定义 CSS `--slide-*` 令牌）+ doclight-slides Skill（编排流程/同源不同形原则/失败处理）+ 视觉回归门禁（visual check 产物校验 + 2 组截图基线） | 已实现 |
+
+> 配套：演示产物复用渲染内核（扩展语法/容器/KaTeX 降级为可读源码——单文件零 vendor）；体积预算 ≤100KB/份；
+> `doclight slides <file.md> [--theme dark|light|warm|custom.css] [--author 名] [--out-dir <p>]`。
+
 ## 目录结构约定
 
 ```
@@ -161,7 +176,7 @@ specs/
 ## 需求 ID 与追溯（10 §1.4）
 
 - 每个需求项有唯一 ID：`<前缀>-<序号>`（如 `SRCH-001`）
-- 前缀表：`SRCH`(搜索) / `REND`(渲染) / `NAV`(导航) / `TOC` / `THEME` / `SSG` / `MCP` / `PLUG`(插件) / `SPACE`(内容空间) / `CLI` / `SEO`(搜索优化，Phase 3 新增) / `DEV`(dev server，Phase 1 新增) / `LLMS`(llms.txt，Phase 4 新增) / `FRONT`(语义 frontmatter，Phase 4 新增) / `SNAP`(同构快照，Phase 4 补强新增) / `CAP`(能力协议，Phase 6 P0 新增) / `AEO`(Agent 发布优化/发布产物 Agent 友好，Phase 6 P0 新增) / `VIS`(表现层设计系统化，Phase 6 P1 新增) / `WORK`(预览-确认-发布工作流，Phase 6 P1 新增) — 新增前缀须登记（注：ID 正则限 2-5 大写字母，过长前缀不被 spec:check 识别）
+- 前缀表：`SRCH`(搜索) / `REND`(渲染) / `NAV`(导航) / `TOC` / `THEME` / `SSG` / `MCP` / `PLUG`(插件) / `SPACE`(内容空间) / `CLI` / `SEO`(搜索优化，Phase 3 新增) / `DEV`(dev server，Phase 1 新增) / `LLMS`(llms.txt，Phase 4 新增) / `FRONT`(语义 frontmatter，Phase 4 新增) / `SNAP`(同构快照，Phase 4 补强新增) / `CAP`(能力协议，Phase 6 P0 新增) / `AEO`(Agent 发布优化/发布产物 Agent 友好，Phase 6 P0 新增) / `VIS`(表现层设计系统化，Phase 6 P1 新增) / `WORK`(预览-确认-发布工作流，Phase 6 P1 新增) / `DEMO`(演示形态，Phase 6 P2 新增) — 新增前缀须登记（注：ID 正则限 2-5 大写字母，过长前缀不被 spec:check 识别）
 - Agent 在**提交信息与代码中引用需求 ID**（`feat(SRCH-001): ...`）
 - `npm run spec:check` 校验链路：specs 中的每个 ID 在 `packages/*` 的源码或测试中有引用
 - 只有 `.feature` 与编号 RFC 规格（`NNN-*.md`）承载需求 ID；本 README 中的示例 ID 仅供说明，不计入追溯（spec:check 不扫描约定文档）

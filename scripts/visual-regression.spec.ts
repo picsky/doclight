@@ -14,6 +14,8 @@ import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 
 const GALLERY = join(process.cwd(), "artifacts", "visual", "gallery");
+/** DEMO-001：演示产物（visual check 构建；自包含单文件，file:// 直开） */
+const SLIDES_DEMO = join(process.cwd(), "artifacts", "visual", "slides-demo.html");
 const THEMES = ["minimal", "serif", "modern", "warm"];
 const MODES = ["light", "dark"] as const;
 const VIEWPORTS = [
@@ -66,3 +68,18 @@ for (const theme of THEMES) {
     }
   }
 }
+
+/* DEMO-001：演示形态截图回归（自包含单文件，file:// 直开——正是分发形态） */
+test("演示 dark 封面页", async ({ page }) => {
+  test.skip(!existsSync(SLIDES_DEMO), "演示产物缺失：先运行 npm run verify（visual check 构建）");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`file://${SLIDES_DEMO.split("\\").join("/")}`, { waitUntil: "load" });
+  await expect(page).toHaveScreenshot("slides-dark-cover.png", { maxDiffPixelRatio: 0.01, animations: "disabled" });
+});
+
+test("演示 dark 内容页（#3 直达）", async ({ page }) => {
+  test.skip(!existsSync(SLIDES_DEMO), "演示产物缺失：先运行 npm run verify（visual check 构建）");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`file://${SLIDES_DEMO.split("\\").join("/")}#3`, { waitUntil: "load" });
+  await expect(page).toHaveScreenshot("slides-dark-content.png", { maxDiffPixelRatio: 0.01, animations: "disabled" });
+});
