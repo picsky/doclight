@@ -673,9 +673,10 @@ ${seoHead}
   .sidebar .group > a, .sidebar .group { display: block; font-size: var(--font-size-xs); font-weight: 600; color: var(--color-text-strong); letter-spacing: var(--tracking-normal); text-transform: none; padding: 0 var(--space-3); margin-bottom: var(--space-2); }
   .sidebar .group > a:hover { color: var(--color-primary); background: none; }
   /* 导航项：极致安静（设计证据：Mintlify = 14px/400/无圆角/不对称 padding；
-     hover 仅文字变深，active 主色+字重+静态短竖线——hover≠active 是设计师手笔） */
-  .sidebar a { display: block; padding: 5px var(--space-3) 5px var(--space-4); border-radius: 0; color: var(--color-text-secondary); text-decoration: none; transition: color var(--transition-fast); position: relative; }
-  .sidebar a:hover { color: var(--color-text-strong); background: none; }
+     hover = 文字变深 + 3% 超淡背景（rgba(10,13,12,0.03) 实测），active = 主色+字重+静态短竖线；
+     hover≠active 是设计师手笔——3% 背景几乎不可见但提供微妙反馈） */
+  .sidebar a { display: block; padding: 5px var(--space-3) 5px var(--space-4); border-radius: 0; color: var(--color-text-secondary); text-decoration: none; transition: color var(--transition-fast), background var(--transition-fast); position: relative; }
+  .sidebar a:hover { color: var(--color-text-strong); background: color-mix(in srgb, var(--color-text-strong) 3%, transparent); }
   .sidebar a.active { color: var(--color-primary); font-weight: 600; background: none; box-shadow: none; }
   .sidebar a.active::before { content: ""; position: absolute; left: var(--space-2); top: 50%; transform: translateY(-50%); width: 2px; height: 12px; border-radius: 1px; background: var(--color-primary); }
   main { grid-column: 2; min-width: 0; max-width: var(--max-width-content); width: 100%; margin: 0 auto; padding: var(--space-12) var(--space-6) var(--space-16); }
