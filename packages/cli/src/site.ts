@@ -791,22 +791,27 @@ ${seoHead}
   .search-recent-item { display: block; width: 100%; text-align: left; padding: var(--space-2) var(--space-3); border: none; background: none; cursor: pointer; color: var(--color-text); border-radius: var(--radius); font-size: var(--font-size-sm); font-family: var(--font-sans); transition: background var(--transition-fast), color var(--transition-fast); }
   .search-recent-item:hover { background: var(--color-bg-soft); color: var(--color-primary); }
   /* ===== REND-002 扩展语法渲染（容器 / 代码块+复制 / Mermaid 容错 / KaTeX） ===== */
-  /* 代码块头部工具条（Next.js 风格）：语言标签左上 + 复制按钮右上 + 细分隔线；
-     全 CSS 实现（深色代码区顶部留出工具条空间），三形态一致 */
-  pre.doclight-code { position: relative; padding-top: 42px; }
-  pre.doclight-code::before { content: ""; position: absolute; left: var(--space-4); right: var(--space-4); top: 34px; height: 1px; background: color-mix(in srgb, var(--code-text) 8%, transparent); pointer-events: none; }
-  pre.doclight-code.has-copy { padding-right: 56px; }
-  .doclight-lang { position: absolute; top: 0; left: var(--space-4); height: 34px; display: inline-flex; align-items: center; padding: 0 var(--space-2); font-family: var(--font-mono); font-size: 11px; line-height: 1; color: var(--code-token-comment); letter-spacing: 0.03em; user-select: none; pointer-events: none; }
-  .doclight-copy {
-    position: absolute; top: 6px; right: var(--space-3);
+  /* 代码块（Next.js 风格）：wrapper 承载背景/圆角/工具条，pre 独立滚动（滚动条不遮工具条） */
+  pre.doclight-code { background: var(--code-bg); color: var(--code-text); border: 1px solid var(--code-border); padding: var(--space-4) var(--space-6); border-radius: var(--radius-lg); overflow-x: auto; font-size: var(--font-size-sm); line-height: 1.6; }
+  .doclight-code-wrap { position: relative; background: var(--code-bg); border: 1px solid var(--code-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm), inset 0 1px 0 color-mix(in srgb, var(--code-text) 6%, transparent), 0 0 24px color-mix(in srgb, var(--color-primary) 7%, transparent); }
+  .doclight-code-wrap pre.doclight-code { margin: 0; border: none; border-radius: 0; box-shadow: none; background: transparent; padding: 42px var(--space-6) var(--space-4); scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--code-text) 25%, transparent) transparent; }
+  .doclight-code-wrap pre.doclight-code::-webkit-scrollbar { height: 8px; }
+  .doclight-code-wrap pre.doclight-code::-webkit-scrollbar-track { background: transparent; }
+  .doclight-code-wrap pre.doclight-code::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--code-text) 18%, transparent); border-radius: 4px; border: 2px solid var(--code-bg); }
+  .doclight-code-wrap pre.doclight-code::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--code-text) 35%, transparent); }
+  /* 工具条：语言标签左上 + 复制按钮右上 + 细分隔线（挂 wrapper，不随 pre 滚动） */
+  .doclight-code-wrap::before { content: ""; position: absolute; left: var(--space-4); right: var(--space-4); top: 34px; height: 1px; background: color-mix(in srgb, var(--code-text) 8%, transparent); pointer-events: none; }
+  .doclight-code-wrap .doclight-lang { position: absolute; top: 0; left: var(--space-4); height: 34px; display: inline-flex; align-items: center; padding: 0 var(--space-2); font-family: var(--font-mono); font-size: 11px; line-height: 1; color: var(--code-token-comment); letter-spacing: 0.03em; user-select: none; pointer-events: none; }
+  .doclight-code-wrap .doclight-copy {
+    position: absolute; top: 6px; right: var(--space-3); z-index: 2;
     border: 1px solid color-mix(in srgb, var(--code-text) 18%, transparent); background: color-mix(in srgb, var(--code-bg) 85%, transparent);
     color: var(--code-token-comment); border-radius: var(--radius-sm);
     font-size: var(--font-size-xs); font-family: var(--font-sans);
     padding: 3px 10px; cursor: pointer; opacity: 0; transition: opacity var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
   }
-  pre.doclight-code:hover .doclight-copy { opacity: 1; }
-  .doclight-copy:hover { color: var(--code-text); border-color: color-mix(in srgb, var(--code-text) 45%, transparent); background: color-mix(in srgb, var(--code-bg) 92%, transparent); }
-  .doclight-copy.copied { color: #34d399; border-color: rgba(52, 211, 153, 0.5); opacity: 1; }
+  .doclight-code-wrap:hover .doclight-copy { opacity: 1; }
+  .doclight-code-wrap .doclight-copy:hover { color: var(--code-text); border-color: color-mix(in srgb, var(--code-text) 45%, transparent); background: color-mix(in srgb, var(--code-bg) 92%, transparent); }
+  .doclight-code-wrap .doclight-copy.copied { color: #34d399; border-color: rgba(52, 211, 153, 0.5); opacity: 1; }
   /* 代码高亮 token 配色（Prism token class；VIS-002：令牌化，默认深色代码区配色——
      亮暗主题下代码区均为深色基底，语法色精心调校（slate 底 + 冷色系高亮）） */
   .token.comment, .token.prolog, .token.doctype, .token.cdata { color: var(--code-token-comment); font-style: italic; }
@@ -857,6 +862,7 @@ ${seoHead}
     main { grid-column: 1 / -1; padding: var(--space-6) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom)); font-size: 15px; }
     .layout { grid-template-columns: minmax(0, 1fr); }
     .topbar { height: 48px; padding: 0 var(--space-3); }
+    :root { --topbar-height: 48px; } /* 移动端顶栏变矮 → sidebar/toc 的 sticky top 联动（修复遮挡） */
     /* 触摸反馈（04 §4.8 移动端替代 hover）：按下微暗 */
     .icon-btn:active, .toc-fab:active, .back-to-top:active, .search-trigger:active { background: var(--color-bg-code); }
   }

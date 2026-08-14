@@ -54,6 +54,29 @@ describe("索引与检索（SRCH-001）", () => {
     expect(results.map((r) => r.path)).toContain("guide/quickstart.md");
   });
 
+  it("双字词 AND 约束：缺任一单字的文档被排除（2026-08-14 准确性修复）", () => {
+    const docs: SearchDoc[] = [
+      { path: "a.md", title: "含连续词", headings: [], text: "包含安装这个词。" },
+      { path: "b.md", title: "只含单字", headings: [], text: "装置与装备。" }, // 有"装"无"安"
+    ];
+    const index = buildIndex(docs);
+    const results = search(index, "安装");
+    const paths = results.map((r) => r.path);
+    expect(paths).toContain("a.md");
+    expect(paths).not.toContain("b.md"); // AND：缺"安"被排除
+  });
+
+  it("连续词（bigram）加权 ×4：连续命中显著优先于单字散布（2026-08-14 排序修复）", () => {
+    const docs: SearchDoc[] = [
+      { path: "a.md", title: "连续", headings: [], text: "包含安装这个词。" }, // 连续"安装"
+      { path: "c.md", title: "散布", headings: [], text: "安与装分离出现。" }, // "安""装"都有但不连续
+    ];
+    const index = buildIndex(docs);
+    const results = search(index, "安装");
+    expect(results[0]!.path).toBe("a.md");
+    expect(results[0]!.score).toBeGreaterThan(results[1]!.score); // bigram ×4 拉开差距
+  });
+
   it("标题命中权重高于正文命中（排序）", () => {
     const index = buildIndex(DOCS);
     const results = search(index, "参考");

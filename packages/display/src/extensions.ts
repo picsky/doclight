@@ -189,6 +189,12 @@ function addCopyButtons(scope: HTMLElement): void {
     if (pre.dataset.copyAdded) return; // 防重复（dataset 标记）
     pre.dataset.copyAdded = "1";
     pre.classList.add("has-copy");
+    // 工具条脱离滚动容器（2026-08-14 修复：pre 横向滚动时复制按钮/语言标签跟随滚动）：
+    // wrapper 为工具条定位基准，pre 独立滚动
+    const wrap = document.createElement("div");
+    wrap.className = "doclight-code-wrap";
+    pre.parentNode?.insertBefore(wrap, pre);
+    wrap.appendChild(pre);
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "doclight-copy";
@@ -202,7 +208,7 @@ function addCopyButtons(scope: HTMLElement): void {
         fallbackCopy(pre, () => flashCopied(btn, "复制"));
       }
     });
-    pre.appendChild(btn);
+    wrap.appendChild(btn);
     // VIS-002：语言标签（工具条左上角，与复制按钮同一行——Next.js 风格头部工具条）
     const code = pre.querySelector("code");
     const lang = code ? extractLanguage(code.className) : null;
@@ -210,7 +216,7 @@ function addCopyButtons(scope: HTMLElement): void {
       const tag = document.createElement("span");
       tag.className = "doclight-lang";
       tag.textContent = lang;
-      pre.appendChild(tag);
+      wrap.appendChild(tag);
     }
   });
 }

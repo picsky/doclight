@@ -97,23 +97,36 @@ function makeSnippet(doc: SearchDoc, terms: string[], width = 60): string {
   return (start > 0 ? "…" : "") + text.slice(start, end) + (end < text.length ? "…" : "");
 }
 
-/** 纯函数：查询 → 按得分 Top N 结果（含命中摘要） */
+/** 纯函数：查询 → 按得分 Top N 结果（含命中摘要）。
+ *  准确性修复（2026-08-14）：① CJK 单字 AND 约束——查询的每个中文字必须全部出现在文档中
+ *  （修复"搜二字词被单字噪音淹没"）；② bigram/拉丁词加权 ×4——连续词命中显著优先
+ *  （修复"快速"被只含"速"的文档抢位）。 */
 export function search(index: SearchIndex, query: string, limit = 10): SearchResult[] {
-  const terms = tokenize(query);
-  if (terms.length === 0) return [];
+  const tokens = tokenize(query);
+  if (tokens.length === 0) return [];
+  // 分类：CJK 单字 = AND 门槛；多字符词（bigram/拉丁词）= 高权重命中
+  const cjkSingles = tokens.filter((t) => /^[\u3400-\u9fff]$/.test(t));
   const scores = new Map<number, number>();
   const termHits = new Map<number, Set<string>>();
-  for (const term of terms) {
+  for (const term of tokens) {
     const postings = index.postings.get(term);
     if (!postings) continue;
+    const weight = term.length >= 2 ? 4 : 1; // bigram/拉丁词 ×4
     for (const [docId, w] of postings) {
-      scores.set(docId, (scores.get(docId) ?? 0) + w);
+      scores.set(docId, (scores.get(docId) ?? 0) + w * weight);
       let set = termHits.get(docId);
       if (!set) {
         set = new Set();
         termHits.set(docId, set);
       }
       set.add(term);
+    }
+  }
+  // AND：CJK 单字必须全部命中（拉丁词查询无此约束——保持 OR）
+  if (cjkSingles.length > 0) {
+    for (const [docId] of [...scores]) {
+      const allHit = cjkSingles.every((c) => index.postings.get(c)?.has(docId));
+      if (!allHit) scores.delete(docId);
     }
   }
   return [...scores.entries()]
