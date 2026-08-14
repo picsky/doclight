@@ -5,7 +5,7 @@
  * mount() 挂载：主题切换 + SPA 导航（含路由钩子）+ TOC + 内置搜索 + 移动端侧边栏
  * + 扩展语法增强器（REND-002：复制/高亮/KaTeX，vendor 懒加载；Mermaid 已迁移为插件）
  * + 插件管理器（PLUG-004：init → onMount → onRouteChange → destroy）
- * + 体验细节（UX-001：专注模式 / 字号调节 / Powered by）。
+ * + 体验细节（UX-001：专注模式 / Powered by）。
  * 构建产物 dist/display.js 由 dev server / SSG 页面引用。
  */
 import { initTheme } from "./theme.ts";
@@ -49,7 +49,7 @@ export function mount(): Router & {
   const search = initSearch();
   const extensions = initExtensions();
   initSidebar();
-  initUx(); // UX-001 体验细节：专注模式 / 字号调节 / Powered by
+  initUx(); // UX-001 体验细节：专注模式 / Powered by
 
   // PLUG-014：doclight.json 插件运行时配置自动注册（构建时注入
   // window.DOCLIGHT_PLUGIN_CONFIGS + 页面脚本挂 window.DOCLIGHT_PLUGINS）

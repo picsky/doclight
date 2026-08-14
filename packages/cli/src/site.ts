@@ -657,8 +657,6 @@ ${seoHead}
   .search-trigger svg { width: 15px; height: 15px; flex-shrink: 0; }
   .search-trigger .placeholder { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .search-trigger .kbd { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); border: 1px solid var(--color-border); border-radius: 4px; padding: 1px 5px; background: var(--color-bg); white-space: nowrap; }
-  .font-ctl { display: inline-flex; align-items: center; gap: 2px; margin-left: var(--space-1); }
-  .font-ctl .icon-btn { width: 30px; height: 30px; font-size: 13px; font-weight: 600; }
   /* ===== 布局：三栏（侧边栏 | 正文 | 右侧目录），侧边栏 sticky 独立滚动 ===== */
   .layout { display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); min-height: calc(100vh - var(--topbar-height)); }
   .sidebar { position: sticky; top: var(--topbar-height); height: calc(100vh - var(--topbar-height)); overflow-y: auto; overscroll-behavior: contain; border-right: 1px solid var(--color-border); padding: var(--space-6) var(--space-3) var(--space-16); font-size: var(--font-size-sm); scrollbar-width: thin; scrollbar-color: var(--color-border) transparent; }
@@ -846,7 +844,6 @@ ${seoHead}
     main { grid-column: 1 / -1; padding: var(--space-6) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom)); font-size: 15px; }
     .layout { grid-template-columns: minmax(0, 1fr); }
     .topbar { height: 48px; padding: 0 var(--space-3); }
-    .font-ctl { display: none; }
     /* 触摸反馈（04 §4.8 移动端替代 hover）：按下微暗 */
     .icon-btn:active, .toc-fab:active, .back-to-top:active, .search-trigger:active { background: var(--color-bg-code); }
   }
@@ -866,9 +863,6 @@ ${seoHead}
   body.focus-mode .layout { grid-template-columns: minmax(0, 1fr); }
   body.focus-mode main { max-width: var(--max-width-focus, 840px); grid-column: 1; }
   body.focus-mode #focus-toggle { color: var(--color-primary); border-color: var(--color-primary); }
-  /* 字号调节：html font-size 由展示层按百分比缩放（设计令牌全为 rem，联动缩放） */
-  .font-ctl { display: inline-flex; gap: 2px; }
-  .font-ctl button { padding: 4px 8px; }
   /* Powered by：默认显示、一行可关闭（尊重自托管数据洁癖，13 §4） */
   .powered-by { display: flex; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-4); border-top: 1px solid var(--color-border-soft); color: var(--color-text-muted); font-size: var(--font-size-sm); }
   .powered-by a { color: var(--color-text-muted); text-decoration: none; border-bottom: 1px solid var(--color-border); }
@@ -900,7 +894,6 @@ ${slot("head:end")}
   <button id="search-toggle" class="search-trigger" aria-label="搜索（Ctrl+K）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><span class="placeholder">搜索文档…</span><span class="kbd">Ctrl K</span></button>
   <button id="theme-toggle" class="icon-btn" aria-label="切换主题" title="切换主题"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg></button>
   <button id="focus-toggle" class="icon-btn" aria-label="专注模式" title="专注模式"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
-  <span class="font-ctl"><button id="font-dec" class="icon-btn" aria-label="减小字号" title="减小字号">A−</button><button id="font-inc" class="icon-btn" aria-label="增大字号" title="增大字号">A+</button></span>
   ${slot("topbar:after")}
 </header>
 <div class="layout">
