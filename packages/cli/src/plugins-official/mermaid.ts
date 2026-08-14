@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @doclight/plugin-mermaid —— Mermaid 图表插件（PLUG-012：从内置扩展迁移为官方插件）
  *
  * 迁移语义：Mermaid 是重 vendor 依赖扩展（mermaid.min.js ≈ 2.4MB），不再内置默认
@@ -23,7 +23,7 @@ import type { PluginDef } from "../../../core/src/plugin.ts";
 
 /**
  * marked 扩展最小形状（CLI 零 marked 依赖——类型本地定义，对象由渲染内核
- * doclight-renderer 的 marked 实例消费：extendMarked 返回 → collectMarkedExtensions
+ * @doclight/renderer 的 marked 实例消费：extendMarked 返回 → collectMarkedExtensions
  * 收集 → render(extraMarkedExtensions) 统一挂载，PLUG-006 通道）。
  */
 export interface MermaidMarkedExtension {

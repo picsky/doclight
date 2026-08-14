@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import { SUPPORTED_FORMS, SLOT_NAMES } from "../src/index.ts";
 import type { DocLightConfig, PluginDef } from "../src/index.ts";
 
-describe("doclight-core 公共类型与常量（Phase 0）", () => {
+describe("@doclight/core 公共类型与常量（Phase 0）", () => {
   it("三形态产物常量完整且有序", () => {
     expect(SUPPORTED_FORMS).toEqual(["dev", "ssg", "bundle"]);
   });
@@ -13,7 +13,7 @@ describe("doclight-core 公共类型与常量（Phase 0）", () => {
   });
 });
 
-describe("doclight-core 插件类型（PLUG-003）", () => {
+describe("@doclight/core 插件类型（PLUG-003）", () => {
   it("SLOT_NAMES 包含 11 个标准插槽", () => {
     expect(SLOT_NAMES).toHaveLength(11);
     expect(SLOT_NAMES).toContain("head:start");

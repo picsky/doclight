@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 构建管线插件测试（PLUG-006，07 §7.3 Node 端）
  *
  * 覆盖：beforeRender 正向链 / afterRender 反向链 / extendMarked / addSearchFields / slotContent
@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { BuildPluginPipeline } from "../src/plugins.ts";
-import { render } from "doclight-renderer";
+import { render } from "@doclight/renderer";
 import type { PluginDef, RenderContext } from "../../core/src/plugin.ts";
 
 const ctx: RenderContext = { path: "guide/test.md", title: "Test", frontmatter: {}, headings: [], isFirstRender: true };

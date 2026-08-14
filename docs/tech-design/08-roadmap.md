@@ -491,10 +491,13 @@ Node 渲染内核 + dev server 跑起来，实现最基本的文档浏览功能�
 - [x] `doclight slides`——同一内容源（渲染内核），独立演示输出（markdown `---` 分页 → 自包含单文件）
 - [x] doclight-slides Skill（教 Agent 编排演示：每页一观点/布局指令/备注/同源不同形原则）
 
-#### 并行 · 开源化准备（OSS-001）
-- [ ] LICENSE 文件（MIT/Apache-2.0，待用户确认）
-- [ ] README 重写（v3 定位 + 快速开始 + 示例）
-- [ ] npm 包名注册（待用户决策）
+#### 并行 · 开源化准备（OSS-001）✅（除 npm 注册）
+- [x] LICENSE 文件（MIT——用户确认；可换 Apache-2.0）
+- [x] README 重写（v3 定位「把 Markdown 变成作品」+ 快速开始 + 示例 + 功能总览）
+- [x] npm 包名方案落地（用户决策：主包 `doclight` + `@doclight/{renderer,core,display,mcp-server}`；
+      全仓引用/workspace/lockfile 刷新；publishConfig/license 元数据就绪）
+- [ ] npm 包名注册与首次发布（**需用户 npm 账号**；前置：JS 构建管线——spike 已验证
+      Node 不在 node_modules 剥离 TS，需 esbuild bundle → dist + bin 接线）
 
 ### 交付物
 - Agent 写内容前可读能力协议、写后发布产物 Agent 最优

@@ -1,7 +1,7 @@
-/**
+﻿/**
  * doclight slides —— 演示形态（08-roadmap Phase 6 P2，DEMO-001）
  *
- * 「文档与演示同源不同形」（01 §原则二）：同一渲染内核（doclight-renderer），
+ * 「文档与演示同源不同形」（01 §原则二）：同一渲染内核（@doclight/renderer），
  * 独立的表现形式——演示 = 每页一个观点、强视觉、少文字、逐页叙事；
  * **绝不做「文档切页成演示」的机械转换**——演示源是独立编排的 markdown。
  *
@@ -24,7 +24,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
-import { render } from "doclight-renderer";
+import { render } from "@doclight/renderer";
 
 /* ================= 解析 ================= */
 

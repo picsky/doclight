@@ -1,5 +1,5 @@
-/**
- * doclight-mcp-server 入口（MCP-001/002/003 + MCP-006，Phase 4 + Phase 6 P1 实现）
+﻿/**
+ * @doclight/mcp-server 入口（MCP-001/002/003 + MCP-006，Phase 4 + Phase 6 P1 实现）
  *
  * 读取端 MCP Server：只服务产物站点（dist-site，doclight build 产出），
  * 不服务源码 docs/（决策：MCP 面向已发布内容，见 README 边界）。

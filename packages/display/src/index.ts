@@ -1,5 +1,5 @@
-/**
- * doclight-display 入口（浏览器展示层）
+﻿/**
+ * @doclight/display 入口（浏览器展示层）
  *
  * 只消费渲染内核输出的 HTML（服务端直出/SSG/bundle），不接触原始 Markdown。
  * mount() 挂载：主题切换 + SPA 导航（含路由钩子）+ TOC + 内置搜索 + 移动端侧边栏

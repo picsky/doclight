@@ -1,4 +1,4 @@
-/**
+﻿/**
  * doclight plugin —— 插件脚手架（PLUG-007 开发体验，07 §7.5 插件包约定）
  *
  * 子命令：
@@ -97,7 +97,7 @@ function pluginJsTemplate(name: string): string {
  * 删掉钩子的注释即启用该钩子。全部钩子列表见 docs/plugin-guide.md。
  *
  * @param {Record<string, unknown>} [config] doclight.json 中的 config
- * @returns {import("doclight-core").PluginDef | null} 返回 null 表示配置无效（加载器跳过）
+ * @returns {import("@doclight/core").PluginDef | null} 返回 null 表示配置无效（加载器跳过）
  */
 module.exports = function createPlugin(config = {}) {
   return {

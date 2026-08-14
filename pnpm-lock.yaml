@@ -41,15 +41,15 @@ importers:
 
   packages/cli:
     dependencies:
+      '@doclight/mcp-server':
+        specifier: workspace:*
+        version: link:../mcp-server
+      '@doclight/renderer':
+        specifier: workspace:*
+        version: link:../renderer
       '@resvg/resvg-js':
         specifier: ^2.6.2
         version: 2.6.2
-      doclight-mcp-server:
-        specifier: workspace:*
-        version: link:../mcp-server
-      doclight-renderer:
-        specifier: workspace:*
-        version: link:../renderer
       katex:
         specifier: ^0.18.4
         version: 0.18.4

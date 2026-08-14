@@ -1,4 +1,4 @@
-/**
+﻿/**
  * dev server（02 §2.4 形态①，DEV-001 + PLUG-009 插件集成）
  *
  * Node 原生 http：请求文档路径 → 渲染内核输出完整 HTML（首屏直出）→ 返回。
@@ -11,8 +11,8 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { mkdtempSync, readFileSync, rmSync, statSync, watch } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve, sep } from "node:path";
-import { buildNavTree, render } from "doclight-renderer";
-import { loadSite, McpServer, mcpHttpHandler } from "doclight-mcp-server";
+import { buildNavTree, render } from "@doclight/renderer";
+import { loadSite, McpServer, mcpHttpHandler } from "@doclight/mcp-server";
 import { buildSite } from "./build.ts";
 import { buildCapabilityManifest } from "./capabilities.ts";
 import { buildSearchData, displayBundlePath, mimeFor, nodeModulesBase, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";

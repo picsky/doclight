@@ -1,6 +1,7 @@
 ﻿{
-  "name": "doclight",
+  "name": "doclight-workspace",
   "version": "0.1.0",
+  "license": "MIT",
   "private": true,
   "description": "DocLight —— 服务于人阅读、同时 AI 原生友好的零构建开源文档站引擎",
   "type": "module",

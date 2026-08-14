@@ -1,4 +1,4 @@
-/**
+﻿/**
  * MCP 测试夹具：手工构造 dist-site 产物（docs.json / search-index.json / llms-full.txt / .html），
  * 不依赖 doclight-cli——保持 mcp-server 包零依赖可独立测试。
  */
@@ -87,7 +87,7 @@ export function makeFixtureSite(): string {
       schemaVersion: 1,
       generatedAt: "2026-08-13T00:00:00.000Z",
       site: { title: "测试站", description: "测试站点描述", base: "", language: "zh-CN" },
-      renderer: { engine: "doclight-renderer", version: "0.1.0", markdown: "CommonMark + GFM" },
+      renderer: { engine: "@doclight/renderer", version: "0.1.0", markdown: "CommonMark + GFM" },
       markdown: {
         frontmatter: ["title", "description", "priority", "tags", "category"],
         extensions: [{ id: "container", title: "自定义容器", degradation: "降级为普通 div" }],

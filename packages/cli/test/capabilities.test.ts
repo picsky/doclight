@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CAP-001 能力协议测试：manifest 生成器 / build 产物 / dev 端点 / bundle 产物 / AGENTS.md 同源
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -11,7 +11,7 @@ import { buildSite } from "../src/build.ts";
 import { bundleSite } from "../src/bundle.ts";
 import { startDevServer, type DevServer } from "../src/dev-server.ts";
 import { createMermaidPlugin } from "../src/plugins-official/mermaid.ts";
-import { TOOLS } from "doclight-mcp-server";
+import { TOOLS } from "@doclight/mcp-server";
 
 let docsDir: string;
 let outDir: string;

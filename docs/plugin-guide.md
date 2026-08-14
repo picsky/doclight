@@ -268,7 +268,7 @@ const { describe, expect, it } = require("vitest");
 describe("my-chart", () => {
   it("自定义语法渲染为 class 标记", () => {
     // 参考 packages/cli/test/plugins.test.ts 的端到端模式：
-    // BuildPluginPipeline 收集扩展 → doclight-renderer render() 全管线断言
+    // BuildPluginPipeline 收集扩展 → @doclight/renderer render() 全管线断言
   });
 });
 ```

@@ -13,11 +13,11 @@
 
 ```
 packages/
-├── renderer/     Node 渲染内核（单一事实来源：Markdown→HTML/sanitize/索引/模板）★ core/ 受保护
-├── display/      浏览器展示层（只渲染内核输出的 HTML，gzip < 25KB 硬门禁）
-├── core/         公共类型与常量（类型即契约）
-├── cli/          doclight CLI（init/dev/build/bundle/deploy/publish，Phase 3）
-└── mcp-server/   MCP Server 读取端（Phase 4）
+├── renderer/     @doclight/renderer —— Node 渲染内核（单一事实来源：Markdown→HTML/sanitize/索引/模板）★ core/ 受保护
+├── display/      @doclight/display —— 浏览器展示层（只渲染内核输出的 HTML，gzip < 25KB 硬门禁）
+├── core/         @doclight/core —— 公共类型与常量（类型即契约）
+├── cli/          doclight（CLI 主包，npm 发布名）：init/dev/build/preview/bundle/deploy/publish/rollback/space/embed/slides/plugin
+└── mcp-server/   @doclight/mcp-server —— MCP Server（读：search/read/outline/capabilities；写：write/update/delete）
 contracts/        doclight.schema.json 等外部承诺 API（只加不改）
 specs/            行为规格（RFC 式 + Gherkin，需求 ID 溯源）
 scripts/          构建与验证管线（原生 Node.js，无 Vite/Rollup）
@@ -29,16 +29,18 @@ docs/agent-handoffs/  Agent 交接文档
 
 ```bash
 pnpm install        # 装依赖（pnpm 10）
-npm run verify      # 一条命令：build → lint → typecheck → test → size → contract
+npm run verify      # 一条命令：build → lint → typecheck → test → size → contract → visual → e2e
 npm run verify:lint     # ESLint 零 error
 npm run verify:test     # Vitest 全绿
 npm run verify:size     # 体积预算门禁（展示层 < 25KB gzip）
+npm run verify:visual   # 像素级视觉回归（26 组截图基线 diff；首次/改视觉用 verify:visual:update 生成基线后人工锁定）
 npm run review          # 评审 Agent（structured findings）
 npm run spec:check      # 需求 ID 可追溯检查
 ```
 
 - 所有 check 双格式输出：终端摘要 + `artifacts/reports/<check>.json`（机器可读）
 - **开工前必须跑 `npm run verify`，确认从全绿基线出发**（AGENT.md 第 4 步）
+- 涉及视觉的改动：**必须**过 `verify:visual`（基线 diff）并附截图证据（12 §3）
 
 ## 3. 常见失败模式与处理
 

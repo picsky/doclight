@@ -1,7 +1,7 @@
-/**
+﻿/**
  * doclight build —— SSG 静态导出（05-ssg-build §5.3，SSG-001 + SEO 全套 §5.4 + PLUG-009 插件集成）
  *
- * 三形态架构形态②：同一渲染内核（doclight-renderer）输出完整静态站点。
+ * 三形态架构形态②：同一渲染内核（@doclight/renderer）输出完整静态站点。
  * 渐进式水合（05 §5.3.2）：内容纯静态 HTML（SEO 可读），展示层 JS 接管交互。
  *
  * 构建步骤（05 §5.3.1）：
@@ -22,7 +22,7 @@
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { Resvg } from "@resvg/resvg-js";
-import { analyzeDoc, buildNavTree, render } from "doclight-renderer";
+import { analyzeDoc, buildNavTree, render } from "@doclight/renderer";
 import { loadConfig, loadLlmsTxtConfig } from "./config.ts";
 import { resolveThemePackage } from "./themes.ts";
 import { buildLlmsFullTxt, buildLlmsTxt, classifyPriority } from "./llms.ts";

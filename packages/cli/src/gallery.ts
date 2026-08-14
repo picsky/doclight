@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 主题画廊（VIS-001，11-default-themes §4：主题预览对比页）
  *
  * 目的：让用户（和 Agent）直观对比 4 套模板，零成本切换；视觉回归基线也取自画廊
@@ -16,7 +16,7 @@
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { render } from "doclight-renderer";
+import { render } from "@doclight/renderer";
 import { BUILTIN_THEMES, BUILTIN_THEME_DEFAULT_MODE } from "./themes.ts";
 import { renderPage } from "./site.ts";
 

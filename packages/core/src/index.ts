@@ -1,5 +1,5 @@
-/**
- * doclight-core 入口（Phase 0 占位 + Phase 5 插件类型）
+﻿/**
+ * @doclight/core 入口（Phase 0 占位 + Phase 5 插件类型）
  *
  * 设计目标见 README.md：多包共享的类型与常量。
  * doclight.json 配置类型的完整定义见 contracts/doclight.schema.json。

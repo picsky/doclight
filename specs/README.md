@@ -84,7 +84,7 @@
 | CLI-007 | doclight embed | 分发四触点③嵌入分发：生成 snippet.js（自推导基址 + 响应式 iframe）+ 可复制 iframe 片段 | 已实现 |
 | SNAP-001 | 同构快照 | 三形态（dev/SSG/bundle）同一 docs 渲染内容一致（仅链接后缀差异归一，决策⑤）；Phase 0 遗留闭环 | 已实现 |
 
-> 配套：`mcpHttpHandler` 从独立服务抽出为可挂载 handler（cli 引入 workspace 依赖 doclight-mcp-server，零外部依赖）。
+> 配套：`mcpHttpHandler` 从独立服务抽出为可挂载 handler（cli 引入 workspace 依赖 @doclight/mcp-server，零外部依赖）。
 
 ## Phase 4 用户决策批次（A schema + C1-C4，2026-08-13 已落地）
 

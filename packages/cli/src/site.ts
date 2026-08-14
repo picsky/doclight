@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 站点共享模块（SSG-001：dev server 与 SSG 构建共用的模板/扫描/MIME 工具）
  *
  * 三形态架构（05-ssg-build §5.1.2）：dev / SSG 是同一渲染内核的两种产物承载。
@@ -17,7 +17,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { render, type NavGroup, type NavNode } from "doclight-renderer";
+import { render, type NavGroup, type NavNode } from "@doclight/renderer";
 
 // vendor 依赖定位：从 cli 包自身解析（pnpm workspace 把依赖 symlink 进包级 node_modules，
 // process.cwd() 的根 node_modules 找不到——见 .spike/check-vendor.mjs 实测）

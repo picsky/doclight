@@ -1,4 +1,4 @@
-/**
+﻿/**
  * doclight bundle —— 单文件便携包（05-ssg-build §5.3.4，CLI-002，形态③）
  *
  * 复用 SSG 渲染内核，输出单个自包含 doclight.html：
@@ -12,7 +12,7 @@
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { buildNavTree, render } from "doclight-renderer";
+import { buildNavTree, render } from "@doclight/renderer";
 import { toFile as qrToFile } from "qrcode";
 import { loadConfig } from "./config.ts";
 import { buildCapabilityManifest } from "./capabilities.ts";

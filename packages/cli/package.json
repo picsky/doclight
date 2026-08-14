@@ -1,15 +1,17 @@
-{
-  "name": "doclight-cli",
+﻿{
+  "name": "doclight",
   "version": "0.1.0",
+  "license": "MIT",
   "private": true,
+  "publishConfig": { "access": "public" },
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
-  "description": "doclight CLI：init / dev / build / bundle / deploy / publish / space / embed",
+  "description": "DocLight CLI：把 Markdown 变成作品——零构建文档站 + 演示引擎（init / dev / build / preview / bundle / deploy / publish / rollback / space / embed / slides / plugin）",
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
-    "doclight-mcp-server": "workspace:*",
-    "doclight-renderer": "workspace:*",
+    "@doclight/mcp-server": "workspace:*",
+    "@doclight/renderer": "workspace:*",
     "katex": "^0.18.4",
     "mermaid": "^11.16.1",
     "prismjs": "^1.30.0",

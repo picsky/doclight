@@ -1,4 +1,4 @@
-/**
+﻿/**
  * capabilities.json —— 站点渲染能力协议（08-roadmap Phase 6 P0，CAP-001）
  *
  * 原则零（Agent-First）的第一落地：Agent 写内容前必须能回答「这个站能渲染什么」，
@@ -14,8 +14,8 @@
  * 双读友好（REND-004）：本文件是 AGENTS.md（人读）的机器形态；
  * buildAgentsMd（agents.ts）由同一 manifest 生成，单一事实来源。
  */
-import { DEFAULT_EXTENSIONS } from "doclight-renderer";
-import { toolDescriptors } from "doclight-mcp-server";
+import { DEFAULT_EXTENSIONS } from "@doclight/renderer";
+import { toolDescriptors } from "@doclight/mcp-server";
 
 /** 扩展能力条目（内置注册表白名单；degradation 说明降级形态，Agent 据此判断可用性） */
 export interface CapabilityExtension {
@@ -105,7 +105,7 @@ export const FRONTMATTER_KEYS = [
 ] as const;
 
 /** 渲染内核引擎声明（与 packages/renderer/src/index.ts rendererVersion 一致） */
-export const RENDERER_ENGINE = "doclight-renderer";
+export const RENDERER_ENGINE = "@doclight/renderer";
 export const RENDERER_VERSION = "0.1.0";
 
 /** Agent 接口产物端点（站点根相对路径；与 llms.ts「Agent 专用端点」一致） */

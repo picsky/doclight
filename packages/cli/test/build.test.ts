@@ -1,8 +1,8 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+﻿import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildNavTree } from "doclight-renderer";
+import { buildNavTree } from "@doclight/renderer";
 import { buildSite } from "../src/build.ts";
 import { startPreviewServer, type PreviewServer } from "../src/preview.ts";
 import { breadcrumbFor, buildSearchData, searchIndexVersion } from "../src/site.ts";

@@ -1,5 +1,5 @@
-/**
- * doclight-renderer 入口（Node 渲染内核，单一事实来源）
+﻿/**
+ * @doclight/renderer 入口（Node 渲染内核，单一事实来源）
  *
  * 渲染管线（03 §3.3.1）：frontmatter 提取 → marked 渲染 → DOMPurify sanitize。
  * 三形态（dev / SSG / bundle）产物全部复用本入口，浏览器展示层不接触原始 Markdown。

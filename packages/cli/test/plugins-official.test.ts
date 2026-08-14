@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 官方插件测试（PLUG-007，07 §7.6）
  *
  * 逐插件验证：插槽内容形态 / 配置校验 / onBuild 产物（rss / pwa）/ 降级行为。
@@ -12,7 +12,7 @@ import { createPlausiblePlugin } from "../src/plugins-official/plausible.ts";
 import { createPwaPlugin } from "../src/plugins-official/pwa.ts";
 import { createRssPlugin } from "../src/plugins-official/rss.ts";
 import { loadPluginsSync } from "../src/plugin-loader.ts";
-import { render } from "doclight-renderer";
+import { render } from "@doclight/renderer";
 
 describe("官方插件注册表（PLUG-007/012）", () => {
   it("含 6 个官方插件且短名/包名均可解析", () => {

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * WORK-001 增量渲染缓存测试：未变更文档走缓存（不重渲染），变更后失效返回新内容
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import * as rendererModule from "doclight-renderer";
+import * as rendererModule from "@doclight/renderer";
 import { startDevServer, type DevServer } from "../src/dev-server.ts";
 
 let docsDir: string;
