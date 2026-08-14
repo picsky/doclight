@@ -67,8 +67,8 @@ article img { border-radius: var(--radius-lg); }
 .doclight-lang { background: var(--color-bg); border-radius: 0 var(--radius) 0 var(--radius); }
 /* 搜索面板：暖白卡片 + 大圆角 + 软阴影 */
 .search-box { border-radius: var(--radius-lg); box-shadow: var(--shadow); }
-/* 侧边栏 active：暖橙微光 */
-.sidebar a.active { background: color-mix(in srgb, var(--color-primary) 10%, var(--color-bg)); }
+/* 侧边栏 active：主色文字（极致安静——无背景无光晕，默认主题已定义竖线） */
+.sidebar a.active { color: var(--color-primary); }
 /* 容器图标：卡片感容器内图标略左移（无左边线布局） */
 .doclight-container { padding-left: var(--space-10); }
 .doclight-container::before { left: var(--space-4); }

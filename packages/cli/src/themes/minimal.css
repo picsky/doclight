@@ -32,7 +32,7 @@
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.3); --shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 /* ===== 组件级打磨（默认 Minimal 语言之上的增量） ===== */
-/* 侧边栏当前项：teal 左指示条（默认主题已含，此处保持语义一致） */
+/* 侧边栏当前项：字重由默认主题定义（极致安静——无背景无光晕） */
 .sidebar a.active { font-weight: 600; }
 /* 行内代码：浅 teal 底 + teal 文字（技术文章强调） */
 article code:not(pre code) { background: var(--color-primary-light); color: var(--color-primary-hover); }

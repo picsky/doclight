@@ -664,20 +664,20 @@ ${seoHead}
   .sidebar { position: sticky; top: var(--topbar-height); height: calc(100vh - var(--topbar-height)); overflow-y: auto; overscroll-behavior: contain; border-right: 1px solid var(--color-border); padding: var(--space-6) var(--space-3) var(--space-16); font-size: var(--font-size-sm); scrollbar-width: thin; scrollbar-color: var(--color-border) transparent; }
   .sidebar::-webkit-scrollbar { width: 8px; }
   .sidebar::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; }
-  .sidebar ul { list-style: none; padding-left: var(--space-3); margin: 2px 0; }
+  .sidebar ul { list-style: none; padding-left: var(--space-3); margin: 0; }
   .sidebar > ul { padding-left: 0; }
-  .sidebar li { margin: 1px 0; }
-  /* 分组：标签化（小号字距加宽，区别于页面项） */
-  .sidebar .group { margin-top: var(--space-5); }
-  .sidebar .group > a, .sidebar .group { font-size: var(--font-size-xs); font-weight: 600; letter-spacing: var(--tracking-wide); text-transform: uppercase; color: var(--color-text-muted); padding: var(--space-1) var(--space-2); }
-  .sidebar .group > a:hover { color: var(--color-primary); background: transparent; }
-  /* 导航项：hover 背景滑入 + 左指示条（Linear 式细节） */
-  .sidebar a { display: block; padding: 5px var(--space-2); border-radius: var(--radius); color: var(--color-text-secondary); text-decoration: none; transition: color var(--transition-fast), background var(--transition-fast); position: relative; }
-  .sidebar a::before { content: ""; position: absolute; left: -2px; top: 50%; transform: translateY(-50%) scaleY(0); width: 2px; height: 14px; border-radius: 1px; background: var(--color-primary); opacity: 0; transition: transform var(--transition-fast) var(--ease-out), opacity var(--transition-fast); }
-  .sidebar a:hover { color: var(--color-primary); background: color-mix(in srgb, var(--color-bg-soft) 70%, var(--color-bg)); }
-  .sidebar a:hover::before { transform: translateY(-50%) scaleY(1); opacity: 1; }
-  .sidebar a.active { color: var(--color-primary); font-weight: 600; background: color-mix(in srgb, var(--color-primary) 8%, var(--color-bg)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-primary) 12%, transparent); }
-  .sidebar a.active::before { transform: translateY(-50%) scaleY(1); opacity: 1; left: -2px; }
+  .sidebar li { margin: 0; }
+  /* 分组：安静小标签（设计证据：Mintlify = 12px/600/深色/无字距无 uppercase；
+     分组比导航项更醒目——目录结构用深色，内容项用灰色） */
+  .sidebar .group { margin-top: var(--space-6); }
+  .sidebar .group > a, .sidebar .group { display: block; font-size: var(--font-size-xs); font-weight: 600; color: var(--color-text-strong); letter-spacing: var(--tracking-normal); text-transform: none; padding: 0 var(--space-3); margin-bottom: var(--space-2); }
+  .sidebar .group > a:hover { color: var(--color-primary); background: none; }
+  /* 导航项：极致安静（设计证据：Mintlify = 14px/400/无圆角/不对称 padding；
+     hover 仅文字变深，active 主色+字重+静态短竖线——hover≠active 是设计师手笔） */
+  .sidebar a { display: block; padding: 5px var(--space-3) 5px var(--space-4); border-radius: 0; color: var(--color-text-secondary); text-decoration: none; transition: color var(--transition-fast); position: relative; }
+  .sidebar a:hover { color: var(--color-text-strong); background: none; }
+  .sidebar a.active { color: var(--color-primary); font-weight: 600; background: none; box-shadow: none; }
+  .sidebar a.active::before { content: ""; position: absolute; left: var(--space-2); top: 50%; transform: translateY(-50%); width: 2px; height: 12px; border-radius: 1px; background: var(--color-primary); }
   main { grid-column: 2; min-width: 0; max-width: var(--max-width-content); width: 100%; margin: 0 auto; padding: var(--space-12) var(--space-6) var(--space-16); }
   /* 正文排版（04 §4.2：16px × 1.75，680px 行宽） */
   article h1 { font-size: var(--font-size-3xl); line-height: var(--line-height-tight); font-weight: 700; margin: 0 0 0.8em; color: var(--color-text-strong); letter-spacing: -0.01em; }
