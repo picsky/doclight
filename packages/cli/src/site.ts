@@ -685,7 +685,7 @@ ${seoHead}
   main { grid-column: 2; min-width: 0; max-width: var(--max-width-content); width: 100%; margin: 0 auto; padding: var(--space-12) var(--space-6) var(--space-16); }
   /* 正文排版（04 §4.2：16px × 1.75，680px 行宽） */
   article h1 { font-size: var(--font-size-3xl); line-height: var(--line-height-tight); font-weight: 700; margin: 0 0 0.8em; color: var(--color-text-strong); letter-spacing: -0.01em; }
-  article h2 { font-size: var(--font-size-2xl); line-height: var(--line-height-tight); font-weight: 600; margin: 2.5em 0 0.6em; padding-top: 1.1em; border-top: 1px solid var(--color-border-soft); color: var(--color-text-strong); letter-spacing: -0.005em; }
+  article h2 { font-size: var(--font-size-2xl); line-height: var(--line-height-tight); font-weight: 600; margin: 3em 0 0.6em; padding-top: 1.1em; border-top: 1px solid var(--color-border-soft); color: var(--color-text-strong); letter-spacing: -0.005em; }
   article h3 { font-size: var(--font-size-xl); line-height: 1.4; font-weight: 600; margin: 1.8em 0 0.5em; color: var(--color-text-strong); }
   article h4 { font-size: var(--font-size-lg); line-height: 1.4; font-weight: 600; margin: 1.2em 0 0.4em; color: var(--color-text-strong); }
   article h2[id], article h3[id] { scroll-margin-top: 80px; }
@@ -696,14 +696,15 @@ ${seoHead}
   .doclight-anchor:hover { color: var(--color-primary); }
   .doclight-anchor.copied { color: var(--color-success); opacity: 1; }
   article p { margin: 0 0 1.5em; text-indent: 0; }
+  /* 链接（现代文档站证据：VitePress 500 字重 + 无下划线；Tailwind 600） */
+  article a { color: var(--color-primary); font-weight: 500; text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent); transition: color var(--transition-fast), border-color var(--transition-fast); }
+  article a:hover { color: var(--color-primary-hover); border-bottom-color: var(--color-primary); }
   /* 列表（精致化：marker 用主色柔化 + 呼吸感行距） */
   article ul, article ol { margin: 0 0 1.5em; padding-left: 1.6em; }
   article li { margin: 0.35em 0; line-height: 1.7; }
   article li > ul, article li > ol { margin: 0.35em 0; }
   article ul li::marker { color: var(--color-primary); }
   article ol li::marker { color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
-  article a { color: var(--color-primary); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent); transition: color var(--transition-fast), border-color var(--transition-fast); }
-  article a:hover { color: var(--color-primary-hover); border-bottom-color: var(--color-primary); }
   /* 面包屑（05 §5.4.2：结构化数据 + 可见 UI） */
   .breadcrumb { font-size: var(--font-size-sm); color: var(--color-text-muted); margin: 0 0 var(--space-6); }
   .breadcrumb ol { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 0; margin: 0; }
@@ -713,7 +714,7 @@ ${seoHead}
   .breadcrumb a:hover { color: var(--color-primary); }
   .breadcrumb [aria-current="page"] { color: var(--color-text-strong); font-weight: 600; }
   pre { background: var(--code-bg); color: var(--code-text); border: 1px solid var(--code-border); padding: var(--space-4) var(--space-6); border-radius: var(--radius-lg); overflow-x: auto; font-size: var(--font-size-sm); line-height: 1.6; box-shadow: var(--shadow-sm), inset 0 1px 0 color-mix(in srgb, var(--code-text) 6%, transparent), 0 0 24px color-mix(in srgb, var(--color-primary) 7%, transparent); }
-  code { font-family: var(--font-mono); font-size: 0.875em; padding: 2px 6px; background: var(--color-bg-code); border-radius: var(--radius-sm); color: var(--color-primary); border: 1px solid var(--color-border-soft); }
+  code { font-family: var(--font-mono); font-size: 0.875em; padding: 2px 6px; background: var(--color-bg-code); border-radius: var(--radius-sm); color: var(--color-primary); }
   pre code { background: none; border: none; padding: 0; color: var(--code-text); }
   blockquote { margin: 0 0 1.5em; padding: var(--space-3) var(--space-4); border-left: 3px solid var(--color-primary); border-radius: 0 var(--radius) var(--radius) 0; background: var(--color-bg-soft); color: var(--color-text-secondary); }
   blockquote > :first-child { margin-top: 0; }
