@@ -1,20 +1,15 @@
 /**
- * 体验细节（C4）：专注模式 / Powered by。
+ * 体验细节（C4）：Powered by。
  *
  * 核心逻辑抽成纯函数（可单测）；DOM 接线在 initUx() 薄层。全部持久化 localStorage。
- * - 专注模式：body.focus-mode → 隐藏侧栏/TOC、内容加宽聚焦（CSS 见 site.ts renderPage）
  * - Powered by：默认显示、可关闭（13 §4 传播机制；尊重自托管数据洁癖，非强制）
  * - 字号调节：已移除（2026-08-14 用户判定伪需求——浏览器原生缩放已覆盖，A−/A+ 冗余）
+ * - 专注模式：已移除（2026-08-14 用户判定伪需求——⛶ 图标易误读为放大，实际仅隐藏侧栏/TOC，
+ *   价值弱；内容聚焦由三栏布局本身保证）
  */
 import { bus } from "./event-bus.ts";
 
-const FOCUS_KEY = "doclight-focus-mode";
 const POWERED_KEY = "doclight-powered-by-hidden";
-
-/** 纯函数：专注模式下一状态（toggle） */
-export function nextFocusState(active: boolean): boolean {
-  return !active;
-}
 
 function readNumber(key: string): number | null {
   try {
@@ -31,23 +26,6 @@ function write(key: string, value: string): void {
   } catch {
     /* 忽略写入失败 */
   }
-}
-
-/** 专注模式：toggle body.focus-mode + aria-pressed + 持久化 */
-function initFocusMode(): void {
-  const btn = document.querySelector<HTMLButtonElement>("#focus-toggle");
-  if (!btn) return;
-  const apply = (active: boolean) => {
-    document.body.classList.toggle("focus-mode", active);
-    btn.setAttribute("aria-pressed", String(active));
-  };
-  apply(readNumber(FOCUS_KEY) === 1);
-  btn.addEventListener("click", () => {
-    const next = nextFocusState(document.body.classList.contains("focus-mode"));
-    apply(next);
-    write(FOCUS_KEY, next ? "1" : "0");
-    bus.emit("doclight:focuschange", { focus: next });
-  });
 }
 
 /** Powered by：默认显示、关闭后隐藏 + 持久化（13 §4 一行关闭） */
@@ -122,7 +100,6 @@ function initPageTransition(): void {
 
 /** 挂载体验细节（mount() 调用） */
 export function initUx(): void {
-  initFocusMode();
   initPoweredBy();
   initReadingProgress();
   initBackToTop();

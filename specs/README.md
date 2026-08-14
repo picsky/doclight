@@ -97,7 +97,7 @@
 | SEO-003 | OG 卡片 PNG 栅格化 | @resvg/resvg-js 渲染 1200×630 OG 卡为 PNG（og/*.png）；og:image 指向 PNG（微信/微博兼容）；SVG 保留作为降级 | 已实现 |
 | CLI-008 | bundle 下载二维码 | `doclight bundle --qr <url>` 生成 bundle-qr.png（分发四触点④）；qrcode 库纯 JS，无原生依赖 | 已实现 |
 | CLI-009 | bundle vendor 内联 | `doclight bundle --inline-vendor`：Prism/Mermaid/KaTeX JS+CSS 内联进单文件（file:// 下扩展可用）；opt-in 保持默认体积小 | 已实现 |
-| UX-001 | 体验细节（专注/打印/Powered by） | 专注模式（隐藏侧栏/TOC 聚焦内容）+ 打印样式（隐藏导航控件）+ Powered by 标记（默认开，一行关闭）；全部 localStorage 持久化。~~字号调节~~（2026-08-14 移除：用户判定伪需求，浏览器原生缩放已覆盖） | 已实现 |
+| UX-001 | 体验细节（打印/Powered by） | 打印样式（隐藏导航控件）+ Powered by 标记（默认开，一行关闭）；全部 localStorage 持久化。~~字号调节~~ + ~~专注模式~~（2026-08-14 移除：用户判定伪需求——原生缩放已覆盖 / ⛶ 易误读为放大且价值弱） | 已实现 |
 
 > 配套：display 层 `extensions.ts` 懒加载跳过已内联全局（C3）；`ux.ts` 纯函数可单测；site.ts renderPage 加 CSS + 按钮 + footer。
 

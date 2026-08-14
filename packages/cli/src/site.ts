@@ -864,11 +864,6 @@ ${seoHead}
   .back-to-top.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
   .back-to-top:hover { color: var(--color-primary); border-color: var(--color-primary); background: var(--color-bg); }
   @media (max-width: 768px) { .back-to-top { bottom: calc(var(--space-6) + 56px); } }
-  /* 专注模式：隐藏侧栏/TOC，内容加宽聚焦（展示层 toggle body.focus-mode） */
-  body.focus-mode .sidebar, body.focus-mode .toc-rail, body.focus-mode .toc-fab, body.focus-mode .toc-sheet { display: none; }
-  body.focus-mode .layout { grid-template-columns: minmax(0, 1fr); }
-  body.focus-mode main { max-width: var(--max-width-focus, 840px); grid-column: 1; }
-  body.focus-mode #focus-toggle { color: var(--color-primary); border-color: var(--color-primary); }
   /* Powered by：默认显示、一行可关闭（尊重自托管数据洁癖，13 §4） */
   .powered-by { display: flex; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-4); border-top: 1px solid var(--color-border-soft); color: var(--color-text-muted); font-size: var(--font-size-sm); }
   .powered-by a { color: var(--color-text-muted); text-decoration: none; border-bottom: 1px solid var(--color-border); }
@@ -899,7 +894,6 @@ ${slot("head:end")}
   <a class="brand" href="${base}/" aria-label="${escapeHtml(siteTitle)} 首页"><span class="brand-mark"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.2c.5 3.9 1.6 5.2 4.4 6.2 1.2.4 1.2 2 0 2.4-2.8 1-3.9 2.3-4.4 6.2-.5-3.9-1.6-5.2-4.4-6.2-1.2-.4-1.2-2 0-2.4 2.8-1 3.9-2.3 4.4-6.2Z"/><path d="M19.5 13.8c.3 2 1.2 2.9 2.7 3.4.8.3.8 1.5 0 1.8-1.5.5-2.4 1.4-2.7 3.4-.3-2-1.2-2.9-2.7-3.4-.8-.3-.8-1.5 0-1.8 1.5-.5 2.4-1.4 2.7-3.4Z"/></svg></span><span class="site-title">${escapeHtml(siteTitle)}</span></a>
   <button id="search-toggle" class="search-trigger" aria-label="搜索（Ctrl+K）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><span class="placeholder">搜索文档…</span><span class="kbd">Ctrl K</span></button>
   <button id="theme-toggle" class="icon-btn" aria-label="切换主题" title="切换主题"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg></button>
-  <button id="focus-toggle" class="icon-btn" aria-label="专注模式" title="专注模式"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
   ${slot("topbar:after")}
 </header>
 <div class="layout">
