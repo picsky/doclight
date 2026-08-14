@@ -659,16 +659,16 @@ ${seoHead}
   .search-trigger .kbd { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); border: 1px solid var(--color-border); border-radius: 4px; padding: 1px 5px; background: var(--color-bg); white-space: nowrap; }
   /* ===== 布局：三栏（侧边栏 | 正文 | 右侧目录），侧边栏 sticky 独立滚动 ===== */
   .layout { display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); min-height: calc(100vh - var(--topbar-height)); }
-  .sidebar { position: sticky; top: var(--topbar-height); height: calc(100vh - var(--topbar-height)); overflow-y: auto; overscroll-behavior: contain; border-right: 1px solid var(--color-border); padding: var(--space-6) var(--space-3) var(--space-16); font-size: var(--font-size-sm); scrollbar-width: thin; scrollbar-color: var(--color-border) transparent; }
+  .sidebar { position: sticky; top: var(--topbar-height); height: calc(100vh - var(--topbar-height)); overflow-y: auto; overscroll-behavior: contain; border-right: 1px solid var(--color-border); padding: var(--space-8) var(--space-3) var(--space-16); font-size: var(--font-size-sm); line-height: 1.5; scrollbar-width: thin; scrollbar-color: var(--color-border) transparent; }
   .sidebar::-webkit-scrollbar { width: 8px; }
   .sidebar::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; }
   .sidebar ul { list-style: none; padding-left: var(--space-3); margin: 0; }
   .sidebar > ul { padding-left: 0; }
   .sidebar li { margin: 0; }
   /* 分组：安静小标签（设计证据：Mintlify = 12px/600/深色/无字距无 uppercase；
-     分组比导航项更醒目——目录结构用深色，内容项用灰色） */
+     分组比导航项更醒目——目录结构用深色，内容项用灰色；左边缘与导航项对齐） */
   .sidebar .group { margin-top: var(--space-6); }
-  .sidebar .group > a, .sidebar .group { display: block; font-size: var(--font-size-xs); font-weight: 600; color: var(--color-text-strong); letter-spacing: var(--tracking-normal); text-transform: none; padding: 0 var(--space-3); margin-bottom: var(--space-2); }
+  .sidebar .group > a, .sidebar .group { display: block; font-size: var(--font-size-xs); font-weight: 600; color: var(--color-text-strong); letter-spacing: var(--tracking-normal); text-transform: none; padding: 0 var(--space-4); margin-bottom: var(--space-2); }
   .sidebar .group > a:hover { color: var(--color-primary); background: none; }
   /* 当前分组状态（设计师手笔：不仅当前页有状态，所在分组标题也高亮——
      纯 CSS :has()，随页面 active 自动联动，零 JS） */
@@ -676,9 +676,9 @@ ${seoHead}
   /* 嵌套分组（二级+）：层级降级——间距收紧 + 次级色（弱于一级分组的深色） */
   .sidebar .group .group { margin-top: var(--space-4); }
   .sidebar .group .group > a, .sidebar .group .group { color: var(--color-text-secondary); margin-bottom: var(--space-1); }
-  /* 导航项：极致安静（设计证据：Mintlify = 14px/400/无圆角/不对称 padding；
-     hover = 文字变深 + 3% 超淡背景（rgba(10,13,12,0.03) 实测），active = 主色+字重+静态短竖线；
-     hover≠active 是设计师手笔——3% 背景几乎不可见但提供微妙反馈） */
+  /* 导航项：极致安静（设计证据：Mintlify = 14px/400/无圆角/不对称 padding/行高 20px；
+     hover = 文字变深 + 3% 超淡背景，active = 主色+字重+静态短竖线；
+     行高 1.5 防止继承正文 1.75 导致列表松散） */
   .sidebar a { display: block; padding: 5px var(--space-3) 5px var(--space-4); border-radius: 0; color: var(--color-text-secondary); text-decoration: none; transition: color var(--transition-fast), background var(--transition-fast); position: relative; }
   .sidebar a:hover { color: var(--color-text-strong); background: color-mix(in srgb, var(--color-text-strong) 3%, transparent); }
   .sidebar a.active { color: var(--color-primary); font-weight: 600; background: none; box-shadow: none; }
