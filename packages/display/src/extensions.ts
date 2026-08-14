@@ -203,7 +203,7 @@ function addCopyButtons(scope: HTMLElement): void {
       }
     });
     pre.appendChild(btn);
-    // VIS-002：语言标签（右上角小字，与复制按钮并存时让位）
+    // VIS-002：语言标签（工具条左上角，与复制按钮同一行——Next.js 风格头部工具条）
     const code = pre.querySelector("code");
     const lang = code ? extractLanguage(code.className) : null;
     if (lang) {

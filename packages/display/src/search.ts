@@ -227,7 +227,11 @@ export function initSearch(options: { indexUrl?: string; toggleSelector?: string
   overlay.className = "search-overlay";
   overlay.innerHTML = `
     <div class="search-box" role="dialog" aria-label="搜索">
-      <input class="search-input" type="search" placeholder="搜索文档…  ↑↓ 选择 · Enter 打开 · Esc 关闭" aria-label="搜索文档" autocomplete="off" spellcheck="false" />
+      <div class="search-input-wrap">
+        <svg class="search-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input class="search-input" type="search" placeholder="搜索文档…" aria-label="搜索文档" autocomplete="off" spellcheck="false" />
+        <span class="search-esc-kbd" aria-hidden="true">Esc</span>
+      </div>
       <div class="search-status"></div>
       <div class="search-results" role="listbox"></div>
     </div>`;
