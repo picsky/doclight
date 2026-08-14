@@ -427,11 +427,11 @@ function breadcrumbHtml(crumbs: Array<{ label: string; href: string }>): string 
  * 独立导出：设计合规门禁（design-compliance）对默认主题同样断言（WCAG AA/8pt/1.25）。
  */
 export const DEFAULT_THEME_CSS = `  :root {
-    /* 颜色 - 品牌（单一强调色 teal） */
+    /* 颜色 - 品牌（单一强调色 teal；Luminous 光之容器——晨光亮色面） */
     --color-primary: #0d9488; --color-primary-hover: #0f766e; --color-primary-light: #ccfbf1;
-    /* 颜色 - 中性灰阶（8 级） */
-    --color-bg: #ffffff; --color-bg-soft: #f9fafb; --color-bg-code: #f3f4f6;
-    --color-border: #e5e7eb; --color-border-soft: #f3f4f6;
+    /* 颜色 - 中性灰阶（8 级；晨光：微暖白纸感基底） */
+    --color-bg: #fdfdfc; --color-bg-soft: #f7f7f5; --color-bg-code: #f3f4f6;
+    --color-border: #e7e7e3; --color-border-soft: #f1f1ee;
     --color-text-muted: #71717a; --color-text-secondary: #6b7280;
     --color-text: #374151; --color-text-strong: #111827;
     /* 语义色（克制使用） */
@@ -464,23 +464,29 @@ export const DEFAULT_THEME_CSS = `  :root {
     --ease-standard: cubic-bezier(0.2, 0, 0, 1); --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     /* 聚焦环（WCAG 2.4.7；色相随主题） */
     --ring-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
-    /* 代码块令牌（VIS-002 惊艳化：默认恒定深色基底——顶级文档站标准；
+    /* 代码块令牌（VIS-002 惊艳化：恒定深色基底——顶级文档站标准；
        亮暗主题共享深色代码区，主题可覆盖为纸色/暖色/玻璃等个性形态） */
-    --code-bg: #0f172a; --code-text: #e2e8f0; --code-border: rgba(148, 163, 184, 0.14);
-    --code-token-comment: #94a3b8; --code-token-punct: #94a3b8; --code-token-keyword: #93c5fd;
-    --code-token-string: #fbbf24; --code-token-number: #c084fc; --code-token-func: #5eead4;
-    --code-token-tag: #5eead4; --code-token-attr: #fbbf24; --code-token-class: #a78bfa;
-    --code-token-op: #e2e8f0; --code-token-regex: #fbbf24;
+    --code-bg: #0d1117; --code-text: #e6edf3; --code-border: rgba(148, 163, 184, 0.14);
+    --code-token-comment: #7d8590; --code-token-punct: #8b949e; --code-token-keyword: #79c0ff;
+    --code-token-string: #a5d6ff; --code-token-number: #d2a8ff; --code-token-func: #56d4dd;
+    --code-token-tag: #7ee787; --code-token-attr: #79c0ff; --code-token-class: #ffa657;
+    --code-token-op: #e6edf3; --code-token-regex: #a5d6ff;
+    /* Luminous 光效令牌（VIS-002 惊艳化） */
+    --gradient-brand: linear-gradient(135deg, var(--color-primary), #14b8a6);
+    --glow-primary: 0 0 0 1px color-mix(in srgb, var(--color-primary) 16%, transparent), 0 8px 32px color-mix(in srgb, var(--color-primary) 12%, transparent);
   }
   [data-theme="dark"] {
-    --color-bg: #0a0a0a; --color-bg-soft: #171717; --color-bg-code: #262626;
-    --color-border: #262626; --color-border-soft: #1f1f1f;
-    --color-text-muted: #737373; --color-text-secondary: #a3a3a3;
-    --color-text: #d4d4d4; --color-text-strong: #f5f5f5;
+    /* Luminous 夜航面：深蓝黑底 + teal 辉光 */
+    --color-bg: #0a0e14; --color-bg-soft: #11161f; --color-bg-code: #262626;
+    --color-border: #1e2530; --color-border-soft: #161c26;
+    --color-text-muted: #73737f; --color-text-secondary: #a3a3ad;
+    --color-text: #d4d4d8; --color-text-strong: #f5f5f7;
     --color-primary-light: #134e4a;
     --color-success: #10b981; --color-warning: #f59e0b; --color-error: #ef4444; --color-info: #3b82f6;
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.3); --shadow: 0 1px 3px rgba(0,0,0,0.4);
     --shadow-lg: 0 4px 16px rgba(0,0,0,0.5); --shadow-xl: 0 16px 40px rgba(0,0,0,0.6);
+    --code-token-comment: #8b949e; --code-token-punct: #8b949e;
+    --gradient-brand: linear-gradient(135deg, #2dd4bf, #14b8a6);
   }
 `;
 
@@ -620,15 +626,21 @@ ${seoHead}
     * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   }
   body { margin: 0; background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); font-size: var(--font-size-base); line-height: var(--line-height-relaxed); text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
-  /* VIS-002 氛围：页面背景微妙光晕（Linear/Stripe 式层次，纯装饰、克制） */
-  body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(1100px 520px at 72% -12%, color-mix(in srgb, var(--color-primary) 7%, transparent), transparent 62%), radial-gradient(900px 480px at -10% 108%, color-mix(in srgb, var(--color-primary) 5%, transparent), transparent 55%); }
+  /* Luminous 光之容器：背景光晕（右上主光 + 左下补光；夜航面强度更高） */
+  body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(1100px 520px at 72% -12%, color-mix(in srgb, var(--color-primary) 8%, transparent), transparent 62%), radial-gradient(900px 480px at -10% 108%, color-mix(in srgb, var(--color-primary) 5%, transparent), transparent 55%); }
+  /* Luminous 夜航面：光晕强度提升（辉光是夜航主场） */
+  [data-theme="dark"] body::before { background: radial-gradient(1200px 600px at 74% -14%, color-mix(in srgb, var(--color-primary) 16%, transparent), transparent 64%), radial-gradient(1000px 560px at -12% 110%, color-mix(in srgb, var(--color-primary) 10%, transparent), transparent 58%); }
+  /* Luminous 星芒微粒：极淡光点阵（夜航面如夜空、晨光面几乎不可见） */
+  body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 0.4; background-image: radial-gradient(1.5px 1.5px at 12% 22%, color-mix(in srgb, var(--color-primary) 35%, transparent) 50%, transparent 51%), radial-gradient(1px 1px at 28% 66%, color-mix(in srgb, var(--color-primary) 25%, transparent) 50%, transparent 51%), radial-gradient(1.5px 1.5px at 55% 34%, color-mix(in srgb, var(--color-primary) 20%, transparent) 50%, transparent 51%), radial-gradient(1px 1px at 78% 58%, color-mix(in srgb, var(--color-primary) 25%, transparent) 50%, transparent 51%), radial-gradient(1.5px 1.5px at 92% 18%, color-mix(in srgb, var(--color-primary) 30%, transparent) 50%, transparent 51%), radial-gradient(1px 1px at 64% 84%, color-mix(in srgb, var(--color-primary) 20%, transparent) 50%, transparent 51%); }
   /* VIS-002：表格数字列等宽数字对齐（金额/计数/版本号） */
   td, th { font-variant-numeric: tabular-nums; }
-  /* ===== 顶栏（重设计：毛玻璃 + SVG 图标 + 搜索框形态 + 光芒品牌） ===== */
+  /* ===== 顶栏（Luminous：毛玻璃 + 渐变光条 + 光芒品牌） ===== */
   .topbar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: var(--space-2); height: var(--topbar-height); padding: 0 var(--space-4); background: color-mix(in srgb, var(--color-bg) 82%, transparent); backdrop-filter: blur(12px) saturate(1.4); -webkit-backdrop-filter: blur(12px) saturate(1.4); border-bottom: 1px solid var(--color-border); }
+  /* Luminous 顶栏光条：底缘一道渐变光线（晨光微弱 / 夜航明亮） */
+  .topbar::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-primary) 50%, transparent) 50%, transparent); opacity: 0.5; pointer-events: none; }
   .topbar .brand { display: flex; align-items: center; gap: var(--space-2); margin-right: var(--space-2); text-decoration: none; }
-  /* 光芒品牌（VIS-002）：四角星光芒 SVG——「把 Markdown 变成作品」的光，渐变底 + 柔和光晕 */
-  .topbar .brand-mark { position: relative; width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover)); display: inline-flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; box-shadow: 0 1px 3px color-mix(in srgb, var(--color-primary) 45%, transparent); }
+  /* 光芒品牌（Luminous）：渐变底 + 柔和光晕 + 白色光芒 SVG */
+  .topbar .brand-mark { position: relative; width: 26px; height: 26px; border-radius: 8px; background: var(--gradient-brand); display: inline-flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; box-shadow: 0 1px 3px color-mix(in srgb, var(--color-primary) 45%, transparent); }
   .topbar .brand-mark::after { content: ""; position: absolute; inset: -3px; border-radius: 10px; background: radial-gradient(circle, color-mix(in srgb, var(--color-primary) 35%, transparent), transparent 70%); z-index: -1; }
   .topbar .brand-mark svg { width: 15px; height: 15px; filter: drop-shadow(0 0 2px rgba(255,255,255,0.45)); }
   .topbar .site-title { font-weight: 700; letter-spacing: -0.01em; color: var(--color-text-strong); white-space: nowrap; }
@@ -664,7 +676,7 @@ ${seoHead}
   .sidebar a::before { content: ""; position: absolute; left: -2px; top: 50%; transform: translateY(-50%) scaleY(0); width: 2px; height: 14px; border-radius: 1px; background: var(--color-primary); opacity: 0; transition: transform var(--transition-fast) var(--ease-out), opacity var(--transition-fast); }
   .sidebar a:hover { color: var(--color-primary); background: color-mix(in srgb, var(--color-bg-soft) 70%, var(--color-bg)); }
   .sidebar a:hover::before { transform: translateY(-50%) scaleY(1); opacity: 1; }
-  .sidebar a.active { color: var(--color-primary); font-weight: 600; background: color-mix(in srgb, var(--color-primary) 8%, var(--color-bg)); }
+  .sidebar a.active { color: var(--color-primary); font-weight: 600; background: color-mix(in srgb, var(--color-primary) 8%, var(--color-bg)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-primary) 12%, transparent); }
   .sidebar a.active::before { transform: translateY(-50%) scaleY(1); opacity: 1; left: -2px; }
   main { grid-column: 2; min-width: 0; max-width: var(--max-width-content); width: 100%; margin: 0 auto; padding: var(--space-12) var(--space-6) var(--space-16); }
   /* 正文排版（04 §4.2：16px × 1.75，680px 行宽） */
@@ -690,7 +702,7 @@ ${seoHead}
   .breadcrumb a { color: var(--color-text-secondary); text-decoration: none; }
   .breadcrumb a:hover { color: var(--color-primary); }
   .breadcrumb [aria-current="page"] { color: var(--color-text-strong); font-weight: 600; }
-  pre { background: var(--code-bg); color: var(--code-text); border: 1px solid var(--code-border); padding: var(--space-4) var(--space-6); border-radius: var(--radius-lg); overflow-x: auto; font-size: var(--font-size-sm); line-height: 1.6; box-shadow: var(--shadow-sm); }
+  pre { background: var(--code-bg); color: var(--code-text); border: 1px solid var(--code-border); padding: var(--space-4) var(--space-6); border-radius: var(--radius-lg); overflow-x: auto; font-size: var(--font-size-sm); line-height: 1.6; box-shadow: var(--shadow-sm), inset 0 1px 0 color-mix(in srgb, var(--code-text) 6%, transparent), 0 0 24px color-mix(in srgb, var(--color-primary) 7%, transparent); }
   code { font-family: var(--font-mono); font-size: 0.875em; padding: 2px 6px; background: var(--color-bg-code); border-radius: var(--radius-sm); color: var(--color-primary); border: 1px solid var(--color-border-soft); }
   pre code { background: none; border: none; padding: 0; color: var(--code-text); }
   blockquote { margin: 0 0 1.5em; padding: var(--space-3) var(--space-4); border-left: 3px solid var(--color-primary); border-radius: 0 var(--radius) var(--radius) 0; background: var(--color-bg-soft); color: var(--color-text-secondary); }
@@ -723,7 +735,7 @@ ${seoHead}
   .toc-link { display: block; padding: 4px var(--space-2); border-radius: var(--radius-sm); font-size: var(--font-size-sm); line-height: var(--line-height-normal); color: var(--color-text-secondary); text-decoration: none; cursor: pointer; border-left: 2px solid transparent; transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast); }
   .toc-link-l3 { padding-left: var(--space-4); font-size: var(--font-size-xs); }
   .toc-link:hover { color: var(--color-primary); background: var(--color-bg-soft); }
-  .toc-link.active { color: var(--color-primary); font-weight: 600; border-left-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 6%, var(--color-bg)); }
+  .toc-link.active { color: var(--color-primary); font-weight: 600; border-left-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 6%, var(--color-bg)); box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 10%, transparent); }
   /* 移动端 TOC：右下角浮动按钮 + 底部面板 */
   .toc-fab { display: none; position: fixed; right: var(--space-4); bottom: var(--space-6); z-index: 40; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--color-border); background: var(--color-bg-soft); color: var(--color-text-secondary); font-size: 18px; cursor: pointer; box-shadow: var(--shadow); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
   .toc-sheet { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; max-height: 70%; background: var(--color-bg); border-top: 1px solid var(--color-border); border-radius: var(--radius-lg) var(--radius-lg) 0 0; transform: translateY(100%); transition: transform var(--transition); box-shadow: var(--shadow); }
@@ -733,7 +745,7 @@ ${seoHead}
   .toc-sheet-nav { padding: var(--space-3); overflow-y: auto; max-height: calc(70vh - 48px); }
   /* ===== 搜索（03 §3.5，SRCH-001；VIS-002：毛玻璃遮罩 + 面板层级） ===== */
   .search-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.35); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; animation: doclight-fade var(--transition) var(--ease-out); }
-  .search-box { width: min(600px, calc(100vw - 32px)); background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-xl); overflow: hidden; animation: doclight-rise var(--transition) var(--ease-out); }
+  .search-box { width: min(600px, calc(100vw - 32px)); background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-xl), var(--glow-primary); overflow: hidden; animation: doclight-rise var(--transition) var(--ease-out); }
   @keyframes doclight-fade { from { opacity: 0; } }
   @keyframes doclight-rise { from { opacity: 0; transform: translateY(6px); } }
   .search-input { width: 100%; padding: var(--space-4) var(--space-5); border: none; outline: none; font-size: var(--font-size-lg); font-family: var(--font-sans); color: var(--color-text); background: var(--color-bg); border-bottom: 1px solid var(--color-border-soft); }

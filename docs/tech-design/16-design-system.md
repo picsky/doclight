@@ -154,6 +154,42 @@
 - 体积门禁：展示层 < 25KB gzip 不变
 - 设计评审：内容不抢戏 / 中文排版舒适 / 主题个性成立
 
+## 9. 视觉语言：Luminous 光之容器（VIS-002 惊艳化，2026-08-14 用户选定）
+
+> 「DocLight = 把 Markdown 变成作品」→ 视觉隐喻：**让内容发光**。
+> 页面像一道光照亮的画布——亮色是晨光纸感，暗色是夜航辉光。
+
+### 9.1 双面基调
+
+| 面 | 性格 | 基底 | 光效 |
+|---|---|---|---|
+| **晨光（亮）** | 暖白纸感、柔和 | `--color-bg: #fdfdfc`（微暖白）| 顶部柔光晕 + 主色 5% 渗光，克制 |
+| **夜航（暗）** | 深蓝黑、辉光 | `--color-bg: #0a0e14`（夜蓝黑）| teal 辉光 + 星芒微粒 + 玻璃层次，惊艳主场 |
+
+### 9.2 光效层实现（全部 CSS，零图片零 JS 增量）
+
+1. **背景光晕**：`body::before` 双径向渐变（右上主光 + 左下补光），primary 色 5-7%
+2. **星芒微粒**：`body::after` 极淡 radial-gradient 点阵（暗色显、亮色隐）——夜空感
+3. **顶栏光条**：topbar `::after` 1px 渐变细线（transparent → primary → transparent），替代纯边框
+4. **代码块辉光**：`pre` inset 内发光 + 外圈微光（--code-* 令牌已就位，夜航下语法色更亮）
+5. **active 光晕**：侧边栏/TOC 当前项 teal 光晕（box-shadow 0 0 8px primary 30%）
+6. **品牌辉光**：brand-mark 径向光晕层 + 白色光芒 SVG
+7. **搜索辉光**：面板聚焦态 0 0 0 1px primary 20% + 投影
+
+### 9.3 令牌新增
+
+```
+--gradient-brand: linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 60%, #22d3ee));
+--glow-primary: 0 0 0 1px color-mix(in srgb, var(--color-primary) 18%, transparent), 0 8px 32px color-mix(in srgb, var(--color-primary) 12%, transparent);
+```
+
+### 9.4 动效（克制）
+
+- 页面进场：淡入 + 4px 上移（既有）；主题切换 200ms 过渡（既有）
+- 不引入自动呼吸/流光动画——Luminous 靠静态层次表达，动效仍守「克制动效」纪律
+
+---
+
 ## 8. 关联需求
 
 - VIS-002 设计系统（本文档）；VIS-003 主题语言（Phase B）；VIS-004 体验打磨（Phase C）
