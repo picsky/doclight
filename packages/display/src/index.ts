@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @doclight/display 入口（浏览器展示层）
  *
  * 只消费渲染内核输出的 HTML（服务端直出/SSG/bundle），不接触原始 Markdown。
@@ -13,7 +13,7 @@ import { initRouter, type Router } from "./router.ts";
 import { initSidebar } from "./sidebar.ts";
 import { initToc, type TocApi } from "./toc.ts";
 import { initSearch, type SearchApi } from "./search.ts";
-import { initExtensions, type ExtensionsApi } from "./extensions.ts";
+import { initExtensions, type ExtensionsApi, winGlobal } from "./extensions.ts";
 import { initUx } from "./ux.ts";
 import { bus } from "./event-bus.ts";
 import { PluginManager, registerConfiguredPlugins } from "./plugin-manager.ts";
@@ -21,17 +21,18 @@ import type { PluginDef } from "../../core/src/plugin.ts";
 
 export const displayVersion = "0.1.0";
 
-/** 全局插件注册入口（07 §7.5 doclight.use()） */
-const pluginMgr = new PluginManager();
+// 惰性初始化：build-display 拼接产物为字母序，class PluginManager 声明在
+// index.ts 之后——顶层 new 会触发 TDZ（Cannot access before initialization）。
+let pluginMgr: PluginManager | null = null;
+
+function getPluginMgr(): PluginManager {
+  if (!pluginMgr) pluginMgr = new PluginManager();
+  return pluginMgr;
+}
 
 /** 注册插件（展示层全局入口，供页面脚本或 bundle 内联调用） */
 export function use(plugin: PluginDef): void {
-  pluginMgr.use(plugin);
-}
-
-/** 窗口全局读取（PLUG-014：构建时注入的插件配置与页面脚本挂载的插件定义表） */
-function winGlobal(key: string): unknown {
-  return (window as unknown as Record<string, unknown>)[key];
+  getPluginMgr().use(plugin);
 }
 
 /** 挂载展示层（页面 DOM 就绪后调用） */
@@ -55,11 +56,11 @@ export function mount(): Router & {
   registerConfiguredPlugins(
     winGlobal("DOCLIGHT_PLUGIN_CONFIGS") as Array<{ name: string; config?: Record<string, unknown>; enabled?: boolean }> | undefined,
     winGlobal("DOCLIGHT_PLUGINS") as Record<string, PluginDef> | undefined,
-    (p) => pluginMgr.use(p)
+    (p) => getPluginMgr().use(p)
   );
 
   // PLUG-004 插件管理器集成
-  pluginMgr["opts"] = {
+  getPluginMgr()["opts"] = {
     navigate: router.navigate,
     currentPath: () => {
       try {
@@ -73,14 +74,14 @@ export function mount(): Router & {
       return {};
     },
   };
-  const appApi = pluginMgr.initApp();
-  pluginMgr.subscribeRouteChange();
-  pluginMgr.notifyMount();
+  const appApi = getPluginMgr().initApp();
+  getPluginMgr().subscribeRouteChange();
+  getPluginMgr().notifyMount();
 
   bus.emit("doclight:mount");
   bus.emit("doclight:plugin:ready", appApi);
 
-  return { ...router, toc, search, extensions, bus, plugins: pluginMgr };
+  return { ...router, toc, search, extensions, bus, plugins: getPluginMgr() };
 }
 
 // 以 <script type="module"> 加载时自动挂载（模块天然延迟执行，DOM 已就绪）

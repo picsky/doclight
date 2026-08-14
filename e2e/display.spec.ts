@@ -135,8 +135,8 @@ test("TOC：点击目录项跳转并更新锚点", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(server.url);
 
-  // 指示点常显可点（panel 需 hover 才交互）；中文锚点做编码解码比对（跨浏览器一致）
-  await page.click(".toc-dot[data-toc-id='安装']");
+  // 目录面板常驻可点（VIS-001 重设计后 toc-dot 指示点已隐藏）；中文锚点做编码解码比对（跨浏览器一致）
+  await page.click(".toc-link[data-toc-id='安装']");
   const hash = await page.evaluate(() => decodeURIComponent(location.hash));
   expect(hash).toBe("#安装");
 });

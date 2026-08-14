@@ -30,7 +30,7 @@
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.3); --shadow: 0 4px 12px rgba(0,0,0,0.35);
 }
 /* ===== 组件级特征（卡片感 / 大圆角 / 亲和） ===== */
-/* 容器：卡片感（无左边线，浅暖底 + 软阴影 + 大圆角） */
+/* 容器：卡片感（无左边线，浅暖底 + 软阴影 + 大圆角；图标保持语义色） */
 .doclight-container { border-left: none; background: #fffdf9; border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
 [data-theme="dark"] .doclight-container { background: #211d1a; }
 /* 代码块：卡片感 */
@@ -45,3 +45,18 @@ article blockquote { border-left-color: var(--color-primary); }
 .table-wrap table th { background: var(--color-bg-soft); }
 /* 圆角图片 */
 article img { border-radius: var(--radius-lg); }
+/* ===== VIS-002 新组件适配（暖卡片延续） ===== */
+/* 阅读进度：暖橙渐变（柔和） */
+.reading-progress::after { background: linear-gradient(90deg, var(--color-primary), #f59e0b); }
+/* 回到顶部：暖白卡片圆钮（大圆角 + 软阴影） */
+.back-to-top { background: #fffdf9; border-radius: 50%; box-shadow: var(--shadow-sm); }
+[data-theme="dark"] .back-to-top { background: #211d1a; }
+/* 语言标签：暖底徽标，大圆角 */
+.doclight-lang { background: var(--color-bg); border-radius: 0 var(--radius) 0 var(--radius); }
+/* 搜索面板：暖白卡片 + 大圆角 + 软阴影 */
+.search-box { border-radius: var(--radius-lg); box-shadow: var(--shadow); }
+/* 侧边栏 active：暖橙微光 */
+.sidebar a.active { background: color-mix(in srgb, var(--color-primary) 10%, var(--color-bg)); }
+/* 容器图标：卡片感容器内图标略左移（无左边线布局） */
+.doclight-container { padding-left: var(--space-10); }
+.doclight-container::before { left: var(--space-4); }

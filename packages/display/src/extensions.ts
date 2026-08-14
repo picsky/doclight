@@ -20,8 +20,9 @@ import { bus } from "./event-bus.ts";
 
 const DEFAULT_VENDOR = "/__doclight/vendor/";
 
-/** 类型安全的 window 全局读取（vendor 库 / 覆盖基址） */
-function winGlobal(key: string): unknown {
+/** 类型安全的 window 全局读取（vendor 库 / 覆盖基址）。
+ *  导出供 index.ts 复用（build-display 拼接产物为同一作用域，顶层重复声明会 SyntaxError）。 */
+export function winGlobal(key: string): unknown {
   return (window as unknown as Record<string, unknown>)[key];
 }
 
@@ -132,6 +133,15 @@ function addCopyButtons(scope: HTMLElement): void {
       }
     });
     pre.appendChild(btn);
+    // VIS-002：语言标签（右上角小字，与复制按钮并存时让位）
+    const code = pre.querySelector("code");
+    const lang = code ? extractLanguage(code.className) : null;
+    if (lang) {
+      const tag = document.createElement("span");
+      tag.className = "doclight-lang";
+      tag.textContent = lang;
+      pre.appendChild(tag);
+    }
   });
 }
 

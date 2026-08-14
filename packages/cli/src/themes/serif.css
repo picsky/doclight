@@ -52,3 +52,14 @@ article code:not(pre code) { background: var(--color-bg-code); color: var(--colo
 article { line-height: 1.8; }
 /* 顶栏与侧边栏：纸色一体，无浮起感 */
 .topbar { background: var(--color-bg); }
+/* ===== VIS-002 新组件适配（纸感延续） ===== */
+/* 阅读进度：靛蓝细线（克制，无渐变） */
+.reading-progress::after { background: var(--color-primary); }
+/* 回到顶部：纸色圆形，无阴影（几乎无阴影原则） */
+.back-to-top { background: var(--color-bg-soft); box-shadow: none; border-radius: 2px; }
+/* 语言标签：纸色底，与代码块一体 */
+.doclight-lang { background: var(--color-bg); border: 1px solid var(--color-border-soft); border-bottom-left-radius: 0; }
+/* 搜索面板：纸色 + 细边框（无重阴影） */
+.search-box { border-radius: 2px; box-shadow: var(--shadow-sm); }
+/* 目录面板：纸色（无浮起） */
+.toc-link.active { background: color-mix(in srgb, var(--color-primary) 8%, var(--color-bg)); }

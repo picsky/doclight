@@ -1,4 +1,4 @@
-﻿/**
+/**
  * doclight slides —— 演示形态（08-roadmap Phase 6 P2，DEMO-001）
  *
  * 「文档与演示同源不同形」（01 §原则二）：同一渲染内核（@doclight/renderer），
@@ -244,7 +244,12 @@ body { background: var(--slide-bg); color: var(--slide-fg); font-family: var(--s
 .slide blockquote { margin: 0.6em 0; padding-left: 1em; border-left: 3px solid var(--slide-accent); color: var(--slide-fg-soft); }
 .slide table { border-collapse: collapse; width: 100%; font-size: var(--slide-body); }
 .slide th, .slide td { border-bottom: 1px solid var(--slide-fg-muted); padding: 6px 12px; text-align: left; }
-.slide .doclight-container { margin: 0.6em 0; padding: 10px 14px; border-left: 3px solid var(--slide-accent); background: var(--slide-code-bg); border-radius: 0 8px 8px 0; }
+.slide .doclight-container { position: relative; margin: 0.6em 0; padding: 10px 14px 10px 40px; border-left: 3px solid var(--slide-accent); background: var(--slide-code-bg); border-radius: 0 8px 8px 0; }
+.slide .doclight-container::before { position: absolute; left: 14px; top: 10px; font-weight: 700; }
+.slide .doclight-tip::before { content: "✓"; color: var(--slide-accent); }
+.slide .doclight-info::before { content: "ℹ"; color: var(--slide-accent); }
+.slide .doclight-warning::before { content: "!"; color: var(--slide-accent); }
+.slide .doclight-danger::before { content: "✕"; color: var(--slide-accent); }
 .slide[data-layout="cover"], .slide[data-layout="end"], .slide[data-layout="section"] { text-align: center; }
 .slide[data-layout="cover"] p:first-of-type, .slide[data-layout="end"] p:first-of-type { font-size: 1.6rem; color: var(--slide-fg-soft); }
 .slide[data-layout="cover"] .slide-meta { margin-top: 2.4em; font-size: 0.95rem; color: var(--slide-fg-muted); }

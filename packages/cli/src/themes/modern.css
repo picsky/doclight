@@ -47,3 +47,17 @@ article h1, article h2, article h3, article h4 { line-height: 1.25; letter-spaci
 article code:not(pre code) { background: var(--color-primary-light); color: var(--color-primary-hover); }
 /* 容器：圆角更锐利（12px） */
 .doclight-container { border-radius: var(--radius-lg); }
+/* ===== VIS-002 新组件适配（玻璃拟态延续） ===== */
+/* 阅读进度：violet 渐变（线性锐利） */
+.reading-progress::after { background: linear-gradient(90deg, var(--color-primary), #a855f7); }
+/* 回到顶部：玻璃圆形按钮 */
+.back-to-top { background: rgba(17, 24, 39, 0.55); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-color: rgba(255, 255, 255, 0.08); }
+[data-theme="light"] .back-to-top { background: rgba(255, 255, 255, 0.7); border-color: rgba(15, 23, 42, 0.08); }
+/* 语言标签：深色玻璃小徽标 */
+.doclight-lang { background: rgba(15, 21, 36, 0.8); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 0 var(--radius-sm) 0 var(--radius-sm); }
+[data-theme="light"] .doclight-lang { background: rgba(241, 245, 249, 0.9); border-color: rgba(15, 23, 42, 0.07); }
+/* 搜索面板：玻璃 + 大圆角 */
+.search-box { border-radius: var(--radius-lg); border-color: rgba(255, 255, 255, 0.08); }
+[data-theme="light"] .search-box { border-color: rgba(15, 23, 42, 0.08); }
+/* 侧边栏/目录 active：violet 微光 */
+.sidebar a.active { background: color-mix(in srgb, var(--color-primary) 14%, transparent); }

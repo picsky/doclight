@@ -93,9 +93,71 @@ function initPoweredBy(): void {
   });
 }
 
+/** 阅读进度（04 §4.5.3 兑现，VIS-002）：顶栏下 2px 细线随滚动推进；滚动时浮现、停滚渐隐 */
+function initReadingProgress(): void {
+  const bar = document.querySelector<HTMLElement>(".reading-progress");
+  if (!bar) return;
+  let hiddenTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const update = () => {
+    const doc = document.documentElement;
+    const total = doc.scrollHeight - doc.clientHeight;
+    const ratio = total > 0 ? Math.min(1, Math.max(0, doc.scrollTop / total)) : 0;
+    bar.style.setProperty("--progress", `${Math.round(ratio * 100)}%`);
+    bar.classList.add("visible");
+    if (hiddenTimer) clearTimeout(hiddenTimer);
+    hiddenTimer = setTimeout(() => bar.classList.remove("visible"), 900);
+  };
+
+  window.addEventListener("scroll", update, { passive: true });
+  // SPA 导航后重算（滚动位置复位，进度归零）
+  bus.on("doclight:routechange", () => {
+    bar.style.setProperty("--progress", "0%");
+    bar.classList.remove("visible");
+  });
+  update();
+}
+
+/** 回到顶部（04 §4.5.4 兑现，VIS-002）：滚动超过 2 屏浮现，点击平滑回顶 */
+function initBackToTop(): void {
+  const btn = document.querySelector<HTMLButtonElement>(".back-to-top");
+  if (!btn) return;
+
+  const update = () => {
+    const pastTwoScreens = window.scrollY > window.innerHeight * 2;
+    btn.classList.toggle("visible", pastTwoScreens);
+    btn.setAttribute("aria-hidden", String(!pastTwoScreens));
+  };
+
+  btn.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    btn.classList.remove("visible");
+  });
+  window.addEventListener("scroll", update, { passive: true });
+  bus.on("doclight:routechange", update);
+  update();
+}
+
+/** 页面切换过渡（04 §4.5.2 兑现，VIS-002）：SPA 导航后 article 150ms 淡入（克制） */
+function initPageTransition(): void {
+  const article = document.querySelector<HTMLElement>("article");
+  if (!article) return;
+  const play = () => {
+    article.classList.remove("page-enter");
+    // 强制重排以重触发动画
+    void article.offsetWidth;
+    article.classList.add("page-enter");
+  };
+  bus.on("doclight:routechange", play);
+  play();
+}
+
 /** 挂载体验细节（mount() 调用） */
 export function initUx(): void {
   initFocusMode();
   initFontScale();
   initPoweredBy();
+  initReadingProgress();
+  initBackToTop();
+  initPageTransition();
 }
