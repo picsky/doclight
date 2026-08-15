@@ -174,7 +174,15 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
         /* 无 mtime 时省略更新时间 */
       }
     }
-    const pageSeo = { readingTime: analysis.readingTime, wordCount: countWords(html), ...(updatedAt ? { updatedAt } : {}) };
+    const pageSeo = {
+      readingTime: analysis.readingTime,
+      wordCount: countWords(html),
+      ...(updatedAt ? { updatedAt } : {}),
+      // DP-007：内容溯源（frontmatter provenance，与 build/dev 同规则）
+      ...(frontmatter.provenance === "ai" || frontmatter.provenance === "human" || frontmatter.provenance === "mixed"
+        ? { provenance: frontmatter.provenance as "ai" | "human" | "mixed" }
+        : {}),
+    };
     pages[key] = articleBodyHtml({
       title,
       contentHtml: html,

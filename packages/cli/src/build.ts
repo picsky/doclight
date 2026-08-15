@@ -308,6 +308,10 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
       markdownUrl,
       tokens,
       ...(typeof frontmatter.author === "string" ? { author: frontmatter.author } : options.author ? { author: options.author } : {}),
+      // DP-007：内容溯源（frontmatter provenance: ai | human | mixed）
+      ...(frontmatter.provenance === "ai" || frontmatter.provenance === "human" || frontmatter.provenance === "mixed"
+        ? { provenance: frontmatter.provenance }
+        : {}),
     };
     const outPath = join(outDir, outRel);
     mkdirSync(dirname(outPath), { recursive: true });

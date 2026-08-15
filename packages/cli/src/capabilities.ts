@@ -1,4 +1,4 @@
-﻿/**
+/**
  * capabilities.json —— 站点渲染能力协议（08-roadmap Phase 6 P0，CAP-001）
  *
  * 原则零（Agent-First）的第一落地：Agent 写内容前必须能回答「这个站能渲染什么」，
@@ -102,6 +102,7 @@ export const FRONTMATTER_KEYS = [
   "author",
   "prerequisites",
   "next",
+  "provenance", // DP-007：内容溯源（ai | human | mixed）——诚实标注内容由谁产出
 ] as const;
 
 /** 渲染内核引擎声明（与 packages/renderer/src/index.ts rendererVersion 一致） */

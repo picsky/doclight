@@ -445,6 +445,10 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
           readingTime: analyzeDoc(source).readingTime,
           wordCount: countWords(html),
           updatedAt: docUpdatedAtDev(fm, join(docsDir, doc)),
+          // DP-007：内容溯源（frontmatter provenance，与 build 同规则）
+          ...(fm.provenance === "ai" || fm.provenance === "human" || fm.provenance === "mixed"
+            ? { provenance: fm.provenance as "ai" | "human" | "mixed" }
+            : {}),
         },
         searchVersion: searchIndexCache.version,
         slotContent,

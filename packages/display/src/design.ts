@@ -94,6 +94,36 @@ export function bindFeedback(root: ParentNode): void {
   }
 }
 
+/* ===== DP-007 内容溯源徽标（可关闭 + 持久化） ===== */
+
+const ORIGIN_KEY = "doclight-origin-hidden";
+
+/** 绑定溯源徽标关闭（× → 隐藏 + localStorage 持久化；全站级，非单页级） */
+export function bindOriginBadge(root: ParentNode): void {
+  root.querySelectorAll<HTMLElement>(".origin-badge").forEach((badge) => {
+    if (badge.dataset.originBound) return;
+    badge.dataset.originBound = "1";
+    let hidden = false;
+    try {
+      hidden = localStorage.getItem(ORIGIN_KEY) === "1";
+    } catch {
+      /* 隐私模式降级 */
+    }
+    if (hidden) {
+      badge.hidden = true;
+      return;
+    }
+    badge.querySelector<HTMLButtonElement>(".origin-close")?.addEventListener("click", () => {
+      badge.hidden = true;
+      try {
+        localStorage.setItem(ORIGIN_KEY, "1");
+      } catch {
+        /* 忽略持久化失败 */
+      }
+    });
+  });
+}
+
 /* ===== 平台快捷键提示（顶栏 kbd：macOS ⌘K / 其余 Ctrl K） ===== */
 
 /** 初始化平台提示：macOS 显示 ⌘K */
@@ -111,6 +141,7 @@ export function initDesign(): void {
   const toc = document.querySelector<HTMLElement>(".toc");
   if (article) applyCjkSpacing(article);
   bindTabs(document);
+  bindOriginBadge(document); // DP-007：溯源徽标可关闭
   if (toc) {
     bindFeedback(toc);
     // 锚点闪烁：TOC 链接 + 标题锚点点击（演示页行为）

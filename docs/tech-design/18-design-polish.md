@@ -140,19 +140,38 @@
 
 **验收**：prefers-reduced-motion 下全部静止（e2e 断言）+ 视觉回归无抖动 ✅
 
-### 3.7 DP-007 AI 原生身份显性化（P2）
+### 3.7 DP-007 AI 原生身份显性化（P2）✅ 已完成（2026-08-16）
 
 > DocLight 独有赛道：Agent 写、Agent 读。这个身份成为一个签名。
 
-- [ ] **内容溯源徽标**：frontmatter 驱动「AI 生成 / 人工 / 混合」轻徽标——诚实、克制、可关闭
-- [ ] **llms.txt 收录提示**：「本页已收录于 llms.txt，可被 Agent 读取」——
-      双读者产品哲学显性化到界面一角
-- [ ] **component-gallery 升级为设计宣言**：不只列组件，把宪法的「为什么」可视化
+- [x] **内容溯源徽标**：frontmatter provenance（ai/human/mixed）驱动轻徽标——
+      诚实、克制、可关闭（× + localStorage 全站级持久化）；三形态同构；缺省不渲染
+- [x] **llms.txt 收录提示**：TOC 卡内「已收录于 llms.txt · Agent 可读」——仅 SSG 形态
+      （dev/bundle 无产物，诚实不伪造死链）
+- [x] **component-gallery 升级为设计宣言**：画廊索引页加宪法五原则 + 令牌事实胶囊
       （与 DP-001 画廊改造合并落地）
-- [ ] **写作端预览一致性规范**：dev 与发布形态 1:1 已实现，补「写作中实时预览」设计规范文档
-- [ ] 交接：PHASE-7-dp007-ai-identity-complete.md（或并入本阶段总交接）
+- [x] **写作端预览一致性规范**：六条成文（下方细则）
+- [x] 交接：PHASE-7-dp007-ai-identity-complete.md（Phase 7 收官）
 
-**验收**：frontmatter schema 只加不改 + capabilities 同步 + 徽标可关闭且不破坏 SEO 元数据。
+**验收**：frontmatter 只加不改（provenance 入 capabilities FRONTMATTER_KEYS）+
+徽标可关闭且不破坏 SEO 元数据 ✅
+
+#### 写作端预览一致性规范（DP-007 交付文档）
+
+> 承诺：`doclight dev` 所见 = `doclight build`/`bundle`/`publish` 所得——1:1，无「预览特供」。
+
+1. **同一渲染内核**：dev/SSG/bundle 三形态共用 renderer + site.ts 模板 + display 展示层
+   （SNAP-001 同构快照门禁：三形态 article 内容逐字节一致，仅链接后缀 .md/.html 允许差异）
+2. **同一字体与时序**：Google Fonts 三形态同栈（display=swap）；视觉基线截图等待 fonts.ready
+   （避免字体交换时机的基线抖动——2026-08-16 已修）
+3. **无预览特供样式**：dev server 不注入任何仅预览 CSS/JS；热重载（SSE reload）是 dev 唯一附加物，
+   且不进产物
+4. **所见即所得的边界**：插件运行时行为（giscus 评论等外部服务）依赖部署环境，
+   dev 形态按插件的降级语义呈现（诚实降级，不伪造）
+5. **写作流程**：写作 → `doclight dev` 实时预览 → 人确认 → `doclight build`/`publish`；
+   publish 前自动快照（WORK-001），回滚可退——预览态与发布态同一视觉
+6. **回归防线**：smoke check 断言构建产物 = 展示层挂载 + head 结构 + 导航标题；
+   e2e 三形态矩阵（display/bundle/extensions spec）每次 verify 执行
 
 ---
 

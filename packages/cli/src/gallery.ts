@@ -201,6 +201,12 @@ function galleryIndexHtml(options: { siteTitle: string; themes: string[] }): str
   .panel-links a { color: #0d9488; text-decoration: none; }
   .panel-frames { display: grid; grid-template-columns: 1fr 1fr; }
   .frame { width: 100%; height: 520px; border: 0; background: #fff; }
+  /* DP-007：设计宣言（宪法的「为什么」可视化——排版即界面，零插画） */
+  .manifesto { grid-column: 1 / -1; padding: 28px 32px 24px; border: 1px solid #e4e4e7; border-radius: 10px; background: #fff; }
+  .manifesto h2 { margin: 0 0 14px; font-size: 15px; letter-spacing: .02em; }
+  .manifesto ol { margin: 0 0 16px; padding-left: 20px; font-size: 13px; line-height: 2; color: #3f3f46; }
+  .manifesto .facts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .manifesto .fact { font-size: 11.5px; color: #52525b; border: 1px solid #e4e4e7; border-radius: 99px; padding: 3px 10px; font-family: ui-monospace, Menlo, Consolas, monospace; }
   @media (max-width: 900px) { .panel-frames { grid-template-columns: 1fr; } }
 </style>
 <script>
@@ -224,6 +230,24 @@ function galleryIndexHtml(options: { siteTitle: string; themes: string[] }): str
   </nav>
 </header>
 <main>
+<section class="manifesto" aria-label="设计宣言">
+  <h2>设计宣言（宪法五原则）</h2>
+  <ol>
+    <li><strong>排版即界面</strong>——层级由字重、字号、字距、留白构建，颜色是最后一层增强。</li>
+    <li><strong>克制即丰富</strong>——每个视觉元素必须回答「它帮助用户理解什么」，答不上来就删掉。</li>
+    <li><strong>颜色有职务</strong>——全产品只有一个强调色（松绿 Pine），只出现在链接、激活、焦点、关键状态。</li>
+    <li><strong>隐形的基础设施</strong>——读者读完记住内容，记不起界面。</li>
+    <li><strong>时间是唯一的测试</strong>——只做三年后不过时的秩序，不追流行手法。</li>
+  </ol>
+  <div class="facts">
+    <span class="fact">强调色 #14714e / 暗色 #63d2a0</span>
+    <span class="fact">圆角仅 8 / 10px 两档</span>
+    <span class="fact">8pt 网格（间距 = 4 的倍数）</span>
+    <span class="fact">类型阶 xs 12 → 3xl 34</span>
+    <span class="fact">动效 ≤300ms · 唯一缓动</span>
+    <span class="fact">正文对比度 ≥7 AAA</span>
+  </div>
+</section>
 ${panelGrid}
 </main>
 </body>

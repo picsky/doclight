@@ -435,6 +435,9 @@ export interface SeoOptions {
   markdownUrl?: string;
   /** AEO-001：本页 token 估算（<meta name="doclight:tokens">，Agent 读取成本） */
   tokens?: number;
+  /** DP-007：内容溯源（frontmatter provenance: ai | human | mixed）——诚实标注
+   *  内容由谁产出；缺省不渲染徽标 */
+  provenance?: "ai" | "human" | "mixed";
 }
 
 export interface RenderPageOptions {
@@ -1216,6 +1219,25 @@ export const DEFAULT_THEME_CSS = `  :root {
   .toc-card button:hover { border-color: var(--accent); color: var(--accent-ink); }
   .toc-card .edit { display: block; margin-top: 12px; font-size: 12px; color: var(--text-3); }
   .toc-card .edit:hover { color: var(--accent-ink); }
+  /* DP-007：llms.txt 收录提示（双读者哲学显性化；纯文本提示，安静驻留） */
+  .toc-card .llms-note {
+    display: block; margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--line);
+    font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums;
+  }
+  /* DP-007：内容溯源徽标（frontmatter provenance；诚实标注，可关闭） */
+  .origin-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11.5px; font-weight: 500;
+    border: 1px solid var(--line-strong); border-radius: 99px;
+    padding: 1.5px 6px 1.5px 9px; color: var(--text-2);
+  }
+  .origin-badge.origin-ai { border-color: var(--accent); color: var(--accent-ink); }
+  .origin-badge .origin-close {
+    border: none; background: transparent; cursor: pointer;
+    font-size: 12px; line-height: 1; color: var(--text-3); padding: 0 1px;
+  }
+  .origin-badge .origin-close:hover { color: var(--text); }
 
   /* ---------- Footer ---------- */
   .footer {
@@ -1562,9 +1584,9 @@ export function articleBodyHtml(options: ArticleBodyOptions): string {
   // eyebrow：当前页所属顶层分组
   const sectionOf = sectionForPath(nav);
   const eyebrow = currentPath ? sectionOf(currentPath) : "";
-  // 文章头部元信息行（设计对齐：演示页 meta——更新时间 / 阅读时长 / 字数；有数据才渲染）
+  // 文章头部元信息行（设计对齐：演示页 meta——更新时间 / 阅读时长 / 字数 / 溯源徽标；有数据才渲染）
   let docMeta = "";
-  if (seo && (seo.readingTime || seo.wordCount || seo.updatedAt)) {
+  if (seo && (seo.readingTime || seo.wordCount || seo.updatedAt || seo.provenance)) {
     const metaItems: string[] = [];
     if (seo.updatedAt) {
       const d = new Date(seo.updatedAt);
@@ -1576,6 +1598,13 @@ export function articleBodyHtml(options: ArticleBodyOptions): string {
     }
     if (seo.readingTime) metaItems.push(`<span>约 ${seo.readingTime} 分钟阅读</span>`);
     if (seo.wordCount) metaItems.push(`<span>${seo.wordCount.toLocaleString("zh-CN")} 字</span>`);
+    // DP-007 内容溯源徽标（frontmatter provenance 驱动；诚实标注，可关闭）
+    if (seo.provenance) {
+      const label = { ai: "AI 生成", human: "人工撰写", mixed: "AI 辅助" }[seo.provenance];
+      metaItems.push(
+        `<span class="origin-badge origin-${seo.provenance}" role="note"><span class="origin-label">${escapeHtml(label)}</span><button type="button" class="origin-close" aria-label="隐藏内容溯源标注">×</button></span>`
+      );
+    }
     if (metaItems.length) docMeta = `<div class="meta">${metaItems.map((m, i) => (i ? `<span class="sep"></span>${m}` : m)).join("")}</div>`;
   }
   // 下一步卡片 + 上一页/下一页（导航顺序驱动）
@@ -1911,6 +1940,7 @@ ${slot("head:end")}
         <button id="fbNo">需改进</button>
       </div>
       ${editLink}
+      ${form === "ssg" ? `<span class="llms-note" title="本页已收录于 llms.txt，可被 AI Agent 直接读取">已收录于 llms.txt · Agent 可读</span>` : ""}
     </div>`}
     ${slot("toc:after")}
   </aside>

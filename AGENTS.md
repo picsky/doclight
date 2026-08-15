@@ -16,7 +16,7 @@
 
 ## frontmatter 约定
 
-每篇文档开头用 `---` 声明元数据，支持键：title / description / summary / date / updated / priority / tags / category / difficulty / author / prerequisites / next
+每篇文档开头用 `---` 声明元数据，支持键：title / description / summary / date / updated / priority / tags / category / difficulty / author / prerequisites / next / provenance
 （`priority`: high/medium/low 影响 llms.txt 分级；`tags`/`category` 用于检索过滤；
 `summary` 缺省自动提取首段；`date` 影响 sitemap 与 JSON-LD）。
 
