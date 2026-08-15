@@ -15,7 +15,7 @@ import { buildNavTree, render, analyzeDoc } from "@doclight/renderer";
 import { loadSite, McpServer, mcpHttpHandler } from "@doclight/mcp-server";
 import { buildSite } from "./build.ts";
 import { buildCapabilityManifest } from "./capabilities.ts";
-import { buildSearchData, collectNavTitles, countWords, displayBundlePath, firstH1Text, mimeFor, nodeModulesBase, render404Page, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
+import { buildSearchData, collectNavTitles, collectNavUpdated, countWords, displayBundlePath, firstH1Text, mimeFor, nodeModulesBase, render404Page, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
 import { BuildPluginPipeline } from "./plugins.ts";
 import type { PluginDef, RenderContext } from "../../core/src/plugin.ts";
 
@@ -199,8 +199,9 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
   // 首次扫描：收集文档 + 构建导航（frontmatter 标题驱动，2026-08 修复文件名显示）
   let mdFiles = walkMd(docsDir);
   let navTitles = collectNavTitles(docsDir, mdFiles);
+  let navUpdated = collectNavUpdated(docsDir, mdFiles); // DP-003：侧边栏最近更新徽标
   let navTree = buildNavTree(mdFiles, navTitles);
-  let navHtml = renderNav(navTree);
+  let navHtml = renderNav(navTree, "", "", false, navUpdated);
 
   /** 解析请求路径为文档根目录内的相对路径；越界返回 null */
   function safeRelPath(urlPath: string): string | null {
@@ -257,8 +258,9 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
     try {
       mdFiles = walkMd(docsDir);
       navTitles = collectNavTitles(docsDir, mdFiles);
+      navUpdated = collectNavUpdated(docsDir, mdFiles); // DP-003：侧边栏最近更新徽标
       navTree = buildNavTree(mdFiles, navTitles);
-      navHtml = renderNav(navTree);
+      navHtml = renderNav(navTree, "", "", false, navUpdated);
       searchIndexCache = buildSearchData(docsDir, mdFiles, { nav: navTree });
     } catch {
       /* 扫描失败（目录临时不可读）时保留旧导航 */

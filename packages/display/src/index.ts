@@ -16,6 +16,7 @@ import { initSearch, type SearchApi } from "./search.ts";
 import { initExtensions, type ExtensionsApi, winGlobal } from "./extensions.ts";
 import { initUx } from "./ux.ts";
 import { initDesign } from "./design.ts";
+import { initReadingState } from "./reading.ts";
 import { bus } from "./event-bus.ts";
 import { PluginManager, registerConfiguredPlugins } from "./plugin-manager.ts";
 import type { PluginDef } from "../../core/src/plugin.ts";
@@ -58,6 +59,7 @@ export function mount(): Router & {
   initSidebar();
   initUx(); // UX-001 体验细节：阅读进度 / 顶栏滚动态 / Powered by
   initDesign(); // 设计对齐（2026-08-16）：CJK 空隙 / 锚点闪烁 / Tabs 联动 / 反馈卡 / 平台快捷键
+  initReadingState(); // DP-003 阅读状态感：位置持久化 / 相对时间 / 完成度 / 已读标记
 
   // PLUG-014：doclight.json 插件运行时配置自动注册（构建时注入
   // window.DOCLIGHT_PLUGIN_CONFIGS + 页面脚本挂 window.DOCLIGHT_PLUGINS）

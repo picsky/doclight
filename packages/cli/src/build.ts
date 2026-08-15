@@ -35,6 +35,7 @@ import {
   breadcrumbFor,
   buildSearchData,
   collectNavTitles,
+  collectNavUpdated,
   copyVendor,
   countWords,
   displayBundlePath,
@@ -252,7 +253,7 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
   const mdFiles = walkMd(docsDir);
   // 导航用 frontmatter 标题（2026-08 前端审查 P1-2：此前显示文件名主干）
   const navTree = buildNavTree(mdFiles, collectNavTitles(docsDir, mdFiles));
-  const navHtml = renderNav(navTree, ".html", base);
+  const navHtml = renderNav(navTree, ".html", base, false, collectNavUpdated(docsDir, mdFiles)); // DP-003：最近更新徽标
 
   // 搜索索引预构建（SRCH-001：SSG 形态运行时直接加载；version=内容哈希，展示层持久化校验用）
   // nav 传入：搜索结果「节」标签（设计对齐演示页 ri-sec）
