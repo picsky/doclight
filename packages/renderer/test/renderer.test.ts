@@ -1,5 +1,6 @@
-﻿import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { render, rendererVersion } from "../src/index.ts";
+import { analyzeDoc } from "../src/analyze.ts";
 
 describe("@doclight/renderer 渲染管线（REND-001）", () => {
   it("导出包版本号", () => {
@@ -34,6 +35,17 @@ tags: [入门, 安装]
     const { html } = render("# 快速开始\n\n## 安装指南");
     expect(html).toContain('<h1 id="快速开始">');
     expect(html).toContain('<h2 id="安装指南">');
+  });
+
+  it("双读锚点一致：含链接/行内代码标题，页面 id 与大纲分析同源（2026-08 M5）", () => {
+    const md = "## 参见 [MDN](https://mdn.dev)\n\n## 使用 `a_b` 与 **强调**";
+    const { html } = render(md);
+    // 链接只保留文本、剥行内代码/强调/下划线标记后再 slugify（不再出现 https-mdn-dev 噪音）
+    expect(html).toContain('<h2 id="参见-mdn">');
+    expect(html).toContain('<h2 id="使用-ab-与-强调">');
+    // 与 analyzeDoc 大纲 id 完全一致（docs.json / llms / MCP 分节锚点可直达页面）
+    const { headings } = analyzeDoc(md);
+    expect(headings.map((h) => h.id)).toEqual(["参见-mdn", "使用-ab-与-强调"]);
   });
 
   it("GFM 表格 / 任务列表 / 删除线完整渲染（REND-001）", () => {

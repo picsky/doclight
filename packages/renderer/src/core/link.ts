@@ -33,6 +33,20 @@ export function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/**
+ * 从标题 raw 文本提取纯文本（2026-08 双读锚点修复 M5）：
+ * 渲染内核（markdown.ts heading）与大纲分析（analyze.ts extractHeadings）共用此函数
+ * 生成锚点 id——含链接/行内代码的标题（如 `## 参见 [MDN](url)`）两侧 id 一致，
+ * docs.json / llms.txt / MCP 分节锚点与页面锚点不再分叉（REND-004）。
+ */
+export function headingPlainText(raw: string): string {
+  return raw
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ") // 图片（占位）
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // 链接保留文本
+    .replace(/[`*_~]/g, "") // 行内代码/强调标记
+    .trim();
+}
+
 /** HTML 转义（转义 & < > " '，与 marked 默认 code escape 一致） */
 export function escapeHtml(s: string): string {
   const map: Record<string, string> = {

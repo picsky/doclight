@@ -4,7 +4,7 @@
 // 前置：dist/display.js 已构建（verify.mjs 先跑 build）；浏览器需已安装（CI 用 playwright install）
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { mkResult } from "../lib/report.mjs";
 
@@ -28,7 +28,21 @@ function collectTests(suites, out = []) {
 
 export function run() {
   mkdirSync(join(process.cwd(), "artifacts", "e2e"), { recursive: true });
+  // 门禁加固（P1-1）：先清旧报告，杜绝读到残留空报告假绿
+  rmSync(REPORT, { force: true });
   const r = spawnSync(process.execPath, [pwCli, "test"], { encoding: "utf8", timeout: 300_000 });
+
+  // 门禁加固（P1-1）：Playwright 执行本身失败（退出码非 0 / 被信号终止）必须显式失败，
+  // 不能继续解析可能残留的报告
+  if (r.status !== 0) {
+    return mkResult("e2e", "展示层端到端（真实浏览器）", 1, [
+      {
+        id: "playwright",
+        message: `Playwright 执行失败（退出码 ${r.status}${r.signal ? `，信号 ${r.signal}` : ""}）——浏览器未装 / 转译崩溃 / 超时？`,
+        evidence: (r.stdout || r.stderr || "").slice(-1200),
+      },
+    ]);
+  }
 
   if (!existsSync(REPORT)) {
     return mkResult("e2e", "展示层端到端（真实浏览器）", 1, [

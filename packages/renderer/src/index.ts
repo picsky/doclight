@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @doclight/renderer 入口（Node 渲染内核，单一事实来源）
  *
  * 渲染管线（03 §3.3.1）：frontmatter 提取 → marked 渲染 → DOMPurify sanitize。
@@ -9,6 +9,9 @@
 import { parseFrontmatter, type Frontmatter } from "./core/frontmatter.ts";
 import { renderMarkdown } from "./core/markdown.ts";
 import { sanitizeHtml } from "./core/sanitize.ts";
+// FRONT-001：frontmatter 解析对外导出（CLI 收集导航标题用——2026-08）
+export { parseFrontmatter } from "./core/frontmatter.ts";
+export type { Frontmatter } from "./core/frontmatter.ts";
 export { buildDocsJson, buildNavTree } from "./nav.ts";
 export type { DocsJson, NavFile, NavGroup, NavNode } from "./nav.js";
 // FRONT-001 语义 frontmatter 自动计算（summary/readingTime/wordCount/headings，06 §6.3.1）

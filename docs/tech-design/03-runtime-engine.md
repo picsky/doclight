@@ -473,18 +473,20 @@ function detectLanguage(docs) {
 
 ```css
 :root {
-  /* 颜色 - 品牌 */
+  /* 颜色 - 品牌（2026-08 回写：Luminous 晨光面；正文链接专用 --color-link——AA 4.5） */
   --color-primary: #0d9488;
   --color-primary-hover: #0f766e;
   --color-primary-light: #ccfbf1;
+  --color-link: #0f766e;      /* 亮色正文链接（teal-700）；暗色 #2dd4bf */
+  --color-link-hover: #115e59;
 
-  /* 颜色 - 中性灰阶（8 级） */
-  --color-bg: #ffffff;
-  --color-bg-soft: #f9fafb;
+  /* 颜色 - 中性灰阶（8 级；2026-08 回写） */
+  --color-bg: #fdfdfc;
+  --color-bg-soft: #f7f7f5;
   --color-bg-code: #f3f4f6;
-  --color-border: #e5e7eb;
-  --color-border-soft: #f3f4f6;
-  --color-text-muted: #9ca3af;
+  --color-border: #e7e7e3;
+  --color-border-soft: #f1f1ee;
+  --color-text-muted: #71717a;
   --color-text-secondary: #6b7280;
   --color-text: #374151;
   --color-text-strong: #111827;
@@ -493,50 +495,61 @@ function detectLanguage(docs) {
   --font-sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", "Cascadia Code", ui-monospace, monospace;
 
-  /* 字号（模块化缩放 1.25） */
-  --font-size-xs: 0.75rem;    /* 12px */
+  /* 字号（模块化缩放 1.25；VIS-001 起 lg→3xl 严格 ×1.25 链，2026-08 回写） */
+  --font-size-xs: 0.75rem;    /* 12px（基础 UI 字号，不在正文节奏链） */
   --font-size-sm: 0.875rem;   /* 14px */
   --font-size-base: 1rem;     /* 16px */
-  --font-size-lg: 1.125rem;   /* 18px */
-  --font-size-xl: 1.25rem;    /* 20px */
-  --font-size-2xl: 1.5rem;    /* 24px */
-  --font-size-3xl: 2rem;      /* 32px */
+  --font-size-lg: 1.25rem;    /* 20px */
+  --font-size-xl: 1.5625rem;  /* 25px */
+  --font-size-2xl: 1.953rem;  /* 31.25px */
+  --font-size-3xl: 2.441rem;  /* 39px */
 
   /* 行高 */
   --line-height-tight: 1.3;
   --line-height-normal: 1.5;
   --line-height-relaxed: 1.75;  /* 正文阅读 */
 
-  /* 间距（4px 基准） */
+  /* 间距（4px 基准；2026-08 补全 7/9/11 档） */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
+  --space-5: 20px;
   --space-6: 24px;
+  --space-7: 28px;
   --space-8: 32px;
+  --space-9: 36px;
+  --space-10: 40px;
+  --space-11: 44px;
   --space-12: 48px;
   --space-16: 64px;
 
-  /* 布局 */
+  /* 布局（2026-08 回写：topbar 56px / toc 220px） */
   --max-width-content: 680px;
   --sidebar-width: 280px;
-  --toc-width: 200px;
-  --topbar-height: 52px;
+  --toc-width: 220px;
+  --topbar-height: 56px;
 
-  /* 圆角 */
+  /* 圆角（--radius-md 别名 2026-08 补齐） */
   --radius-sm: 4px;
   --radius: 6px;
+  --radius-md: 6px;
   --radius-lg: 8px;
 
-  /* 阴影（克制使用） */
+  /* 阴影（克制使用；VIS-002 分层 shadow-lg/xl） */
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
   --shadow: 0 1px 3px rgba(0,0,0,0.1);
 
-  /* 过渡 */
-  --transition-fast: 150ms ease;
-  --transition: 200ms ease;
+  /* 过渡（2026-08 贯通：--transition-fast/--transition 引用 --ease-standard 缓动） */
+  --transition-fast: 150ms var(--ease-standard);
+  --transition: 200ms var(--ease-standard);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 ```
+
+> 2026-08 前端审查补记：本令牌块以 `packages/cli/src/site.ts` `DEFAULT_THEME_CSS` 为唯一事实来源
+> （含暗色面与代码区/聚焦环令牌）；4 套主题为变量覆盖层（`packages/cli/src/themes/*.css`）。
 
 ### 3.6.2 暗色模式
 
@@ -609,26 +622,38 @@ themes/
 
 ## 3.7 TOC（本页目录）系统
 
-### 3.7.1 桌面端：右侧导轨（少数派式）
+### 3.7.1 桌面端：章节擦洗条（2026-08-15 回写：TOC-002，由常驻面板演进）
 
-**交互设计**：
-- 常态：右侧一条细线导轨，标记当前阅读位置
-- Hover：导轨展开成完整目录面板
-- 点击导轨任意位置：跳转到对应章节
-- 滚动页面：导轨上的指示器跟随移动
+**设计哲学**（17-toc-scrubber）：让内容发光，让界面退后——目录从「并列的一列文字」
+退化为「贴着滚动轴的安静形状」（Calm Technology，章节擦洗条）。
 
-**视觉设计**：
+**交互设计**（≥1280px 三栏布局右侧栏）：
+- 默认形态：章节擦洗条——沿正文右缘的条形/刻度阵列，每条 = 一个章节（h2/h3）
+- 安静驻留（opacity 0.5），hover 轨道渐显至 1
+- 短 hover（≤300ms）：该条拉长/变亮（CSS :hover 即时），不出文字
+- 长 hover（≥500ms）：条左侧浮出标题气泡（JS timer，500ms 阈值）
+- 滚动侦测：IntersectionObserver 高亮当前章节（激活条拉长至 24px + 主色）
+- 点击条：平滑滚动到对应章节（锚点 URL 同步更新，replaceState）
+- 轨道端点「展开」按钮：点击 ↔ 完整文字面板互斥（可发现性兜底，17 §6）
+- 键盘：轨道 Tab 可达（tabindex=0），方向键 roving tabindex，Enter 跳转，
+  焦点态揭示气泡（等价长 hover）；Esc 收回
+- <1280px 隐藏右侧栏（两栏布局）；≤768px 转移动端底部面板
+
+**视觉设计**（默认 Bar 形态；Serif/Modern 为 Tick 竖刻度，见 17 §1.2/§4）：
 ```
-    导轨（常态）       Hover 展开面板
-┌───┐            ┌───────────────┐
-│ ● │  标题 1    │ ● 标题 1      │
-│   │            │   1.1 子标题  │
-│   │  标题 2    │ ○ 标题 2      │← 当前章节
-│   │            │   2.1 子标题  │
-│ ○ │  标题 3    │ ○ 标题 3      │
-│   │            │   3.1 子标题  │
-└───┘            └───────────────┘
+正文区                   轨道（6px 宽，贴正文右缘）
+┌────────────────┐      ┌──┐
+│  第一章标题      │      │▬▬│ ← 默认条（宽 16px 高 2px）
+│  正文……         │      │──│
+│  1.1 小节       │      │▬▬│ ← h3 子条（宽 60%，视觉降级）
+│                │      │  │
+│  第二章标题      │      │▬▬│ ← 激活条：拉长至 24px + 主色点亮
+└────────────────┘      └──┘
 ```
+
+> 2026-08-15 演进记录：TOC-001 常驻文字面板（220px）→ TOC-002 章节擦洗条（17-toc-scrubber，
+> 用户确认对齐点 A）。文字面板保留为「展开态」与移动端 sheet 的渲染出口（同一 headings
+> 数据，两个渲染出口）；早期"细线导轨 + 指示点"设计（toc-dots）已移除——死代码清理。
 
 ### 3.7.2 移动端：底部按钮 + 弹出面板
 
@@ -636,6 +661,7 @@ themes/
 - 点击弹出底部面板，显示完整目录
 - 支持手势下滑关闭
 - 面板高度不超过屏幕 70%
+- 移动端无 hover，文字列表是唯一可达形态（轨道 display:none）
 
 ### 3.7.3 TOC 生成规则
 
@@ -643,6 +669,7 @@ themes/
 - 当前阅读的标题高亮（通过 IntersectionObserver 检测）
 - 点击平滑滚动到对应位置
 - 锚点 URL 同步更新
+- 无 h2/h3 / 无 JS / <1280px 时轨道隐藏（SSG file:// 直出不回归）
 
 ---
 

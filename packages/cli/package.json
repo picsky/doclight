@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "doclight",
   "version": "0.1.0",
   "license": "MIT",
@@ -12,9 +12,13 @@
     "@resvg/resvg-js": "^2.6.2",
     "@doclight/mcp-server": "workspace:*",
     "@doclight/renderer": "workspace:*",
+    "jsdom": "^30.0.1",
     "katex": "^0.18.4",
     "mermaid": "^11.16.1",
     "prismjs": "^1.30.0",
     "qrcode": "^1.5.4"
+  },
+  "bin": {
+    "doclight": "./dist/cli.mjs"
   }
 }

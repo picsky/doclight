@@ -111,6 +111,7 @@
 | **WCAG** | Web Content Accessibility Guidelines | Web 内容无障碍指南 |
 | **FOIT** | Flash of Invisible Text | 不可见文本闪烁（Web Font 加载问题） |
 | **LCP** | Largest Contentful Paint | 最大内容绘制，性能指标 |
+| **章节擦洗条** | Chapter Scrubber | 将文章目录抽象为条形/刻度阵列的导航形态（TOC-002）：默认安静驻留、hover 渐进披露，属 Calm Technology 模式 |
 
 ---
 

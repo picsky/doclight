@@ -1,42 +1,45 @@
 /*
- * minimal —— Minimal（默认）设计语言显式主题包（11-default-themes §3.1，VIS-001）
+ * minimal —— Minimal（设计宪法默认设计语言）显式主题包（VIS-001 + 设计对齐 2026-08-16）
  *
- * 定位：技术文档事实标准审美——teal 唯一彩色 + 纯灰阶、克制的 6px 圆角、680px 行宽。
- * 默认主题（零注入）即本设计语言；`theme: "minimal"` 显式选择时加载本包，
- * 与默认视觉完全一致（令牌对齐），另附少量组件级打磨：
- * - 侧边栏当前项：teal 左竖线（导航定位更清晰）
- * - 行内代码：浅 teal 底（技术文章可读性关键，04 §4.2）
- * - 表格行 hover：浅灰提示
- * - 中文标题：微字距（标题密度）
+ * 定位：技术文档事实标准审美——松绿 Pine 唯一彩色 + 暖调中性灰阶、克制圆角（8/10px）、
+ * 700px 行宽。默认主题（零注入）即本设计语言；`theme: "minimal"` 显式选择时加载本包，
+ * 与默认视觉完全一致（令牌对齐——逐令牌与 site.ts DEFAULT_THEME_CSS 对齐），
+ * 另附少量组件级打磨：
+ * - 侧边栏当前项：松绿左竖线（导航定位更清晰，演示页同款）
+ * - 行内代码：浅 surface 底（技术文章可读性关键）
+ * - 表格行 hover：浅灰提示（演示页同款）
  *
  * 主题 = CSS 变量覆盖层（THEME-002）：只覆盖公开令牌 + 组件级规则，不侵入核心结构。
- * 合规：对比度 WCAG AA / 8pt 网格 / 1.25 字号节奏（design-compliance 门禁）。
+ * 设计宪法（docs/design-new/DESIGN.md）：单一强调色 / 暖调中性色 / 8pt 网格 /
+ * 批准类型阶 / 对比度（正文 ≥7 AAA、辅助 ≥4.5 AA）。
  */
 :root {
-  --color-primary: #0d9488; --color-primary-hover: #0f766e; --color-primary-light: #ccfbf1;
-  --color-bg: #ffffff; --color-bg-soft: #f9fafb; --color-bg-code: #f3f4f6;
-  --color-border: #e5e7eb; --color-border-soft: #f3f4f6;
-  --color-text-muted: #71717a; --color-text-secondary: #6b7280;
-  --color-text: #374151; --color-text-strong: #111827;
-  --color-success: #059669; --color-warning: #d97706; --color-error: #dc2626; --color-info: #2563eb;
-  --radius-sm: 4px; --radius: 6px; --radius-lg: 8px;
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05); --shadow: 0 1px 3px rgba(0,0,0,0.1);
+  --accent: #14714e; --accent-hover: #0e5a3d; --accent-soft: rgba(20,113,78,.07); --accent-ink: #14714e;
+  --bg: #ffffff; --bg-subtle: #fafaf8; --surface: #f5f5f2;
+  --text: #1b1b18; --text-2: #57554e; --text-3: #6e6b62;
+  --line: rgba(27,27,24,.08); --line-strong: rgba(27,27,24,.16);
+  --success: #3d9e4f; --warning: #b45309; --error: #b3261e;
+  --code-bg: #f7f7f4; --code-line: rgba(27,27,24,.09);
+  --syn-k: #7c3aed; --syn-s: #0e7490; --syn-c: #8a877c; --syn-n: #b45309; --syn-f: #14714e; --syn-p: #57554e;
+  --topbar-bg: rgba(255,255,255,.82);
+  --shadow-pop: 0 12px 40px -12px rgba(27,27,24,.18), 0 2px 8px -2px rgba(27,27,24,.08);
+  --radius: 10px; --radius-sm: 8px;
 }
 [data-theme="dark"] {
-  --color-primary: #2dd4bf; --color-primary-hover: #5eead4; --color-primary-light: #134e4a;
-  --color-bg: #0a0a0a; --color-bg-soft: #171717; --color-bg-code: #262626;
-  --color-border: #262626; --color-border-soft: #1f1f1f;
-  --color-text-muted: #737373; --color-text-secondary: #a3a3a3;
-  --color-text: #d4d4d4; --color-text-strong: #f5f5f5;
-  --color-success: #10b981; --color-warning: #f59e0b; --color-error: #ef4444; --color-info: #3b82f6;
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3); --shadow: 0 1px 3px rgba(0,0,0,0.4);
+  --accent: #63d2a0; --accent-hover: #85e0b8; --accent-soft: rgba(99,210,160,.10); --accent-ink: #63d2a0;
+  --bg: #111110; --bg-subtle: #161614; --surface: #1c1c19;
+  --text: #ebeae5; --text-2: #a5a29a; --text-3: #9a968c;
+  --line: rgba(235,234,229,.09); --line-strong: rgba(235,234,229,.18);
+  --success: #4cc36c; --warning: #f59e0b; --error: #f87171;
+  --code-bg: #151513; --code-line: rgba(235,234,229,.10);
+  --syn-k: #d699b6; --syn-s: #a7c080; --syn-c: #7a8478; --syn-n: #e69875; --syn-f: #83c092; --syn-p: #a5a29a;
+  --topbar-bg: rgba(17,17,16,.8);
+  --shadow-pop: 0 16px 48px -12px rgba(0,0,0,.6), 0 2px 8px -2px rgba(0,0,0,.4);
 }
 /* ===== 组件级打磨（默认 Minimal 语言之上的增量） ===== */
-/* 侧边栏当前项：字重由默认主题定义（极致安静——无背景无光晕） */
-.sidebar a.active { font-weight: 600; }
-/* 行内代码：浅 teal 底 + teal 文字（技术文章强调） */
-article code:not(pre code) { background: var(--color-primary-light); color: var(--color-primary-hover); }
-/* 表格行 hover：浅灰提示 */
-.table-wrap table tr:hover td { background: var(--color-bg-soft); }
-/* 中文标题微字距（标题密度，04 §4.4） */
-article h1, article h2 { letter-spacing: 0.01em; }
+/* 侧边栏当前项：松绿左竖线 + 浅底（演示页同款） */
+.side-item.active::before { background: var(--accent); }
+/* 行内代码：浅 surface 底（技术文章强调，克制） */
+article code:not(pre code) { background: var(--surface); }
+/* 表格行 hover：浅灰提示（演示页同款） */
+.table-wrap tbody tr:hover { background: var(--bg-subtle); }

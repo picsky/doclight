@@ -1,4 +1,4 @@
-﻿/**
+/**
  * dev server（02 §2.4 形态①，DEV-001 + PLUG-009 插件集成）
  *
  * Node 原生 http：请求文档路径 → 渲染内核输出完整 HTML（首屏直出）→ 返回。
@@ -11,11 +11,11 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { mkdtempSync, readFileSync, rmSync, statSync, watch } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve, sep } from "node:path";
-import { buildNavTree, render } from "@doclight/renderer";
+import { buildNavTree, render, analyzeDoc } from "@doclight/renderer";
 import { loadSite, McpServer, mcpHttpHandler } from "@doclight/mcp-server";
 import { buildSite } from "./build.ts";
 import { buildCapabilityManifest } from "./capabilities.ts";
-import { buildSearchData, displayBundlePath, mimeFor, nodeModulesBase, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
+import { buildSearchData, collectNavTitles, countWords, displayBundlePath, firstH1Text, mimeFor, nodeModulesBase, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
 import { BuildPluginPipeline } from "./plugins.ts";
 import type { PluginDef, RenderContext } from "../../core/src/plugin.ts";
 
@@ -32,6 +32,20 @@ function extractFrontmatter(md: string): Record<string, unknown> {
     fm[key] = line.slice(idx + 1).trim().replace(/^["']|["']$/g, "");
   }
   return fm;
+}
+
+/** 页面更新时间（与 build.docUpdatedAt 同一规则：frontmatter.date/updated 优先，缺省文件 mtime） */
+function docUpdatedAtDev(frontmatter: Record<string, unknown>, filePath: string): string | undefined {
+  const raw = frontmatter.date ?? frontmatter.updated;
+  if (typeof raw === "string") {
+    const t = Date.parse(raw);
+    if (!Number.isNaN(t)) return new Date(t).toISOString();
+  }
+  try {
+    return statSync(filePath).mtime.toISOString();
+  } catch {
+    return undefined;
+  }
 }
 
 export interface DevServerOptions {
@@ -55,6 +69,13 @@ export interface DevServerOptions {
   reloadPlugins?: () => PluginDef[] | Promise<PluginDef[] | null> | null;
   /** PLUG-014：插件运行时配置（doclight.json plugins，由 CLI 层注入；注入页面供展示层自动注册） */
   pluginConfigs?: Array<{ name: string; config?: Record<string, unknown>; enabled?: boolean }>;
+  /** 设计对齐（2026-08-16）：站点镀铬（顶栏版本按钮 / GitHub 图标 / footer 链接与状态） */
+  chrome?: {
+    version?: string;
+    github?: string;
+    footerLinks?: Array<{ label: string; href: string }>;
+    statusText?: string;
+  };
 }
 
 export interface DevServer {
@@ -175,9 +196,11 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
     }
   }
 
-  // 首次扫描：收集文档 + 构建导航
+  // 首次扫描：收集文档 + 构建导航（frontmatter 标题驱动，2026-08 修复文件名显示）
   let mdFiles = walkMd(docsDir);
-  let navHtml = renderNav(buildNavTree(mdFiles));
+  let navTitles = collectNavTitles(docsDir, mdFiles);
+  let navTree = buildNavTree(mdFiles, navTitles);
+  let navHtml = renderNav(navTree);
 
   /** 解析请求路径为文档根目录内的相对路径；越界返回 null */
   function safeRelPath(urlPath: string): string | null {
@@ -203,8 +226,9 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
   }
 
   const sseClients = new Set<ServerResponse>();
-  /** 搜索索引缓存（启动即建 + 文件变更后重建；version 内联进页面供持久化校验，03 §3.8.5） */
-  let searchIndexCache: ReturnType<typeof buildSearchData> = buildSearchData(docsDir, mdFiles);
+  /** 搜索索引缓存（启动即建 + 文件变更后重建；version 内联进页面供持久化校验，03 §3.8.5；
+   *  nav 传入：搜索结果「节」标签，设计对齐演示页 ri-sec） */
+  let searchIndexCache: ReturnType<typeof buildSearchData> = buildSearchData(docsDir, mdFiles, { nav: navTree });
 
   /**
    * WORK-001 增量渲染：页面渲染缓存（路径 + mtime + 字节数 为键）——只重渲染变更文档。
@@ -232,8 +256,10 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
   function onFsChange() {
     try {
       mdFiles = walkMd(docsDir);
-      navHtml = renderNav(buildNavTree(mdFiles));
-      searchIndexCache = buildSearchData(docsDir, mdFiles);
+      navTitles = collectNavTitles(docsDir, mdFiles);
+      navTree = buildNavTree(mdFiles, navTitles);
+      navHtml = renderNav(navTree);
+      searchIndexCache = buildSearchData(docsDir, mdFiles, { nav: navTree });
     } catch {
       /* 扫描失败（目录临时不可读）时保留旧导航 */
     }
@@ -271,7 +297,7 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
 
     // 导航数据端点（展示层 / 后续形态用）
     if (urlPath === "/__doclight/docs.json") {
-      sendJson(res, 200, { version: 1, generatedAt: new Date().toISOString(), nav: buildNavTree(mdFiles) });
+      sendJson(res, 200, { version: 1, generatedAt: new Date().toISOString(), nav: buildNavTree(mdFiles, navTitles) });
       return;
     }
 
@@ -371,15 +397,17 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
       const source = readFileSync(join(docsDir, doc), "utf8");
       const fallbackTitle = doc.replace(/\.md$/, "");
       const fm = extractFrontmatter(source);
-      const title = typeof fm.title === "string" && fm.title ? fm.title as string : fallbackTitle;
+      const fmTitle = typeof fm.title === "string" && fm.title ? fm.title : undefined;
 
       // PLUG-009：构建时钩子管线（beforeRender → render → afterRender）
-      const ctx: RenderContext = { path: doc, title, frontmatter: fm, headings: [], isFirstRender: false };
+      const ctx: RenderContext = { path: doc, title: fmTitle ?? fallbackTitle, frontmatter: fm, headings: [], isFirstRender: false };
       const transformedMd = pipeline.runBeforeRender(source, ctx);
       // PLUG-006 接线：插件 extendMarked 扩展挂载进渲染内核
       const { html: renderedHtml } = render(transformedMd, { currentPath: doc, extraMarkedExtensions: pipeline.collectMarkedExtensions() });
       const html = pipeline.runAfterRender(renderedHtml, ctx);
       const slotContent = pipeline.collectSlotContent(ctx);
+      // 设计对齐（2026-08-16）：页标题 = frontmatter.title ?? 正文首个 h1 ?? 文件名主干
+      const title = fmTitle ?? firstH1Text(html) ?? fallbackTitle;
 
       const page = renderPage({
         title,
@@ -387,12 +415,25 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
         navHtml,
         contentHtml: html,
         form: "dev",
+        description: typeof fm.description === "string" && fm.description ? fm.description : typeof fm.summary === "string" && fm.summary ? fm.summary : undefined,
+        seo: {
+          // 2026-08 精致化：dev 形态也显示文章头部元信息（阅读时长/字数/更新时间；
+          // updatedAt 与 build 同一规则：frontmatter.date/updated 优先，缺省文件 mtime）
+          readingTime: analyzeDoc(source).readingTime,
+          wordCount: countWords(html),
+          updatedAt: docUpdatedAtDev(fm, join(docsDir, doc)),
+        },
         searchVersion: searchIndexCache.version,
         slotContent,
         themeCss: options.themeCss,
         defaultTheme: options.defaultTheme, // VIS-001：modern 等默认暗色主题在 dev 形态同样生效
         pluginCss: pipeline.collectPluginStyles(),
         pluginConfigs: options.pluginConfigs, // PLUG-014：dev 形态注入运行时配置
+        // 设计对齐（2026-08-16）：顶栏 topnav / eyebrow / 下一步卡片 / 上一页下一页
+        nav: navTree,
+        currentPath: doc,
+        summaries: searchIndexCache.summaries,
+        chrome: options.chrome,
       });
       renderCache.set(doc, { key: cacheKey, html: page });
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });

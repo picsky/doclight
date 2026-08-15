@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @doclight/mcp-server 入口（MCP-001/002/003 + MCP-006，Phase 4 + Phase 6 P1 实现）
  *
  * 读取端 MCP Server：只服务产物站点（dist-site，doclight build 产出），
@@ -22,6 +22,8 @@ import { McpServer, MCP_PROTOCOL_VERSION, MCP_SERVER_NAME, MCP_SERVER_VERSION } 
 import { runStdio } from "./stdio.ts";
 import { startHttpServer, mcpHttpHandler } from "./http.ts";
 import { TOOLS, findTool, McpError, toolDescriptors } from "./tools.ts";
+import { realpathSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
 export const mcpServerVersion = MCP_SERVER_VERSION;
 
@@ -51,7 +53,11 @@ function parseArgs(argv: string[]): Record<string, string> {
 }
 
 // 直接运行：node packages/mcp-server/src/index.ts --site <dir> [--port <n>] [--write-dir <dir>]
-if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+// DOCLIGHT_CLI_BUNDLE 守卫：本文件被 esbuild 打包进 doclight CLI（build-cli.mjs）时，
+// 入口检查会误触发（import.meta.url === process.argv[1] 都指向 cli.mjs）——CLI 构建
+// 通过 define 注入 DOCLIGHT_CLI_BUNDLE="1"，此处短路，避免 MCP server 抢占 CLI 端口。
+// realpathSync：npm link 全局安装后 argv[1] 是符号链接路径，需规范化后与真实路径比较。
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href && !process.env.DOCLIGHT_CLI_BUNDLE) {
   const opts = parseArgs(process.argv.slice(2));
   const siteDir = opts["site"] ?? "dist-site";
   const site = loadSite(siteDir, { writeDir: opts["write-dir"] });

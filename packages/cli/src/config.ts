@@ -27,9 +27,13 @@ export interface DoclightConfig {
   outputDir?: string;
   /** PLUG-008：启用的插件列表 */
   plugins?: PluginConfig[];
+  /** 设计对齐（2026-08-16）：站点镀铬——顶栏版本按钮 / GitHub 图标 / footer 链接与状态 */
+  version?: string;
+  github?: string;
+  footer?: { links?: Array<{ label: string; href: string }>; status?: string };
 }
 
-const KNOWN_KEYS = ["title", "description", "docsDir", "theme", "base", "siteUrl", "outputDir"] as const;
+const KNOWN_KEYS = ["title", "description", "docsDir", "theme", "base", "siteUrl", "outputDir", "version", "github"] as const;
 
 /** 加载配置文件：按候选路径顺序，首个存在且可解析者胜；全部失败返回空配置 */
 export function loadConfig(candidates: string[]): DoclightConfig {
@@ -51,6 +55,18 @@ export function loadConfig(candidates: string[]): DoclightConfig {
             config: typeof p.config === "object" && p.config ? (p.config as Record<string, unknown>) : undefined,
             enabled: p.enabled !== false,
           }));
+      }
+      // 设计对齐：宽松读取 footer 对象（links 数组 + status 文案）
+      if (raw.footer && typeof raw.footer === "object" && !Array.isArray(raw.footer)) {
+        const f = raw.footer as Record<string, unknown>;
+        const links = Array.isArray(f.links)
+          ? f.links
+              .filter((l): l is Record<string, unknown> => !!l && typeof l === "object" && typeof l.label === "string" && typeof l.href === "string")
+              .map((l) => ({ label: l.label as string, href: l.href as string }))
+          : undefined;
+        if (links?.length || typeof f.status === "string") {
+          cfg.footer = { ...(links?.length ? { links } : {}), ...(typeof f.status === "string" && f.status ? { status: f.status } : {}) };
+        }
       }
       return cfg;
     } catch {

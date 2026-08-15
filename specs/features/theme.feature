@@ -20,26 +20,32 @@ Feature: 完整主题令牌（设计令牌即视觉规范）
     Given 页面内容为纯段落
     Then 正文字号 16px、行高 1.75、行宽 680px（04 §4.2）
 
-## THEME-002 主题包（CSS 变量覆盖层）
+## THEME-002 主题包（CSS 变量覆盖层；DP-001 单主题收敛）
 
 Feature: 内置主题与自定义主题 CSS
 
-  Scenario: 内置主题注册表含 minimal / warm
+  Scenario: 内置主题注册表 = 唯一一套 minimal（DP-001）
     Given doclight-cli 的 BUILTIN_THEMES
-    Then 含 minimal 与 warm
-    And 两者均覆盖 :root 设计令牌且含 [data-theme="dark"] 暗色令牌
+    Then 含 minimal 且仅此一套
+    And 覆盖 :root 设计令牌且含 [data-theme="dark"] 暗色令牌
+
+  Scenario: DP-001 退役内置主题警告降级
+    Given theme:"serif"（或 modern / warm——已退役）
+    When resolveThemeCss() 或 buildSite()
+    Then 输出「已退役」警告
+    And 返回空字符串 / 产物零注入（降级默认主题，不伪造成功）
 
   Scenario: theme 配置注入主题覆盖层
     Given doclight.json theme:"minimal"
     When buildSite()
-    Then 产物 HTML 含 <style data-doclight-theme> 且内容覆盖 --color-primary
+    Then 产物 HTML 含 <style data-doclight-theme> 且内容覆盖设计令牌（--accent 松绿 Pine）
 
   Scenario: 缺省与 default 零注入
     Given theme 缺省或 "default"
     When resolveThemeCss()
     Then 返回空字符串（模板内置令牌即默认主题）
 
-  Scenario: 自定义 CSS 文件路径加载
+  Scenario: 自定义 CSS 文件路径加载（主题包机制保留）
     Given theme 指向存在的 CSS 文件
     When resolveThemeCss()
     Then 返回文件内容

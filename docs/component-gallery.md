@@ -47,13 +47,13 @@
 再不够 ③（完整插件，见 `docs/plugin-guide.md`）。与 Astryx「designer can make it theirs
 without forking」同构——DocLight 的「不 fork」= 不碰核心渲染与展示层。
 
-## 主题 = token 层（VIS-001 契约）
+## 主题 = token 层（THEME-002 契约；DP-001 单主题收敛）
 
-- 4 套设计语言 = 4 个独立 CSS 文件（`packages/cli/src/themes/*.css`），只覆盖公开令牌 + 组件级规则
-- 主题包元数据：`defaultTheme`（modern 默认暗色）
+- 唯一内置主题（`packages/cli/src/themes/minimal.css`，= 默认松绿 Pine 设计语言），只覆盖公开令牌 + 组件级规则
+- 自定义主题 = CSS 文件（`theme: "./my.css"`），可声明 `defaultTheme`（暗色优先）
 - **设计合规是硬门禁**：任何内置/默认主题改动必须过 `npm run verify` 的 visual check
-  （WCAG AA 对比度 / 8pt 网格 / 1.25 字号节奏）——视觉质量机器化保障，不靠主观判断
-- 像素级回归：`npm run verify:visual`（24 组截图基线 diff，基线人工锁定后生效）
+  （WCAG AAA/AA 对比度 / 8pt 网格 / 宪法批准类型阶）——视觉质量机器化保障，不靠主观判断
+- 像素级回归：`npm run verify:visual`（6 组截图基线 diff，基线人工锁定后生效）
 
 ## Agent 定制工作流（写入 AGENTS.md 的推荐路径）
 

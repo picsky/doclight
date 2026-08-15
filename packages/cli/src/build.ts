@@ -1,4 +1,4 @@
-﻿/**
+/**
  * doclight build —— SSG 静态导出（05-ssg-build §5.3，SSG-001 + SEO 全套 §5.4 + PLUG-009 插件集成）
  *
  * 三形态架构形态②：同一渲染内核（@doclight/renderer）输出完整静态站点。
@@ -34,9 +34,11 @@ import type { BuildContext, PluginDef, RenderContext } from "../../core/src/plug
 import {
   breadcrumbFor,
   buildSearchData,
+  collectNavTitles,
   copyVendor,
   countWords,
   displayBundlePath,
+  firstH1Text,
   isRootIndex,
   normalizeBase,
   ogCardSvg,
@@ -81,6 +83,13 @@ export interface BuildOptions {
   pluginConfigs?: Array<{ name: string; config?: Record<string, unknown>; enabled?: boolean }>;
   /** VIS-001：构建主题画廊（产物 gallery/——4 套设计语言 × 亮暗对比页，可部署可截图） */
   themes?: boolean;
+  /** 设计对齐（2026-08-16）：站点镀铬（顶栏版本按钮 / GitHub 图标 / footer 链接与状态） */
+  chrome?: {
+    version?: string;
+    github?: string;
+    footerLinks?: Array<{ label: string; href: string }>;
+    statusText?: string;
+  };
 }
 
 export interface BuildResult {
@@ -240,11 +249,13 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
   mkdirSync(outDir, { recursive: true });
 
   const mdFiles = walkMd(docsDir);
-  const navTree = buildNavTree(mdFiles);
+  // 导航用 frontmatter 标题（2026-08 前端审查 P1-2：此前显示文件名主干）
+  const navTree = buildNavTree(mdFiles, collectNavTitles(docsDir, mdFiles));
   const navHtml = renderNav(navTree, ".html", base);
 
   // 搜索索引预构建（SRCH-001：SSG 形态运行时直接加载；version=内容哈希，展示层持久化校验用）
-  const searchData = buildSearchData(docsDir, mdFiles, { pathSuffix: ".html" });
+  // nav 传入：搜索结果「节」标签（设计对齐演示页 ri-sec）
+  const searchData = buildSearchData(docsDir, mdFiles, { pathSuffix: ".html", nav: navTree });
   const searchVersion = searchData.version;
 
   /** sitemap 数据 + OG 卡收集 */
@@ -269,7 +280,15 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
     const slotContent = pipeline.collectSlotContent(ctx);
     // PLUG-012：插件 CSS（mermaid 等插件样式按需注入页面）
     const pluginCss = pipeline.collectPluginStyles();
-    const finalTitle = docTitle(frontmatter, rel);
+    // Phase 4 语义元数据（FRONT-001 + LLMS-001）：frontmatter 语义字段 + analyzeDoc 自动计算
+    // （提前到 seo 之前：readingTime 供页面头部可见元信息使用，2026-08 精致化）
+    const analysis = analyzeDoc(source);
+    // 设计对齐（2026-08-16）：页标题 = frontmatter.title ?? 正文首个 h1 ?? 文件名主干
+    // （正文首个 h1 由壳层 h1 承载——防重复标题，stripFirstH1 同规则）
+    const finalTitle =
+      typeof frontmatter.title === "string" && frontmatter.title
+        ? frontmatter.title
+        : firstH1Text(html) ?? docTitle(frontmatter, rel);
     const description = docDescription(frontmatter) ?? siteDescription;
     const canonicalPath = outRel === "index.html" ? "/" : `/${outRel}`;
     const ogSlug = outRel.replace(/\.html$/, "");
@@ -282,6 +301,7 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
       ...(siteUrl ? { siteUrl, canonicalPath, ogImage: `${siteUrl}${base}/og/${ogSlug}.png` } : {}),
       breadcrumb: breadcrumbFor(navTree, rel, ".html", base, finalTitle),
       wordCount: countWords(html),
+      readingTime: analysis.readingTime,
       updatedAt: docUpdatedAt(frontmatter, join(docsDir, rel)),
       markdownUrl,
       tokens,
@@ -305,6 +325,11 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
         defaultTheme: theme.defaultTheme, // VIS-001：modern 默认暗色在 SSG 形态生效
         pluginCss,
         pluginConfigs: options.pluginConfigs ?? cfg.plugins, // PLUG-014：doclight.json 插件配置注入（浏览器端自动注册）
+        // 设计对齐（2026-08-16）：顶栏 topnav / eyebrow / 下一步卡片 / 上一页下一页 / 搜索节标签
+        nav: navTree,
+        currentPath: rel,
+        summaries: searchData.summaries,
+        chrome: options.chrome,
       })
     );
     sitePages.push({
@@ -314,8 +339,7 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
       title: finalTitle,
       description,
     });
-    // Phase 4 语义元数据（FRONT-001 + LLMS-001）：frontmatter 语义字段 + analyzeDoc 自动计算
-    const analysis = analyzeDoc(source);
+    // 语义元数据收集（Phase 4：llms.txt / llms-full.txt / docs.json 共用）——analysis 已在 writeDoc 开头计算
     docMetas.push({
       path: rel,
       url: base ? `${base}${canonicalPath}` : canonicalPath,

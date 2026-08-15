@@ -1,4 +1,4 @@
-﻿/**
+/**
  * doclight bundle —— 单文件便携包（05-ssg-build §5.3.4，CLI-002，形态③）
  *
  * 复用 SSG 渲染内核，输出单个自包含 doclight.html：
@@ -10,15 +10,15 @@
  *
  * 产物特征（05 §5.3.4）：零依赖（file:// 三引擎可用）/ 跨浏览器 / 离线可用 / 可分发 / AI 就绪。
  */
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { buildNavTree, render } from "@doclight/renderer";
+import { buildNavTree, render, analyzeDoc } from "@doclight/renderer";
 import { toFile as qrToFile } from "qrcode";
 import { loadConfig } from "./config.ts";
 import { buildCapabilityManifest } from "./capabilities.ts";
 import { resolveThemePackage } from "./themes.ts";
 import { BuildPluginPipeline } from "./plugins.ts";
-import { buildSearchData, displayBundlePath, nodeModulesBase, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
+import { articleBodyHtml, buildSearchData, collectNavTitles, countWords, displayBundlePath, firstH1Text, nodeModulesBase, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
 import type { PluginDef, RenderContext } from "../../core/src/plugin.ts";
 
 export interface BundleOptions {
@@ -42,6 +42,13 @@ export interface BundleOptions {
   /** PLUG-014：插件运行时配置（doclight.json plugins，注入页面供展示层自动注册；
    *  缺省回退 bundleSite 内部 loadConfig 解析结果） */
   pluginConfigs?: Array<{ name: string; config?: Record<string, unknown>; enabled?: boolean }>;
+  /** 设计对齐（2026-08-16）：站点镀铬（顶栏版本按钮 / GitHub 图标 / footer 链接与状态） */
+  chrome?: {
+    version?: string;
+    github?: string;
+    footerLinks?: Array<{ label: string; href: string }>;
+    statusText?: string;
+  };
 }
 
 export interface BundleResult {
@@ -60,6 +67,11 @@ export interface BundleResult {
 /** 页面内容键：根级置顶页 → "/"，其余 → "/{outRel}" */
 function pageKey(outRel: string): string {
   return outRel === "index.html" ? "/" : `/${outRel}`;
+}
+
+/** 首页源路径（与 build 一致）：根级 README/index 中 README 优先；无则首篇文档 */
+function rootHomePath(mdFiles: string[]): string {
+  return mdFiles.find((rel) => /^README\.md$/i.test(rel)) ?? mdFiles.find((rel) => /^index\.md$/i.test(rel)) ?? mdFiles[0] ?? "";
 }
 
 /**
@@ -82,6 +94,10 @@ export function inlineVendorHtml(extraVendor?: Record<string, { pkg: string; rel
 export async function bundleSite(options: BundleOptions = {}): Promise<BundleResult> {
   const start = Date.now();
   const cfg = loadConfig([join(process.cwd(), "doclight.json"), join(resolve(options.dir ?? "docs"), "doclight.json")]);
+  // 设计对齐：站点镀铬（CLI 选项优先，回退 doclight.json）
+  const chrome = options.chrome ?? (cfg.version || cfg.github || cfg.footer
+    ? { version: cfg.version, github: cfg.github, footerLinks: cfg.footer?.links, statusText: cfg.footer?.status }
+    : undefined);
   const docsDir = resolve(options.dir ?? cfg.docsDir ?? "docs");
   const outDir = resolve(options.outDir ?? "dist-bundle");
   const siteTitle = options.title ?? cfg.title ?? "DocLight";
@@ -91,7 +107,8 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
   mkdirSync(outDir, { recursive: true });
 
   const mdFiles = walkMd(docsDir);
-  const navTree = buildNavTree(mdFiles);
+  // 导航用 frontmatter 标题（2026-08 前端审查 P1-2：此前显示文件名主干）
+  const navTree = buildNavTree(mdFiles, collectNavTitles(docsDir, mdFiles));
   // hash 路由：导航链接 #/xxx（file:// 无法 pushState）
   const navHtml = renderNav(navTree, ".html", "", true);
 
@@ -99,11 +116,17 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
   const pipeline = new BuildPluginPipeline(options.buildPlugins ?? []);
   const extraMarkedExtensions = pipeline.collectMarkedExtensions();
 
+  // 内嵌搜索索引（pathSuffix=".html"，展示层直接构建，零网络；nav 传入：结果「节」标签；
+  // 提前构建：逐页文章体（articleBodyHtml）的「下一步」卡片描述需要 summaries）
+  const searchData = buildSearchData(docsDir, mdFiles, { pathSuffix: ".html", nav: navTree });
+
   const pages: Record<string, string> = {};
   const titles: Record<string, string> = {};
   let homeTitle = siteTitle;
   let homeContent = "";
   let homeSlotContent: Record<string, string> = {};
+  // 设计对齐：首页文章头部元信息（meta 行——三形态同构 SNAP-001：bundle 与 dev/SSG 一致）
+  let homeSeo: { readingTime?: number; wordCount?: number; updatedAt?: string } = {};
 
   const rootIndexFiles = mdFiles.filter((rel) => /^README\.md$/i.test(rel) || /^index\.md$/i.test(rel));
   const rootHome = rootIndexFiles.find((rel) => /^README\.md$/i.test(rel)) ?? rootIndexFiles[0];
@@ -120,18 +143,59 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
       linkSuffix: ".html",
       extraMarkedExtensions,
     });
-    const title = typeof frontmatter.title === "string" && frontmatter.title ? frontmatter.title : fallbackTitle;
-    ctx.title = title;
     ctx.frontmatter = frontmatter;
     const html = pipeline.runAfterRender(renderedHtml, ctx);
+    // 设计对齐（2026-08-16）：页标题 = frontmatter.title ?? 正文首个 h1 ?? 文件名主干
+    const title =
+      typeof frontmatter.title === "string" && frontmatter.title
+        ? frontmatter.title
+        : firstH1Text(html) ?? fallbackTitle;
+    ctx.title = title;
     const key = pageKey(outRel);
-    pages[key] = html;
+    // 设计对齐：每页完整文章体（crumb / eyebrow / h1 / lede / meta / 正文 / 下一步 / 上一页下一页）——
+    // SPA 导航后与 dev/SSG 同构（SNAP-001）；插槽为壳层单实例（bundle 形态边界），占位保持一致
+    const description =
+      typeof frontmatter.description === "string" && frontmatter.description
+        ? frontmatter.description
+        : typeof frontmatter.summary === "string" && frontmatter.summary
+          ? frontmatter.summary
+          : undefined;
+    const analysis = analyzeDoc(source);
+    const rawDate = frontmatter.date ?? frontmatter.updated;
+    let updatedAt: string | undefined;
+    if (typeof rawDate === "string") {
+      const t = Date.parse(rawDate);
+      if (!Number.isNaN(t)) updatedAt = new Date(t).toISOString();
+    }
+    if (!updatedAt) {
+      try {
+        updatedAt = statSync(join(docsDir, rel)).mtime.toISOString();
+      } catch {
+        /* 无 mtime 时省略更新时间 */
+      }
+    }
+    const pageSeo = { readingTime: analysis.readingTime, wordCount: countWords(html), ...(updatedAt ? { updatedAt } : {}) };
+    pages[key] = articleBodyHtml({
+      title,
+      contentHtml: html,
+      description,
+      seo: pageSeo,
+      nav: navTree,
+      currentPath: rel,
+      summaries: searchData.summaries,
+      linkSuffix: ".html",
+      hash: true,
+      base: "",
+      slotBefore: '<span data-doclight-slot="content:before"></span>',
+      slotAfter: '<span data-doclight-slot="content:after"></span>',
+    });
     titles[key] = `${title} · ${siteTitle}`;
     if (key === "/") {
       homeTitle = title;
       homeContent = html;
       // 插槽内容注入壳层（单实例：插件静态插槽随壳层常驻，路由切换不重渲染——bundle 形态边界，见插件文档）
       homeSlotContent = pipeline.collectSlotContent(ctx);
+      homeSeo = pageSeo;
     }
     count++;
   }
@@ -145,8 +209,6 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
     titles["/"] = `${homeTitle} · ${siteTitle}`;
   }
 
-  // 内嵌搜索索引（pathSuffix=".html"，展示层直接构建，零网络）
-  const searchData = buildSearchData(docsDir, mdFiles, { pathSuffix: ".html" });
   const bundleData = { version: 1, pages, titles, nav: navTree, searchIndex: searchData };
 
   const displayScript = readFileSync(displayBundle, "utf8");
@@ -167,6 +229,12 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
     defaultTheme: theme.defaultTheme, // VIS-001：modern 默认暗色在 bundle 形态生效
     pluginCss: pipeline.collectPluginStyles(),
     pluginConfigs: options.pluginConfigs ?? cfg.plugins, // PLUG-014：bundle 形态同样注入运行时配置（展示层自动注册）
+    // 设计对齐（2026-08-16）：顶栏 topnav / eyebrow / 下一步卡片 / 上一页下一页（首页为壳层锚点）
+    nav: navTree,
+    currentPath: rootHomePath(mdFiles),
+    summaries: searchData.summaries,
+    chrome,
+    seo: homeSeo, // 首页文章头部元信息（meta 行，三形态同构）
   });
 
   const file = join(outDir, options.filename ?? "doclight.html");

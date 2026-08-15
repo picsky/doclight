@@ -99,7 +99,8 @@ function addTableScrollHints(scope: HTMLElement): void {
     update();
     wrap.addEventListener("scroll", update, { passive: true });
     // 内容渲染（KaTeX/高亮）后尺寸变化，滚动事件外兜底重算
-    new ResizeObserver(update).observe(wrap);
+    // 2026-08 修复：ResizeObserver 特性守卫（老浏览器/WebView 缺失时此前整条 mount 中断）
+    if (typeof ResizeObserver !== "undefined") new ResizeObserver(update).observe(wrap);
   });
 }
 
@@ -109,20 +110,20 @@ export function extractLanguage(className: string): string | null {
   return m ? m[1]! : null;
 }
 
-/* ===== 标题锚点（VIS-002 惊艳化）：h2/h3 注入 # 锚点，hover 显示，点击复制节链接 ===== */
+/* ===== 标题锚点（设计对齐：演示页 .anchor，hover 显示，点击复制节链接） ===== */
 
 /** 纯函数：生成锚点链接 HTML（供测试与注入复用） */
 export function anchorHtml(id: string): string {
-  return `<a class="doclight-anchor" href="#${encodeURIComponent(id)}" data-anchor-id="${encodeURIComponent(id)}" aria-label="链接到本节" title="复制节链接">#</a>`;
+  return `<a class="anchor" href="#${encodeURIComponent(id)}" data-anchor-id="${encodeURIComponent(id)}" aria-label="链接到本节" title="复制节链接">#</a>`;
 }
 
 /** 注入锚点：给 article 内 h2/h3（有 id）追加 # 链接；点击复制完整节 URL */
 function addAnchors(scope: HTMLElement): void {
   scope.querySelectorAll<HTMLElement>("article h2[id], article h3[id]").forEach((h) => {
-    if (h.querySelector(".doclight-anchor")) return; // 防重复
+    if (h.querySelector(".anchor")) return; // 防重复
     const id = h.id;
     const a = document.createElement("a");
-    a.className = "doclight-anchor";
+    a.className = "anchor";
     a.href = `#${encodeURIComponent(id)}`;
     a.dataset.anchorId = id;
     a.setAttribute("aria-label", "链接到本节");
@@ -154,16 +155,27 @@ function addAnchors(scope: HTMLElement): void {
   });
 }
 
-/* ===== code-block：复制按钮（零依赖，同步） ===== */
+/* ===== code-block：复制按钮（渲染内核直出 .code-head，此处只绑事件，设计对齐） ===== */
 
-/** 复制动作完成后的短暂反馈 */
-function flashCopied(btn: HTMLButtonElement, original: string): void {
-  btn.textContent = "✓ 已复制";
-  btn.classList.add("copied");
-  setTimeout(() => {
-    btn.textContent = original;
-    btn.classList.remove("copied");
-  }, 1500);
+const CHECK_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l5 5L20 6"/></svg>';
+
+/** 绑定单个复制按钮：点击复制代码 + 「✓ 已复制」反馈（1.6s 恢复，演示页一致） */
+function bindCopyButton(btn: HTMLButtonElement, pre: HTMLPreElement): void {
+  const original = btn.innerHTML;
+  const showCopied = () => {
+    btn.innerHTML = `${CHECK_SVG}已复制`;
+    setTimeout(() => {
+      btn.innerHTML = original;
+    }, 1600);
+  };
+  btn.addEventListener("click", () => {
+    const text = pre.querySelector("code")?.textContent ?? "";
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(showCopied).catch(() => fallbackCopy(pre, showCopied));
+    } else {
+      fallbackCopy(pre, showCopied);
+    }
+  });
 }
 
 /** 剪贴板 API 不可用时降级：选中源码（execCommand 兼容旧浏览器） */
@@ -186,38 +198,12 @@ function fallbackCopy(pre: HTMLPreElement, done: () => void): void {
 
 function addCopyButtons(scope: HTMLElement): void {
   scope.querySelectorAll<HTMLPreElement>("pre.doclight-code").forEach((pre) => {
-    if (pre.dataset.copyAdded) return; // 防重复（dataset 标记）
-    pre.dataset.copyAdded = "1";
-    pre.classList.add("has-copy");
-    // 工具条脱离滚动容器（2026-08-14 修复：pre 横向滚动时复制按钮/语言标签跟随滚动）：
-    // wrapper 为工具条定位基准，pre 独立滚动
-    const wrap = document.createElement("div");
-    wrap.className = "doclight-code-wrap";
-    pre.parentNode?.insertBefore(wrap, pre);
-    wrap.appendChild(pre);
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "doclight-copy";
-    btn.setAttribute("aria-label", "复制代码");
-    btn.textContent = "复制";
-    btn.addEventListener("click", () => {
-      const text = pre.querySelector("code")?.textContent ?? "";
-      if (navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText(text).then(() => flashCopied(btn, "复制")).catch(() => fallbackCopy(pre, () => flashCopied(btn, "复制")));
-      } else {
-        fallbackCopy(pre, () => flashCopied(btn, "复制"));
-      }
-    });
-    wrap.appendChild(btn);
-    // VIS-002：语言标签（工具条左上角，与复制按钮同一行——Next.js 风格头部工具条）
-    const code = pre.querySelector("code");
-    const lang = code ? extractLanguage(code.className) : null;
-    if (lang) {
-      const tag = document.createElement("span");
-      tag.className = "doclight-lang";
-      tag.textContent = lang;
-      wrap.appendChild(tag);
-    }
+    const block = pre.closest<HTMLElement>(".codeblock");
+    if (!block) return;
+    if (block.dataset.copyAdded) return; // 防重复
+    block.dataset.copyAdded = "1";
+    const btn = block.querySelector<HTMLButtonElement>(".copy-btn");
+    if (btn) bindCopyButton(btn, pre);
   });
 }
 

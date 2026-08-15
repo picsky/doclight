@@ -6,7 +6,21 @@
 
 DocLight 是一款**主要由 Agent 自主开发**的开源文档站引擎。你不是辅助人类写代码——你就是主要开发者之一。你的产出质量 = 产品质量。因此，自迭代、可验证、可追溯是硬要求。
 
-## 当前状态（2026-08-13，Phase 5 插件生态全量完成）
+## 当前状态（2026-08-16，设计对齐宪法完成 + Phase 7 设计精修进行中）
+
+> **Phase 7 ✅ 计划批准 + DP-001 完成（DESIGN-POLISH，2026-08-16）**：用户决策——**只做一套主题，把一套做好做精**；其余优化方向全部通过。
+> 规格：`docs/tech-design/18-design-polish.md`。**DP-001 单主题收敛 ✅**：serif/modern/warm 完全退役
+> （文件删除 + RETIRED_THEMES 警告降级默认 + 画廊/门禁/视觉基线收敛 24→6 张；自定义 CSS 主题机制保留；
+> verify 8/8 + 单测 334；交接 `docs/agent-handoffs/PHASE-7-dp001-theme-consolidation-complete.md`）。
+> 下一步：DP-002 品牌层 → DP-003 阅读状态感 → DP-004 内容纵深 → DP-005 导航智能 → DP-006 动效工艺 → DP-007 AI 原生身份。
+
+> **设计对齐（2026-08-16）**：前端整体对齐 docs/design-new/ 全新设计——演示页 1:1 复刻为默认主题，
+> DESIGN.md 立为设计第一文档（宪法）。令牌体系全局替换（--bg/--text/--accent 等，禁止新旧并存）；
+> 组件（代码块头/文件名、Tabs、步骤、下一步卡片、上一页下一页、目录指示条+反馈卡、搜索弹层、进度条、
+> CJK 空隙、锚点闪烁）与交互全部对齐演示页；sanitize 放行安全 SVG 子集（图解组件，宪法 §4.5）；
+> 4 套内置主题基于新令牌重写（宪法合规）；合规门禁迁移（正文 ≥7 AAA / 批准类型阶）+ 视觉基线重拍；
+> 新增配置键 version/github/footer（schema 已登记）；三形态同构（articleBodyHtml 共享组装）。
+> 交接：docs/agent-handoffs/DESIGN-ALIGNMENT-COMPLETE.md
 
 - **Phase 1 ✅ 完整收官**：REND-001 渲染内核（marked+DOMPurify+frontmatter）、NAV-001 导航树、DEV-001 dev server、展示层（主题/SPA 路由+钩子 PLUG-002/移动端侧边栏）+ **TOC-001 本页目录** + **THEME-001 完整主题令牌** + **PLUG-001 事件总线**
 - **Phase 2 搜索 ✅ 主体**：**SRCH-001** 内置搜索（Cmd/Ctrl+K、中文 bigram 检索、索引懒加载、最近搜索、**localStorage 持久化 + 内容哈希版本**）；**未引真实 MiniSearch**（零依赖构建约束），同形状 API 自研，可一处替换

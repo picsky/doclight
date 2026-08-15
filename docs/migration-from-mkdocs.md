@@ -61,7 +61,7 @@ doclight deploy
 | `site_name` | doclight.json `title` | 站点标题 |
 | `docs_dir` | `--dir` | 迁移工具自动识别自定义目录 |
 | `nav:` | 自动生成 | 文件夹 = 分组；数字前缀控制排序 |
-| `theme: material` | 内置主题 | default / minimal / warm 三套 + 设计令牌（见 [themes](themes.md)） |
+| `theme: material` | 内置主题 | 唯一内置主题（default = minimal，松绿 Pine）+ 自定义 CSS 主题包（见 [themes](themes.md)） |
 | `markdown_extensions` | 内置 | Mermaid 容错 / 代码高亮+复制 / KaTeX / 容器全部开箱 |
 | `extra_css` | doclight.json `theme` | 指向你的 CSS 文件即可 |
 | `plugins: - search` | 内置 | Ctrl+K 搜索开箱即用 |

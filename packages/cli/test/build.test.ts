@@ -1,4 +1,4 @@
-﻿import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -92,10 +92,10 @@ describe("doclight build（SSG-001 静态导出）", () => {
     buildSite({ dir: docsDir, outDir: d });
     // README（→ index.html）里的相对链接 [去入门](intro.md) 被渲染为 .html
     const index = readFileSync(join(d, "index.html"), "utf8");
-    const article = index.slice(index.indexOf("<article>"), index.indexOf("</article>"));
+    const article = index.slice(index.indexOf("<article"), index.indexOf("</article>"));
     expect(article).toContain('href="intro.html"');
     const quickstart = readFileSync(join(d, "guide", "quickstart.html"), "utf8");
-    const qa = quickstart.slice(quickstart.indexOf("<article>"), quickstart.indexOf("</article>"));
+    const qa = quickstart.slice(quickstart.indexOf("<article"), quickstart.indexOf("</article>"));
     expect(qa).toContain('href="guide/basic.html"'); // ./basic.md 相对当前文档 → guide/basic.html
     expect(qa).not.toContain("basic.md");
     rmSync(d, { recursive: true, force: true });
@@ -133,11 +133,11 @@ describe("doclight build（SSG-001 静态导出）", () => {
     expect(searchIndexVersion([])).toBe(searchIndexVersion([]));
   });
 
-  it("breadcrumbFor：首页 → 分组链 → 当前页；无 index 分组不可链接", () => {
+  it("breadcrumbFor：首页 → 分组链 → 当前页；无 index 分组不可链接（根标签「文档」，设计对齐）", () => {
     const tree = buildNavTree(["README.md", "guide/quickstart.md", "guide/basic.md"]);
     const crumbs = breadcrumbFor(tree, "guide/quickstart.md", ".html", "", "快速开始");
     expect(crumbs).toEqual([
-      { label: "首页", href: "/" },
+      { label: "文档", href: "/" },
       { label: "guide", href: "" }, // guide 组无置顶页 → 不可链接（防死链）
       { label: "快速开始", href: "" },
     ]);
@@ -145,7 +145,7 @@ describe("doclight build（SSG-001 静态导出）", () => {
     const tree2 = buildNavTree(["guide/index.md", "guide/quickstart.md"]);
     const crumbs2 = breadcrumbFor(tree2, "guide/quickstart.md", ".html", "/docs", "快速开始");
     expect(crumbs2[1]).toEqual({ label: "guide", href: "/docs/guide/index.html" });
-    expect(crumbs2[0]).toEqual({ label: "首页", href: "/docs/" });
+    expect(crumbs2[0]).toEqual({ label: "文档", href: "/docs/" });
   });
 });
 
@@ -163,7 +163,7 @@ describe("doclight build（SEO 全套 + 子路径部署，05 §5.4）", () => {
     // JSON-LD（TechArticle + wordCount）+ 面包屑 UI + BreadcrumbList
     expect(index).toContain('"@type":"TechArticle"');
     expect(index).toContain('"wordCount"');
-    expect(index).toContain('class="breadcrumb"');
+    expect(index).toContain('class="crumb"');
     expect(index).toContain('"@type":"BreadcrumbList"');
     // 子页面 canonical / og:url
     const intro = readFileSync(join(d, "intro.html"), "utf8");

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 主题画廊（VIS-001，11-default-themes §4：主题预览对比页）
  *
  * 目的：让用户（和 Agent）直观对比 4 套模板，零成本切换；视觉回归基线也取自画廊
@@ -20,7 +20,7 @@ import { render } from "@doclight/renderer";
 import { BUILTIN_THEMES, BUILTIN_THEME_DEFAULT_MODE } from "./themes.ts";
 import { renderPage } from "./site.ts";
 
-/** 内置示例文档（画廊内容）：覆盖标题层级 / 代码 / 表格 / 容器 / 公式 / 图表 / 引用 / 列表 */
+/** 内置示例文档（画廊内容）：覆盖标题层级 / 代码 / 表格 / 容器 / 公式 / 图表 / 引用 / 列表 / Tabs / 步骤（设计对齐 2026-08-16） */
 export const SAMPLE_GALLERY_DOC = `---
 title: 主题示例
 description: DocLight 主题画廊示例文档——覆盖全语法特性
@@ -33,12 +33,12 @@ description: DocLight 主题画廊示例文档——覆盖全语法特性
 
 ## 二级标题：排版与阅读
 
-中文排版优先：字号/行高/字距按中文阅读调校。正文 16px × 1.75 行高、680px 行宽，
+中文排版优先：字号/行高/字距按中文阅读调校。正文 15.5px × 1.75 行高、700px 行宽，
 行内代码 \`doclight build\` 与 **强调文字** 都在同一节奏上。
 
-### 三级标题：代码高亮
+### 三级标题：代码高亮（文件名头）
 
-\`\`\`ts
+\`\`\`ts title="lib/hello.ts"
 export function hello(name: string): string {
   // 注释也参与高亮
   return \`Hello, \${name}!\`;
@@ -49,19 +49,39 @@ export function hello(name: string): string {
 
 | 特性 | Minimal | Serif | Modern | Warm |
 |------|:-------:|:-----:|:------:|:----:|
-| 主色 | teal | 靛蓝 | violet | 暖橙 |
-| 圆角 | 6px | 2px | 8px | 12px |
-| 气质 | 克制 | 纸感 | 锐利 | 亲和 |
+| 主色 | 松绿 | 靛蓝 | violet | 暖橙 |
+| 圆角 | 10px | 8px | 10px | 10px |
+| 气质 | 克制 | 纸感 | 科技 | 亲和 |
+
+## 二级标题：Tabs 与步骤（设计对齐新组件）
+
+:::tabs
+:::tab npm
+\`\`\`bash
+npm install doclight
+\`\`\`
+:::
+:::tab pnpm
+\`\`\`bash
+pnpm add doclight
+\`\`\`
+:::
+:::
+
+:::steps
+1. **定义任务**：把 Markdown 交给 DocLight。
+2. **启动渲染**：零构建，开箱即用。
+3. **发布作品**：dev 预览 → build → publish。
+:::
 
 ## 二级标题：扩展语法
 
 :::tip
-**提示容器**：自定义容器（:::tip）在四套模板下各有表达——Minimal 左边线、Serif 纸色、
-Modern 圆角玻璃、Warm 卡片感。
+**提示容器**：左侧 2.5px 竖线 + 极浅同色系底色（宪法 §4.4），不加彩色徽章。
 :::
 
 :::warning
-**警告容器**：语义色随主题切换（亮/暗双套）。
+**警告容器**：语义色仅作竖线承载，随主题切换（亮/暗双套）。
 :::
 
 数学公式（KaTeX）：行内 $E = mc^2$，块级：
@@ -111,9 +131,9 @@ export interface GalleryResult {
 /** 面板页面（单主题 × 单模式，fixedTheme 钉死；与真实站点同构 renderPage） */
 function panelHtml(themeName: string, mode: "light" | "dark", siteTitle: string): string {
   const { html } = render(SAMPLE_GALLERY_DOC, { currentPath: "sample.md", linkSuffix: ".html" });
-  // 画廊面板导航：静态占位（面板聚焦主题视觉，不引入真实站点导航）
+  // 画廊面板导航：静态占位（面板聚焦主题视觉，不引入真实站点导航；新设计语言结构）
   const navHtml =
-    '<ul><li><a class="active" href="#">📄 主题示例</a></li><li><a href="#">导航演示</a></li><li><a href="#">二级分组</a></li></ul>';
+    '<ul><li><a class="side-item active" href="#">主题示例</a><a class="side-item" href="#">导航演示</a><a class="side-item" href="#">二级分组</a></li></ul>';
   return renderPage({
     title: `${themeName} · ${mode === "light" ? "亮色" : "暗色"}`,
     siteTitle,
@@ -126,7 +146,7 @@ function panelHtml(themeName: string, mode: "light" | "dark", siteTitle: string)
   });
 }
 
-/** 画廊索引页（4×2 iframe 网格 + 亮/暗切换；独立静态 HTML，可部署可截图） */
+/** 画廊索引页（DP-001：单主题——1×2 面板 + 亮/暗切换；独立静态 HTML，可部署可截图） */
 function galleryIndexHtml(options: { siteTitle: string; themes: string[] }): string {
   const { siteTitle, themes } = options;
   const modes: Array<{ key: "light" | "dark"; label: string }> = [
@@ -134,10 +154,7 @@ function galleryIndexHtml(options: { siteTitle: string; themes: string[] }): str
     { key: "dark", label: "暗色" },
   ];
   const themeMeta: Record<string, string> = {
-    minimal: "Minimal · 克制灰阶 teal",
-    serif: "Serif · 学术纸感衬线",
-    modern: "Modern · 科技暗色玻璃",
-    warm: "Warm · 温暖圆角亲和",
+    minimal: "Minimal · 克制暖灰 松绿 Pine（唯一内置主题）",
   };
   const panelGrid = themes
     .map(
@@ -200,7 +217,7 @@ function galleryIndexHtml(options: { siteTitle: string; themes: string[] }): str
 <body>
 <header class="site">
   <h1>DocLight 主题画廊</h1>
-  <span class="hint">4 套设计语言 × 亮/暗（${themes.length} 主题 · 同一示例文档 · 点击面板标题右方链接单独打开）</span>
+  <span class="hint">1 套设计语言 × 亮/暗（${themes.length} 主题 · 同一示例文档 · 点击面板标题右方链接单独打开）</span>
   <nav class="mode-toggle">
     <button data-mode="light" class="active" onclick="setMode('light')">亮色</button>
     <button data-mode="dark" onclick="setMode('dark')">暗色</button>

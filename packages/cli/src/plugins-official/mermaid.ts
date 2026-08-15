@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @doclight/plugin-mermaid —— Mermaid 图表插件（PLUG-012：从内置扩展迁移为官方插件）
  *
  * 迁移语义：Mermaid 是重 vendor 依赖扩展（mermaid.min.js ≈ 2.4MB），不再内置默认
@@ -62,12 +62,23 @@ export const mermaidExtension: MermaidMarkedExtension = {
   },
 };
 
-/** 插件 CSS（注入页面 <style data-doclight-plugin-css>；自 site.ts 迁移） */
+/**
+ * 插件 CSS（注入页面 <style data-doclight-plugin-css>；设计对齐 2026-08-16：
+ * 输出 SVG 令牌化——节点/连线/标注复用 design token，随亮暗主题自动切换，宪法 §4.5）
+ */
 export const mermaidStyles = [
-  ".doclight-mermaid { margin: 0 0 1.5em; text-align: center; }",
+  ".doclight-mermaid { margin: 20px 0 24px; text-align: center; }",
   ".doclight-mermaid .doclight-mermaid-src { text-align: left; margin: 0 auto; max-width: 100%; display: inline-block; }",
   ".doclight-mermaid-rendered svg { max-width: 100%; height: auto; }",
-  ".doclight-mermaid-error { color: var(--color-error); font-size: var(--font-size-sm); margin: 0 0 var(--space-2); }",
+  ".doclight-mermaid-error { color: var(--error); font-size: var(--font-size-sm); margin: 0 0 var(--space-2); }",
+  /* 节点 = 白底发丝边框圆角矩形；连线 = 1.2px 次级色 + 小箭头；标注 = 等宽小字（宪法 §4.5） */
+  ".doclight-mermaid .node rect, .doclight-mermaid .cluster rect, .doclight-mermaid .actor, .doclight-mermaid .messageBox, .doclight-mermaid .note, .doclight-mermaid .loopLine { fill: var(--bg); stroke: var(--line-strong); stroke-width: 1; }",
+  ".doclight-mermaid .edgePath .path, .doclight-mermaid .flowchart-link { stroke: var(--text-3); stroke-width: 1.2; }",
+  ".doclight-mermaid .arrowheadPath { fill: var(--text-3); }",
+  ".doclight-mermaid .edgeLabel, .doclight-mermaid .nodeLabel, .doclight-mermaid .label { color: var(--text); font-family: var(--font-mono); font-size: 12px; }",
+  ".doclight-mermaid .edgeLabel { background: var(--bg); }",
+  ".doclight-mermaid .messageText { fill: var(--text-2); }",
+  ".doclight-mermaid .marker { fill: var(--text-3); }",
 ].join("\n");
 
 /**
@@ -121,7 +132,7 @@ function runtimeScript(): string {
     "            if (!node.querySelector('.doclight-mermaid-error')) {",
     "              var hint = document.createElement('p');",
     "              hint.className = 'doclight-mermaid-error';",
-    "              hint.textContent = '⚠ 图表渲染失败（可能是 Mermaid 语法错误），以下为图表源码：';",
+    "              hint.textContent = '图表渲染失败（可能是 Mermaid 语法错误），以下为图表源码：';",
     "              node.insertBefore(hint, node.querySelector('.doclight-mermaid-src'));",
     "            }",
     "          });",

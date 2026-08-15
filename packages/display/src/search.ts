@@ -1,9 +1,13 @@
 /**
- * 内置搜索（03 §3.5，SRCH-001）
+ * 内置搜索（03 §3.5，SRCH-001；设计对齐 2026-08-16：演示页搜索弹层结构）
  *
- * 架构：dev server / SSG 提供预构建文档数据 search-index.json（path/title/headings/text），
+ * 架构：dev server / SSG 提供预构建文档数据 search-index.json（path/title/headings/text/section），
  * 展示层首次打开搜索框时懒加载（索引懒加载，03 §3.5.3）→ 自研轻量检索内核
  * （倒排索引 + 字段加权）→ 即时出结果。
+ *
+ * UI（设计对齐演示页）：顶栏 #searchBtn 打开 #modalMask（服务端直出）——
+ * 搜索行（图标 + 输入 + ESC 徽标）+ 结果列表（文件图标 + 标题 + 所属分组节标签）+ 快捷键脚注；
+ * ↑↓ 选择、⏎ 打开、esc 关闭、Ctrl/Cmd+K 全局开合。
  *
  * 为什么自研而非 MiniSearch：展示层零外部依赖 + <25KB gzip 硬门禁（02 §2.3.4），
  * 拼接式构建（build-display.mjs）无裸包名解析；以 MiniSearch 同形状 API
@@ -20,6 +24,8 @@ export interface SearchDoc {
   title: string;
   headings: string[];
   text: string;
+  /** 设计对齐：文档所属顶层分组（结果「节」标签，演示页 ri-sec） */
+  section?: string;
 }
 
 export interface SearchIndex {
@@ -172,10 +178,7 @@ export function highlight(text: string, terms: string[]): string {
   return escaped.replace(re, "<mark>$1</mark>");
 }
 
-/* ======================= 搜索 UI（DOM 集中在 initSearch）======================= */
-
-const RECENT_KEY = "doclight-search-recent";
-const RECENT_MAX = 5;
+/* ======================= 搜索 UI（DOM 集中在 initSearch；模板服务端直出 modal）======================= */
 
 /* ===== 搜索索引持久化（03 §3.8.5：localStorage + 版本校验）===== */
 
@@ -214,29 +217,15 @@ export function writeSearchCache(
   }
 }
 
-function loadRecent(): string[] {
-  try {
-    const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
-    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").slice(0, RECENT_MAX) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveRecent(list: string[]): void {
-  try {
-    localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, RECENT_MAX)));
-  } catch {
-    /* 隐私模式等忽略持久化 */
-  }
-}
-
 export interface SearchApi {
   open(): void;
   close(): void;
 }
 
-/** 初始化搜索：Cmd/Ctrl+K 或顶栏搜索按钮打开，懒加载索引，实时出结果 */
+const DOC_ICON =
+  '<svg class="ri-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+
+/** 初始化搜索：Cmd/Ctrl+K 或顶栏搜索按钮打开，懒加载索引，实时出结果（演示页弹层结构） */
 export function initSearch(options: { indexUrl?: string; toggleSelector?: string } = {}): SearchApi {
   // SSG 形态：页面内联 window.DOCLIGHT_SEARCH_INDEX 指向静态产物（与 DOCLIGHT_VENDOR_BASE 同模式）
   // 注：拼接式构建（build-display.mjs）所有文件合一作用域，不得与 extensions.ts 的 winGlobal 重名
@@ -244,46 +233,46 @@ export function initSearch(options: { indexUrl?: string; toggleSelector?: string
   const globalIndex = win["DOCLIGHT_SEARCH_INDEX"];
   const indexUrl =
     options.indexUrl ?? (typeof globalIndex === "string" ? globalIndex : undefined) ?? "/__doclight/search-index.json";
-  const toggleSelector = options.toggleSelector ?? "#search-toggle";
+  const toggleSelector = options.toggleSelector ?? "#searchBtn";
+  // 子路径部署（--base）：结果链接补基址前缀（2026-08 修复 H4——此前搜索点击 404）
+  const base = (win["DOCLIGHT_BASE"] as string | undefined) ?? "";
   // bundle 形态（05 §5.3.4）：索引内嵌（__DOCLLIGHT_BUNDLE__.searchIndex），结果链接走 hash 路由
   const bundle = win["__DOCLLIGHT_BUNDLE__"] as { searchIndex?: { docs?: SearchDoc[] } } | undefined;
   const bundleMode = !!bundle;
 
   let index: SearchIndex | null = null;
   let indexLoading: Promise<void> | null = null;
-  let recent = loadRecent();
   let selected = -1;
+  let lastFocused: HTMLElement | null = null;
 
-  const overlay = document.createElement("div");
-  overlay.className = "search-overlay";
-  overlay.innerHTML = `
-    <div class="search-box" role="dialog" aria-label="搜索">
-      <div class="search-input-wrap">
-        <svg class="search-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-        <input class="search-input" type="search" placeholder="搜索文档…" aria-label="搜索文档" autocomplete="off" spellcheck="false" />
-        <span class="search-esc-kbd" aria-hidden="true">Esc</span>
-      </div>
-      <div class="search-status"></div>
-      <div class="search-results" role="listbox"></div>
-    </div>`;
-  overlay.style.display = "none";
-  document.body.appendChild(overlay);
-
-  const input = overlay.querySelector<HTMLInputElement>(".search-input")!;
-  const status = overlay.querySelector<HTMLElement>(".search-status")!;
-  const resultsEl = overlay.querySelector<HTMLElement>(".search-results")!;
+  const mask = document.querySelector<HTMLElement>("#modalMask");
+  const input = document.querySelector<HTMLInputElement>("#searchInput");
+  const resultsEl = document.querySelector<HTMLElement>("#results");
+  const searchBtn = document.querySelector<HTMLButtonElement>(toggleSelector);
+  if (!mask || !input || !resultsEl) {
+    // 模板缺失（自定义页面）：静默降级，不中断其余展示层
+    return { open: () => {}, close: () => {} };
+  }
+  // 显式非空别名：闭包内 const 收窄在 TS CFA 下不可靠（异步回调/事件处理器），别名保证类型安全
+  const maskEl = mask;
+  const inputEl = input;
+  const resultsBox = resultsEl;
+  maskEl.setAttribute("aria-modal", "true");
+  const listId = "doclight-search-results";
+  resultsBox.id = listId;
+  resultsBox.setAttribute("role", "listbox");
+  resultsBox.setAttribute("aria-label", "搜索结果");
+  inputEl.setAttribute("aria-controls", listId);
 
   /** 懒加载索引（首次打开才构建，03 §3.5.3）；持久化：版本命中则跳过 fetch（03 §3.8.5） */
   function ensureIndex(): Promise<void> {
     if (index) return Promise.resolve();
     if (!indexLoading) {
       indexLoading = (async () => {
-        status.textContent = "正在构建索引…";
         try {
           // bundle 形态：索引内嵌（file:// 零网络），直接构建
           if (bundle?.searchIndex) {
             index = buildIndex(bundle.searchIndex.docs ?? []);
-            status.textContent = "";
             return;
           }
           // 页面内联 window.DOCLIGHT_SEARCH_VERSION（内容哈希）：缓存命中则免网络请求
@@ -291,7 +280,6 @@ export function initSearch(options: { indexUrl?: string; toggleSelector?: string
           const cached = readSearchCache(localStorage, version);
           if (cached && cached.length > 0) {
             index = buildIndex(cached);
-            status.textContent = "";
             return;
           }
           const res = await fetch(indexUrl);
@@ -300,94 +288,90 @@ export function initSearch(options: { indexUrl?: string; toggleSelector?: string
           const docs = data.docs ?? [];
           index = buildIndex(docs);
           writeSearchCache(localStorage, version, docs);
-          status.textContent = "";
         } catch (err) {
-          status.textContent = `搜索不可用：${(err as Error).message}`;
+          // 索引不可用：输入时给出提示（不伪造成功）
+          index = null;
+          indexLoading = null;
+          resultsBox.innerHTML = `<div style="padding:24px;text-align:center;font-size:13px;color:var(--text-3)">搜索不可用：${escapeHtml((err as Error).message)}</div>`;
         }
       })();
     }
     return indexLoading;
   }
 
-  /** 渲染结果列表（标题高亮 + 路径面包屑 + 命中摘要） */
+  /** 渲染结果列表（设计对齐演示页：图标 + 标题 + 分组节标签；option 语义 + 序号 id） */
   function renderResults(results: SearchResult[], query: string): void {
     const terms = tokenize(query);
     if (results.length === 0) {
-      resultsEl.innerHTML = `<div class="search-empty">无匹配结果</div>`;
+      resultsBox.innerHTML = `<div style="padding:24px;text-align:center;font-size:13px;color:var(--text-3)">没有找到相关结果</div>`;
+      inputEl.removeAttribute("aria-activedescendant");
       return;
     }
-    resultsEl.innerHTML = results
+    resultsBox.innerHTML = results
+      .map((r, i) => {
+        const doc = index?.docs.find((d) => d.path === r.path);
+        const section = doc?.section ? `<span class="ri-sec">${escapeHtml(doc.section)}</span>` : "";
+        return `<a class="result-item" id="doclight-opt-${i}" role="option" aria-selected="false" href="${bundleMode ? `#/${r.path}` : `${base}/${r.path}`}" data-path="${r.path}">${DOC_ICON}<span class="ri-title">${highlight(r.title, terms)}</span>${section}</a>`;
+      })
+      .join("");
+    selected = -1;
+  }
+
+  /** 渲染初始列表（输入为空：全部文档，演示页行为；大站点截断 20 条） */
+  function renderAllDocs(): void {
+    if (!index) {
+      resultsBox.innerHTML = `<div style="padding:24px;text-align:center;font-size:13px;color:var(--text-3)">输入关键词开始搜索</div>`;
+      return;
+    }
+    const docs = index.docs.slice(0, 20);
+    resultsBox.innerHTML = docs
       .map(
-        (r) => `
-      <a class="search-result" href="${bundleMode ? `#/${r.path}` : `/${r.path}`}" data-path="${r.path}">
-        <span class="search-result-title">${highlight(r.title, terms)}</span>
-        <span class="search-result-path">${r.path}</span>
-        <span class="search-result-snippet">${highlight(r.snippet, terms)}</span>
-      </a>`
+        (d, i) =>
+          `<a class="result-item" id="doclight-opt-${i}" role="option" aria-selected="false" href="${bundleMode ? `#/${d.path}` : `${base}/${d.path}`}" data-path="${d.path}">${DOC_ICON}<span class="ri-title">${escapeHtml(d.title)}</span>${d.section ? `<span class="ri-sec">${escapeHtml(d.section)}</span>` : ""}</a>`
       )
       .join("");
     selected = -1;
   }
 
-  /** 渲染最近搜索（输入为空时） */
-  function renderRecent(): void {
-    if (recent.length === 0) {
-      resultsEl.innerHTML = `<div class="search-empty">输入关键词开始搜索</div>`;
-      return;
-    }
-    resultsEl.innerHTML =
-      `<div class="search-recent-label">最近搜索</div>` +
-      recent
-        .map((q) => `<button class="search-recent-item" data-q="${escapeHtml(q)}">↺ ${escapeHtml(q)}</button>`)
-        .join("");
-    resultsEl.querySelectorAll<HTMLButtonElement>(".search-recent-item").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        input.value = btn.dataset.q!;
-        void runSearch();
-      });
-    });
-  }
-
   async function runSearch(): Promise<void> {
-    const q = input.value.trim();
+    const q = inputEl.value.trim();
     if (!q) {
-      renderRecent();
+      renderAllDocs();
       return;
     }
     await ensureIndex();
     if (!index) return;
-    const results = search(index, q);
-    renderResults(results, q);
+    renderResults(search(index, q), q);
   }
 
   function moveSelection(delta: number): void {
-    const links = resultsEl.querySelectorAll<HTMLAnchorElement>(".search-result");
-    if (links.length === 0) return;
-    selected = (selected + delta + links.length) % links.length;
-    links.forEach((l, i) => l.classList.toggle("active", i === selected));
-    links[selected]?.scrollIntoView({ block: "nearest" });
+    const items = resultsBox.querySelectorAll<HTMLElement>(".result-item");
+    if (items.length === 0) return;
+    selected = (selected + delta + items.length) % items.length;
+    items.forEach((el, i) => {
+      const on = i === selected;
+      el.classList.toggle("sel", on);
+      el.setAttribute("aria-selected", String(on));
+    });
+    items[selected]?.scrollIntoView({ block: "nearest" });
+    inputEl.setAttribute("aria-activedescendant", `doclight-opt-${selected}`);
   }
 
-  /** 记录最近搜索并跳转（SPA 导航由 router 文档级点击监听接管） */
+  /** 打开选中结果（SPA 导航由 router 文档级点击监听接管） */
   function openSelected(): void {
-    const links = resultsEl.querySelectorAll<HTMLAnchorElement>(".search-result");
-    const link = selected >= 0 && selected < links.length ? links[selected] : links[0];
-    if (!link) return;
-    const q = input.value.trim();
-    if (q && !recent.includes(q)) {
-      recent = [q, ...recent].slice(0, RECENT_MAX);
-      saveRecent(recent);
-    }
-    link.click();
+    const items = resultsBox.querySelectorAll<HTMLElement>(".result-item");
+    const item = selected >= 0 && selected < items.length ? items[selected] : items[0];
+    if (!item) return;
+    item.click();
     close();
   }
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-  input.addEventListener("input", () => {
+  inputEl.addEventListener("input", () => {
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => void runSearch(), 100); // 防抖（03 §3.8）
   });
-  input.addEventListener("keydown", (e) => {
+  inputEl.addEventListener("keydown", (e) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
       moveSelection(1);
@@ -403,39 +387,68 @@ export function initSearch(options: { indexUrl?: string; toggleSelector?: string
     }
   });
 
-  // 点击结果跳转（SPA 由 router 接管）；点击框外关闭
-  overlay.addEventListener("click", (e) => {
-    const target = e.target as HTMLElement;
-    if (target.closest(".search-result")) return; // 交回 router 文档级监听
-    if (target.closest(".search-box")) return;
-    close();
+  // 点击结果跳转（SPA 由 router 接管）；点击遮罩空白关闭（演示页行为）
+  maskEl.addEventListener("click", (e) => {
+    if (e.target === maskEl) close();
+  });
+
+  // 2026-08 无障碍补齐：焦点陷阱（Tab 在弹层内循环，不穿透到背景页）
+  const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  maskEl.addEventListener("keydown", (e) => {
+    if (e.key !== "Tab" || !maskEl.classList.contains("open")) return;
+    const focusables = [...maskEl.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+      (el) => el.offsetParent !== null || el === inputEl
+    );
+    if (focusables.length === 0) return;
+    const first = focusables[0]!;
+    const last = focusables[focusables.length - 1]!;
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
   });
 
   function open(): void {
-    overlay.style.display = "";
-    input.value = "";
-    renderRecent();
+    if (maskEl.classList.contains("open")) return;
+    lastFocused = document.activeElement as HTMLElement | null;
+    maskEl.classList.add("open");
+    inputEl.value = "";
+    selected = -1;
+    resultsBox.innerHTML = `<div style="padding:24px;text-align:center;font-size:13px;color:var(--text-3)">输入关键词开始搜索</div>`;
     void ensureIndex().then(() => {
-      if (input.value.trim()) void runSearch();
+      if (maskEl.classList.contains("open") && !inputEl.value.trim()) renderAllDocs();
     });
-    setTimeout(() => input.focus(), 0);
+    setTimeout(() => inputEl.focus(), 30); // 演示页时序：等入场动画后聚焦
   }
 
   function close(): void {
-    overlay.style.display = "none";
-    document.querySelector(".search-result.active")?.classList.remove("active");
+    if (!maskEl.classList.contains("open")) return;
+    maskEl.classList.remove("open");
+    inputEl.removeAttribute("aria-activedescendant");
+    inputEl.value = "";
+    // 2026-08 无障碍补齐：关闭后焦点还原到触发按钮（此前焦点丢失回落到 body）
+    if (document.activeElement === inputEl || maskEl.contains(document.activeElement)) {
+      lastFocused?.focus();
+    }
   }
 
-  // 触发入口：顶栏搜索按钮 + Cmd/Ctrl+K + "/" 聚焦
-  document.querySelector<HTMLButtonElement>(toggleSelector)?.addEventListener("click", open);
+  // 触发入口：顶栏搜索按钮 + Cmd/Ctrl+K（演示页行为）+ "/" 聚焦
+  searchBtn?.addEventListener("click", open);
   document.addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
       e.preventDefault();
-      if (overlay.style.display === "none") open();
-      else close();
+      if (maskEl.classList.contains("open")) close();
+      else open();
     } else if (e.key === "/" && !/^(INPUT|TEXTAREA)$/.test((e.target as HTMLElement).tagName)) {
       e.preventDefault();
       open();
+    } else if (e.key === "Escape" && maskEl.classList.contains("open")) {
+      // 2026-08 无障碍补齐：document 级 Esc 兜底（焦点在结果链接上也能关闭）
+      e.preventDefault();
+      close();
     }
   });
 

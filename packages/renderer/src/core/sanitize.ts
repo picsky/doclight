@@ -22,9 +22,35 @@ function getPurifier(): ReturnType<typeof DOMPurify> {
 }
 
 /**
+ * 内联图解 SVG 白名单（设计对齐 2026-08-16：宪法 §4.5 图解组件——inline SVG，
+ * 复用全部 design token（class 标记），随主题自动切换）。
+ *
+ * DOMPurify html 配置文件默认不含 svg 标签（spike 实测整棵 svg 子树被剥离），
+ * 此处显式放行一个**安全子集**：纯图形/文本元素 + 样式/几何属性，全部无脚本语义。
+ * 安全边界（DOMPurify 默认行为仍然生效）：
+ * - script/style/on* 事件属性照常剥离（svg 内 <script> 同被清理）
+ * - href/xlink:href 的 javascript: 等危险 URL 照常拦截
+ * - 禁止放行 <a>/<foreignObject>/<use xlink:href>（外部引用与跳转面）
+ * 新增任一元素/属性前必须过 .spike/sanitize-svg-spike.mjs 的注入断言。
+ */
+const SVG_TAGS = [
+  "svg", "g", "defs", "marker", "path", "rect", "circle", "ellipse", "line",
+  "polyline", "polygon", "text", "tspan", "title", "desc", "symbol",
+];
+const SVG_ATTRS = [
+  "viewBox", "x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "rx", "ry",
+  "width", "height", "d", "points", "fill", "stroke", "stroke-width",
+  "stroke-dasharray", "stroke-linecap", "stroke-linejoin", "stroke-opacity",
+  "fill-opacity", "opacity", "marker-end", "marker-start", "marker-mid",
+  "text-anchor", "font-size", "font-family", "font-weight", "letter-spacing",
+  "transform", "preserveAspectRatio", "orient", "refX", "refY", "markerWidth",
+  "markerHeight", "markerUnits", "startOffset", "dx", "dy",
+];
+
+/**
  * 对已渲染 HTML 做白名单消毒（HTML 配置文件，剔除脚本/事件属性/危险 URL）。
  *
- * ADD_ATTR 放行的两个属性均为良性渐进增强，且由渲染器配套约束保证安全：
+ * ADD_ATTR 放行的属性均为良性渐进增强，且由渲染器配套约束保证安全：
  * - target：仅外部链接带 rel="noopener"（渲染器强制），防 window.opener 劫持
  * - loading：图片懒加载，无脚本语义
  * DOMPurify 默认剥离二者（保守策略），此处显式放行。
@@ -38,8 +64,19 @@ function getPurifier(): ReturnType<typeof DOMPurify> {
  * 每新增扩展必须在注册表（extensions/registry.ts）登记其 class 与降级策略。
  */
 export function sanitizeHtml(html: string): string {
-  return getPurifier().sanitize(html, {
+  // HOOKS 为 DOMPurify 运行时支持的配置项（本版 .d.ts 未收录），经 Parameters 提取 Config 类型安全注入
+  const config = {
     USE_PROFILES: { html: true },
-    ADD_ATTR: ["target", "loading"],
-  });
+    ADD_ATTR: ["target", "loading", ...SVG_ATTRS],
+    ADD_TAGS: [...SVG_TAGS, "figure", "figcaption"],
+    HOOKS: {
+      // 图解内禁止链接元素（宪法 §4.5 图解为纯图形；防 svg 内 <a href> 的跳转面）
+      uponSanitizeElement: (node: Element) => {
+        if (node.nodeName === "A" && node.closest("svg")) {
+          node.remove();
+        }
+      },
+    },
+  } as Parameters<ReturnType<typeof DOMPurify>["sanitize"]>[1];
+  return getPurifier().sanitize(html, config);
 }

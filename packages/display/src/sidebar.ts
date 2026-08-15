@@ -25,8 +25,13 @@ export function initSidebar(): void {
     sidebar.classList.toggle("open");
     sync();
   });
-  // 点击内容区（移动端遮罩效果）关闭
-  document.querySelector("main")?.addEventListener("click", close);
+  // 点击抽屉外任意处关闭（移动端遮罩效果；排除汉堡按钮自身——按钮冒泡先触发开合）
+  document.addEventListener("click", (e) => {
+    if (!sidebar.classList.contains("open")) return;
+    const t = e.target as Node | null;
+    if (t instanceof Node && (sidebar.contains(t) || btn.contains(t))) return;
+    close();
+  });
   // 导航后关闭（移动端点击链接跳转后收起侧边栏）
   document.addEventListener("click", (e) => {
     if ((e.target as HTMLElement | null)?.closest?.("a[href]")) close();

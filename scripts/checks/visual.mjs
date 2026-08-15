@@ -1,8 +1,9 @@
 // visual check（VIS-001 + DEMO-001，11-default-themes §6 视觉验收机器化 + 10 §2.1 验证矩阵）
 // 三部分硬门禁（全部零依赖、纯静态、无浏览器）：
-// 1) 设计合规：默认主题 + 4 套内置主题（themes/*.css）过 checkThemeCompliance——
-//    对比度 WCAG AA（text ≥4.5 / primary ≥3）/ 8pt 间距网格 / 1.25 字号节奏
-// 2) 主题画廊产物：buildGallery 构建到 artifacts/visual/gallery/（4×2 面板 + 索引），
+// 1) 设计合规：默认主题 + 内置主题（themes/*.css，DP-001 收敛为唯一一套 minimal）过 checkThemeCompliance——
+//    对比度（正文 ≥7 AAA / 辅助 ≥4.5 AA / 强调 ≥3）/ 8pt 间距网格 / 宪法批准类型阶
+//    （设计对齐 2026-08-16：令牌体系与标准以 docs/design-new/DESIGN.md 宪法为准）
+// 2) 主题画廊产物：buildGallery 构建到 artifacts/visual/gallery/（1×2 面板 + 索引），
 //    校验文件数 + 体积预算（画廊是可选分发产物，不占页面重量预算）
 // 3) 演示形态产物（DEMO-001）：buildSlidesHtml 构建示例演示到 artifacts/visual/slides-demo.html，
 //    校验自包含 + 体积预算（截图回归基线来源）
@@ -19,7 +20,7 @@ const { DEFAULT_THEME_CSS } = await import("../../packages/cli/src/site.ts");
 const { buildGallery } = await import("../../packages/cli/src/gallery.ts");
 const { buildSlidesHtml } = await import("../../packages/cli/src/slides.ts");
 
-const BUILTIN_THEMES = ["minimal", "serif", "modern", "warm"];
+const BUILTIN_THEMES = ["minimal"];
 
 /** 演示示例（DEMO-001 截图回归基线内容：封面/章节/内容/结束 4 布局） */
 const SLIDES_DEMO_MD = `---
@@ -63,7 +64,7 @@ export function run() {
   const failures = [];
   let total = 0;
 
-  // 1) 设计合规（默认主题 = Minimal 设计语言 + 4 套内置主题）
+  // 1) 设计合规（默认主题 = 松绿 Pine 设计语言 + 唯一内置主题 minimal）
   const subjects = [
     { name: "default", css: DEFAULT_THEME_CSS },
     ...BUILTIN_THEMES.map((t) => ({
@@ -90,13 +91,14 @@ export function run() {
   try {
     const out = join(root, "artifacts", "visual", "gallery");
     const res = buildGallery({ outDir: out, siteTitle: "DocLight" });
-    const expected = 1 + BUILTIN_THEMES.length * 2; // 索引 + 4 主题 × 亮/暗
+    const expected = 1 + BUILTIN_THEMES.length * 2; // 索引 + 1 主题 × 亮/暗
     if (res.files.length !== expected) {
       failures.push({ id: "gallery", message: `画廊文件数 ${res.files.length} ≠ 期望 ${expected}` });
     }
-    // 体积预算：可选分发产物，阈值防失控膨胀（每面板 ≈ 25KB）
-    if (res.bytes > 400 * 1024) {
-      failures.push({ id: "gallery-size", message: `画廊总字节 ${res.bytes} 超预算 400KB`, evidence: res.files.join("\n") });
+    // 体积预算：可选分发产物，阈值防失控膨胀（每面板内联全量壳层样式 ≈ 55KB；2026-08 上调
+    // 至 512KB——令牌/组件规则增量后 8 面板合计 ~430KB）
+    if (res.bytes > 512 * 1024) {
+      failures.push({ id: "gallery-size", message: `画廊总字节 ${res.bytes} 超预算 512KB`, evidence: res.files.join("\n") });
     }
   } catch (err) {
     failures.push({ id: "gallery", message: `画廊构建失败：${err.message}` });

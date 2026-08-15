@@ -84,9 +84,9 @@ test("代码高亮：Prism 懒加载后注入 token 高亮", async ({ page }) =>
 
 test("代码块复制按钮可复制", async ({ page }) => {
   await page.goto(server.url);
-  const pre = page.locator("pre.doclight-code").first();
-  await pre.hover();
-  const btn = pre.locator(".doclight-copy");
+  // 复制按钮在 .codeblock 头部条（设计对齐：渲染内核直出 .copy-btn，展示层绑事件）
+  const block = page.locator(".codeblock").first();
+  const btn = block.locator(".copy-btn");
   await expect(btn).toBeVisible();
   // 剪贴板权限：chromium 支持，firefox/webkit 可能不支持该权限名——失败则走降级路径
   let clipboardOk = false;
@@ -97,8 +97,8 @@ test("代码块复制按钮可复制", async ({ page }) => {
     /* 浏览器不支持该权限名（firefox/webkit）→ 验证降级反馈即可 */
   }
   await btn.click();
-  // 复制反馈（无论 clipboard API 还是降级 execCommand 路径都触发）
-  await expect(btn).toHaveClass(/copied/);
+  // 复制反馈「✓ 已复制」（无论 clipboard API 还是降级 execCommand 路径都触发）
+  await expect(btn).toContainText("已复制");
   if (clipboardOk) {
     const text = await page.evaluate(() => navigator.clipboard.readText());
     expect(text).toContain("function hello");

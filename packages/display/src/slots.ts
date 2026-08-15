@@ -90,14 +90,27 @@ export class SlotManager {
       .join("");
   }
 
-  /** 将内容渲染到 DOM 插槽标记中（路由切换后调用，重渲染函数型内容） */
+  /** 将内容渲染到 DOM 插槽标记中（路由切换后调用，重渲染函数型内容）。
+   *  head 插槽标记为 <template>（2026-08 head 结构修复：head 内不允许 span，
+   *  模板是 head 合法内容）：模板内容惰性不渲染，动态内容作为兄弟节点插入文档。 */
   renderToDom(ctx: { path: string }): void {
     if (typeof document === "undefined") return; // Node 测试环境跳过
     for (const slotName of SLOT_NAMES) {
       const marker = document.querySelector<HTMLElement>(`[data-doclight-slot="${slotName}"]`);
       if (!marker) continue;
-      // 保留构建时注入的静态内容（data-doclight-static 标记），追加动态内容
       const dynamic = this.renderHtml(slotName, ctx);
+      if (marker.tagName === "TEMPLATE") {
+        const prev = marker.nextElementSibling;
+        if (prev?.hasAttribute?.("data-doclight-dynamic")) prev.remove();
+        if (dynamic) {
+          const wrapper = document.createElement("span");
+          wrapper.setAttribute("data-doclight-dynamic", "");
+          wrapper.innerHTML = dynamic;
+          marker.after(wrapper);
+        }
+        continue;
+      }
+      // 保留构建时注入的静态内容（data-doclight-static 标记），追加动态内容
       // 清除旧的动态内容（data-doclight-dynamic 标记的容器）
       const oldDynamic = marker.querySelector<HTMLElement>("[data-doclight-dynamic]");
       if (oldDynamic) oldDynamic.remove();

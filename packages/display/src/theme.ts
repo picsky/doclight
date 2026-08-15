@@ -32,12 +32,31 @@ export function applyTheme(theme: Theme): void {
   document.documentElement.setAttribute("data-theme", theme);
 }
 
-/** 初始化：应用已存/系统主题，绑定切换按钮（点击在亮/暗间显式切换并持久化） */
+/** 初始化：应用已存/系统主题，绑定切换按钮（点击在亮/暗间显式切换并持久化；
+ *  设计对齐 2026-08-16：太阳/月亮图标随主题切换显示，演示页行为） */
 export function initTheme(): void {
-  const prefersDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const mql = window.matchMedia("(prefers-color-scheme: dark)");
+  const prefersDark = () => mql.matches;
   applyTheme(resolveTheme(getStoredTheme(), prefersDark()));
 
-  document.querySelector<HTMLButtonElement>("#theme-toggle")?.addEventListener("click", () => {
+  const toggle = document.querySelector<HTMLButtonElement>("#themeBtn");
+  const iconSun = document.querySelector<HTMLElement>("#iconSun");
+  const iconMoon = document.querySelector<HTMLElement>("#iconMoon");
+  const syncIcons = () => {
+    const dark = document.documentElement.getAttribute("data-theme") === "dark";
+    if (iconSun) iconSun.style.display = dark ? "none" : "block";
+    if (iconMoon) iconMoon.style.display = dark ? "block" : "none";
+  };
+  // 2026-08（L4）：aria-pressed 同步当前主题状态（读屏状态播报）
+  const syncPressed = () => {
+    toggle?.setAttribute("aria-pressed", String(document.documentElement.getAttribute("data-theme") === "dark"));
+  };
+  const sync = () => {
+    syncPressed();
+    syncIcons();
+  };
+
+  toggle?.addEventListener("click", () => {
     const current: Theme = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
     const next: Theme = current === "dark" ? "light" : "dark";
     try {
@@ -46,5 +65,21 @@ export function initTheme(): void {
       /* 忽略持久化失败，仅本次生效 */
     }
     applyTheme(next);
+    sync();
   });
+
+  // 2026-08 修复（M5）：auto 模式实时跟随系统偏好变化——
+  // 此前只在 mount 时取一次，系统日夜切换页面不跟随
+  try {
+    mql.addEventListener("change", () => {
+      if (getStoredTheme() === "auto") {
+        applyTheme(resolveTheme("auto", prefersDark()));
+        sync();
+      }
+    });
+  } catch {
+    /* 旧浏览器 addListener 降级：忽略实时跟随 */
+  }
+
+  sync();
 }

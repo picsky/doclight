@@ -20,16 +20,20 @@ let docsDir: string;
 let buildOut: string;
 let bundleOut: string;
 
-/** 从完整页面 HTML 抽取内容区（<article> 内）；bundle 内嵌内容无 <article> 则原样返回 */
+/** 从完整页面 HTML 抽取内容区（<article> 内，去首尾空白）；bundle 内嵌内容无 <article> 则原样返回 */
 function extractContent(pageHtml: string): string {
-  const start = pageHtml.indexOf("<article>");
+  const start = pageHtml.indexOf("<article");
   if (start === -1) return pageHtml;
-  return pageHtml.slice(start + "<article>".length, pageHtml.indexOf("</article>"));
+  const openEnd = pageHtml.indexOf(">", start);
+  return pageHtml.slice(openEnd + 1, pageHtml.indexOf("</article>")).trim();
 }
 
-/** 归一链接后缀：href="x.md"/href="x.html" → href="x"（dev 与 SSG/bundle 的唯一允许差异，决策⑤） */
+/** 归一链接后缀：href="x.md"/href="x.html" → href="x"；bundle hash 路由 href="#/x.html" →
+ *  href="/x"（hash 前缀是 bundle 形态产物特征，与 .md/.html 后缀同属「允许差异」，决策⑤） */
 function normalize(h: string): string {
-  return h.replace(/href="([^"#]+?)\.(?:md|html)"/g, 'href="$1"');
+  return h
+    .replace(/href="([^"#]+?)\.(?:md|html)"/g, 'href="$1"')
+    .replace(/href="#\/([^"#]+?)\.(?:md|html)"/g, 'href="/$1"');
 }
 
 /** 从 bundle 文件提取内嵌页面数据（window.__DOCLLIGHT_BUNDLE__ = {...}; 以 </script> 收尾）。

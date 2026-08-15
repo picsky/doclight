@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseHeadings, renderTocHtml, renderRailDots, type TocHeading } from "../src/toc.ts";
+import { parseHeadings, renderTocHtml, type TocHeading } from "../src/toc.ts";
 
 describe("TOC 标题提取（TOC-001，03 §3.7.3）", () => {
   const html =
@@ -31,28 +31,22 @@ describe("TOC 标题提取（TOC-001，03 §3.7.3）", () => {
   });
 });
 
-describe("TOC 渲染（TOC-001）", () => {
+describe("TOC 渲染（TOC-001 + 设计对齐 2026-08-16：演示页目录结构）", () => {
   const headings: TocHeading[] = [
     { level: 2, id: "a", text: "章节 A" },
     { level: 3, id: "a-1", text: "小节 A.1" },
   ];
 
-  it("renderTocHtml 输出带 data-toc-id 与锚点的链接，h3 缩进类名", () => {
+  it("renderTocHtml 输出带 data-toc-id 与锚点的链接，h3 加 l3 类", () => {
     const html = renderTocHtml(headings);
     expect(html).toContain('href="#a"');
     expect(html).toContain('data-toc-id="a"');
     expect(html).toContain("章节 A");
-    expect(html).toContain("toc-link-l3");
+    expect(html).toContain('class="l3"');
   });
 
   it("标题文本含引号时正确转义", () => {
     const h = renderTocHtml([{ level: 2, id: "q", text: '说"到"做到' }]);
     expect(h).toContain("&quot;");
-  });
-
-  it("renderRailDots 每个标题一个指示点，h3 用小点", () => {
-    const dots = renderRailDots(headings);
-    expect(dots.match(/class="toc-dot/g)!.length).toBe(2);
-    expect(dots).toContain("toc-dot-l3");
   });
 });

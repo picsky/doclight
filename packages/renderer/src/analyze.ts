@@ -11,7 +11,7 @@
  * 刻意放在 src/ 而非受保护 core/：只新增不改既有渲染管线。
  */
 import { parseFrontmatter } from "./core/frontmatter.ts";
-import { slugify } from "./core/link.ts";
+import { headingPlainText, slugify } from "./core/link.ts";
 
 export interface DocHeading {
   level: number;
@@ -103,9 +103,11 @@ function extractHeadings(body: string): DocHeading[] {
     if (inFence) continue;
     const m = /^(#{1,6})\s+(.+)$/.exec(line);
     if (!m) continue;
+    const content = m[2]!;
     const text = stripLine(line);
     if (!text) continue;
-    headings.push({ level: m[1]!.length, id: slugify(text), text });
+    // 2026-08 双读锚点修复：id 与渲染内核同源（headingPlainText），含链接/行内代码标题不再分叉
+    headings.push({ level: m[1]!.length, id: slugify(headingPlainText(content)), text });
   }
   return headings;
 }

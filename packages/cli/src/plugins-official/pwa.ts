@@ -48,7 +48,8 @@ export function createPwaPlugin(config?: Record<string, unknown>): PluginDef {
     },
     onBuild(ctx): BuildFile[] {
       const appName = typeof cfg.name === "string" && cfg.name ? cfg.name : ctx.siteTitle;
-      const base = ctx.base || "/";
+      // 2026-08 修复：空 base 回退 "/" 会拼出 start_url "//"——空 base 直接用 "/"
+      const base = ctx.base || "";
       const manifest = JSON.stringify(
         {
           name: appName,

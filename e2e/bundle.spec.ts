@@ -55,16 +55,16 @@ test("file:// 打开：内容直出、hash 导航、搜索内嵌索引、主题�
   const pageRequests = requests.filter((u) => !u.startsWith("file:///") && !u.includes("__doclight/vendor"));
   expect(pageRequests).toEqual([]); // 导航与索引均不发起网络请求（纯内嵌）
 
-  // 搜索：内嵌索引命中
+  // 搜索：内嵌索引命中（设计对齐：result-item + 标题 + 节标签）
   await page.keyboard.press("ControlOrMeta+k");
-  await page.fill(".search-input", "三步");
-  await expect(page.locator(".search-result")).toHaveCount(1);
-  await expect(page.locator(".search-result-title")).toContainText("快速开始");
+  await page.fill("#searchInput", "三步");
+  await expect(page.locator(".result-item")).toHaveCount(1);
+  await expect(page.locator(".result-item .ri-title")).toContainText("快速开始");
 
   // 主题切换
   await page.keyboard.press("Escape");
   const themeBefore = await page.getAttribute("html", "data-theme");
-  await page.click("#theme-toggle");
+  await page.click("#themeBtn");
   const themeAfter = await page.getAttribute("html", "data-theme");
   expect(themeAfter).not.toBe(themeBefore);
 

@@ -1,11 +1,12 @@
 /**
- * 体验细节（C4）：Powered by。
+ * 体验细节（C4 + 设计对齐 2026-08-16：演示页交互行为）
  *
  * 核心逻辑抽成纯函数（可单测）；DOM 接线在 initUx() 薄层。全部持久化 localStorage。
+ * - 顶部阅读进度条（#progress）：2px 强调色，滚动推进（演示页行为，常驻不喧哗）
+ * - 顶栏滚动态（.scrolled）：滚动后出现发丝底线（演示页行为）
  * - Powered by：默认显示、可关闭（13 §4 传播机制；尊重自托管数据洁癖，非强制）
- * - 字号调节：已移除（2026-08-14 用户判定伪需求——浏览器原生缩放已覆盖，A−/A+ 冗余）
- * - 专注模式：已移除（2026-08-14 用户判定伪需求——⛶ 图标易误读为放大，实际仅隐藏侧栏/TOC，
- *   价值弱；内容聚焦由三栏布局本身保证）
+ * - 页面切换过渡：SPA 导航后 article 淡入（设计对齐 rise 动效）
+ * - back-to-top 已移除（2026-08-16 设计对齐：演示页无此组件）
  */
 import { bus } from "./event-bus.ts";
 
@@ -39,52 +40,31 @@ function initPoweredBy(): void {
   });
 }
 
-/** 阅读进度（04 §4.5.3 兑现，VIS-002）：顶栏下 2px 细线随滚动推进；滚动时浮现、停滚渐隐 */
-function initReadingProgress(): void {
-  const bar = document.querySelector<HTMLElement>(".reading-progress");
-  if (!bar) return;
-  let hiddenTimer: ReturnType<typeof setTimeout> | null = null;
+/** 纯函数：阅读进度比例（0-100；无可滚动高度返回 0） */
+export function progressPercent(scrollTop: number, scrollHeight: number, clientHeight: number): number {
+  const total = scrollHeight - clientHeight;
+  return total > 0 ? Math.min(100, Math.max(0, (scrollTop / total) * 100)) : 0;
+}
+
+/** 阅读进度（设计对齐演示页 #progress）+ 顶栏滚动态（.scrolled） */
+function initProgressAndTopbar(): void {
+  const bar = document.querySelector<HTMLElement>("#progress");
+  const topbar = document.querySelector<HTMLElement>("#topbar");
 
   const update = () => {
     const doc = document.documentElement;
-    const total = doc.scrollHeight - doc.clientHeight;
-    const ratio = total > 0 ? Math.min(1, Math.max(0, doc.scrollTop / total)) : 0;
-    bar.style.setProperty("--progress", `${Math.round(ratio * 100)}%`);
-    bar.classList.add("visible");
-    if (hiddenTimer) clearTimeout(hiddenTimer);
-    hiddenTimer = setTimeout(() => bar.classList.remove("visible"), 900);
+    const pct = progressPercent(doc.scrollTop, doc.scrollHeight, doc.clientHeight);
+    if (bar) bar.style.width = `${pct}%`;
+    topbar?.classList.toggle("scrolled", window.scrollY > 8);
   };
 
   window.addEventListener("scroll", update, { passive: true });
   // SPA 导航后重算（滚动位置复位，进度归零）
-  bus.on("doclight:routechange", () => {
-    bar.style.setProperty("--progress", "0%");
-    bar.classList.remove("visible");
-  });
-  update();
-}
-
-/** 回到顶部（04 §4.5.4 兑现，VIS-002）：滚动超过 2 屏浮现，点击平滑回顶 */
-function initBackToTop(): void {
-  const btn = document.querySelector<HTMLButtonElement>(".back-to-top");
-  if (!btn) return;
-
-  const update = () => {
-    const pastTwoScreens = window.scrollY > window.innerHeight * 2;
-    btn.classList.toggle("visible", pastTwoScreens);
-    btn.setAttribute("aria-hidden", String(!pastTwoScreens));
-  };
-
-  btn.addEventListener("click", () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    btn.classList.remove("visible");
-  });
-  window.addEventListener("scroll", update, { passive: true });
   bus.on("doclight:routechange", update);
   update();
 }
 
-/** 页面切换过渡（04 §4.5.2 兑现，VIS-002）：SPA 导航后 article 150ms 淡入（克制） */
+/** 页面切换过渡（04 §4.5.2 兑现，VIS-002 + 设计对齐）：SPA 导航后 article 淡入（克制） */
 function initPageTransition(): void {
   const article = document.querySelector<HTMLElement>("article");
   if (!article) return;
@@ -101,7 +81,6 @@ function initPageTransition(): void {
 /** 挂载体验细节（mount() 调用） */
 export function initUx(): void {
   initPoweredBy();
-  initReadingProgress();
-  initBackToTop();
+  initProgressAndTopbar();
   initPageTransition();
 }

@@ -23,6 +23,38 @@
       "enum": ["minimal", "serif", "modern", "warm"],
       "description": "主题模板（见 11-default-themes 的 4 套）"
     },
+    "version": {
+      "type": "string",
+      "description": "站点版本号（设计对齐 2026-08-16）：提供时顶栏渲染版本按钮（如 \"2.4\"）"
+    },
+    "github": {
+      "type": "string",
+      "description": "GitHub 仓库 URL（设计对齐 2026-08-16）：提供时顶栏渲染 GitHub 图标 + TOC 卡「在 GitHub 上编辑此页」"
+    },
+    "footer": {
+      "type": "object",
+      "description": "页脚（设计对齐 2026-08-16）：自定义链接与状态文案",
+      "properties": {
+        "links": {
+          "type": "array",
+          "description": "页脚链接（服务条款/隐私政策等）",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": { "type": "string", "description": "链接文案" },
+              "href": { "type": "string", "description": "链接地址" }
+            },
+            "required": ["label", "href"],
+            "additionalProperties": false
+          }
+        },
+        "status": {
+          "type": "string",
+          "description": "页脚状态文案（缺省「所有系统正常」+ 对勾）"
+        }
+      },
+      "additionalProperties": false
+    },
     "base": {
       "type": "string",
       "description": "子路径基址（GitHub Pages 项目页等），如 \"/docs\";缺省根部署（05 §5.2.1，SSG-001）"

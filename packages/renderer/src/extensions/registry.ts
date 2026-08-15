@@ -13,6 +13,8 @@
 import type { ExtensionDef } from "./types.ts";
 import { containerExtension } from "./container.ts";
 import { katexInlineExtension, katexBlockExtension } from "./katex.ts";
+import { tabsExtension } from "./tabs.ts";
+import { stepsExtension } from "./steps.ts";
 
 /** 默认启用的扩展白名单（新增扩展在此登记，同时补 specs/features 与单测） */
 export const DEFAULT_EXTENSIONS: ExtensionDef[] = [
@@ -30,6 +32,22 @@ export const DEFAULT_EXTENSIONS: ExtensionDef[] = [
     markedExtensions: [containerExtension],
     client: { enhance: "none" },
     degradation: "纯 CSS 标记（dev server 样式），无 JS 依赖，降级为普通 div",
+  },
+  {
+    id: "tabs",
+    title: "Tabs 容器（:::tabs / :::tab，跨组联动）",
+    classes: ["tabs", "tab-bar", "tab-btn", "tab-panel"],
+    markedExtensions: [tabsExtension],
+    client: { enhance: "none" },
+    degradation: "纯 CSS 标记：首面板直出可见，无 JS 时其余面板隐藏",
+  },
+  {
+    id: "steps",
+    title: "步骤容器（:::steps，编号 + 连线）",
+    classes: ["steps", "step-title"],
+    markedExtensions: [stepsExtension],
+    client: { enhance: "none" },
+    degradation: "纯 CSS 标记（计数器 + 连线），无 JS 依赖，降级为有序列表",
   },
   {
     id: "katex",

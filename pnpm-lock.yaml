@@ -20,6 +20,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^3.0.0
         version: 3.2.7(vitest@3.2.7(@types/node@24.13.3)(jsdom@30.0.1))
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
       eslint:
         specifier: ^9.0.0
         version: 9.39.5
@@ -50,6 +53,9 @@ importers:
       '@resvg/resvg-js':
         specifier: ^2.6.2
         version: 2.6.2
+      jsdom:
+        specifier: ^30.0.1
+        version: 30.0.1
       katex:
         specifier: ^0.18.4
         version: 0.18.4

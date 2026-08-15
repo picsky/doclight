@@ -12,12 +12,16 @@
  * - dev：展示层 /__doclight/display.js + SSE 热重载 + 默认 vendor/search 端点
  * - ssg：展示层 /display.js（拷贝进产物）+ 内联 DOCLIGHT_VENDOR_BASE / DOCLIGHT_SEARCH_INDEX
  *        + __DOCLLIGHT_SSG__ 标记（05 §5.3.2 渐进式水合）
+ *
+ * —— 设计对齐（2026-08-16）：本模板的视觉与交互 1:1 对齐
+ * docs/design-new/index.html（Aster 设计演示），设计最高准则见
+ * docs/design-new/DESIGN.md（项目设计第一文档/宪法）。令牌全部来自宪法 §3。
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { render, type NavGroup, type NavNode } from "@doclight/renderer";
+import { render, parseFrontmatter, type NavGroup, type NavNode } from "@doclight/renderer";
 
 // vendor 依赖定位：从 cli 包自身解析（pnpm workspace 把依赖 symlink 进包级 node_modules，
 // process.cwd() 的根 node_modules 找不到——见 .spike/check-vendor.mjs 实测）
@@ -34,6 +38,26 @@ export function nodeModulesBase(pkg: string): string {
 export function displayBundlePath(): string {
   const self = join(dirname(fileURLToPath(import.meta.url)), "..", "dist", "display.js"); // packages/cli/dist/display.js
   return existsSync(self) ? self : join(process.cwd(), "dist", "display.js");
+}
+
+/**
+ * 收集文档 frontmatter 标题（导航标题修复，2026-08 前端审查 P1-2）：
+ * buildNavTree 不传 titles 时侧边栏显示文件名主干而非 frontmatter.title——
+ * dev / SSG / bundle 三形态统一经此收集；frontmatter 缺失回退文件名主干（与 renderer 一致）。
+ */
+export function collectNavTitles(docsDir: string, files: string[]): Record<string, string> {
+  const titles: Record<string, string> = {};
+  for (const rel of files) {
+    try {
+      const { frontmatter } = parseFrontmatter(readFileSync(join(docsDir, rel), "utf8"));
+      if (typeof frontmatter.title === "string" && frontmatter.title.trim()) {
+        titles[rel] = frontmatter.title.trim();
+      }
+    } catch {
+      /* 不可读文件回退文件名主干（buildNavTree 缺省行为） */
+    }
+  }
+  return titles;
 }
 
 /** REND-002 内置扩展 vendor 文件清单（Prism / KaTeX + KaTeX 字体）。
@@ -58,14 +82,17 @@ function katexFontFiles(): string[] {
  * version 为内容哈希（03 §3.8.5 搜索索引持久化）：docs 变化 → 版本变化 →
  * 展示层 localStorage 缓存校验失配时重建，避免旧索引复用。
  * @param pathSuffix SSG 形态 ".html"：path 字段转静态产物 URL（dev 缺省保持 .md）
+ * @param nav 可选导航树：为每篇文档计算所属分组（搜索结果的「节」标签，与演示页 ri-sec 对齐）
  */
 export function buildSearchData(
   docsDir: string,
   mdFiles: string[],
-  options: { pathSuffix?: string } = {}
-): { version: string; docs: unknown[] } {
+  options: { pathSuffix?: string; nav?: NavNode[] } = {}
+): { version: string; docs: unknown[]; summaries: Record<string, string> } {
   const suffix = options.pathSuffix ?? "";
   const docs: unknown[] = [];
+  const summaries: Record<string, string> = {};
+  const sectionOf = options.nav ? sectionForPath(options.nav) : undefined;
   for (const rel of mdFiles) {
     try {
       const source = readFileSync(join(docsDir, rel), "utf8");
@@ -78,12 +105,16 @@ export function buildSearchData(
         m[1]!.replace(/<[^>]+>/g, "").trim()
       );
       const path = suffix ? rel.replace(/\.md$/, suffix) : rel;
-      docs.push({ path, title, headings, text });
+      const section = sectionOf?.(rel) ?? "";
+      const plain = text.trim().replace(/\s+/g, " ");
+      // 摘要键 = rel 路径（与导航树路径一致——next-grid/上一页下一页按 nav path 取摘要）
+      summaries[rel] = plain.slice(0, 80);
+      docs.push({ path, title, headings, text, ...(section ? { section } : {}) });
     } catch {
       /* 单个文档渲染失败跳过（索引不因此中断） */
     }
   }
-  return { version: searchIndexVersion(docs), docs };
+  return { version: searchIndexVersion(docs), docs, summaries };
 }
 
 /**
@@ -195,27 +226,66 @@ function navHref(path: string, linkSuffix: string, base: string): string {
 }
 
 /**
- * 渲染导航树为嵌套 <ul>（服务端直出，SEO 友好，03 §3.1.3）。
+ * 导航树 → 路径 → 所属顶层分组标题（eyebrow / 搜索结果节标签用）。
+ * 返回 (relPath) => string（"" 表示不在任何分组内）。
+ */
+export function sectionForPath(nodes: NavNode[]): (relPath: string) => string {
+  const map = new Map<string, string>();
+  const walk = (items: NavNode[], groupTitle: string | null) => {
+    for (const n of items) {
+      if (n.type === "file") {
+        if (groupTitle) map.set(n.path, groupTitle);
+      } else {
+        walk(n.items, n.title);
+      }
+    }
+  };
+  walk(nodes, null);
+  return (relPath: string) => map.get(relPath) ?? "";
+}
+
+/** 顶层分组列表（topnav 数据源）：返回 [{ title, firstPath? }] */
+export function topGroups(nodes: NavNode[]): Array<{ title: string; firstPath?: string }> {
+  const out: Array<{ title: string; firstPath?: string }> = [];
+  const walk = (items: NavNode[]): string | undefined => {
+    for (const n of items) {
+      if (n.type === "file") return n.path;
+      const first = walk(n.items);
+      if (first) return first;
+    }
+    return undefined;
+  };
+  for (const n of nodes) {
+    if (n.type === "group") out.push({ title: n.title, firstPath: walk(n.items) });
+  }
+  return out;
+}
+
+/**
+ * 渲染导航树为侧边栏结构（设计对齐：side-group / side-title / side-item / side-sub；
+ * 顶层一律 <li> 包裹保证 ul 合法语义）。
+ * 服务端直出，SEO 友好（03 §3.1.3）；当前页激活态由展示层按 data-path 归一（三形态一致）。
  * @param hash bundle 形态（05 §5.3.4）：href 前缀 "#"（file:// 不能 pushState，用 hash 路由）
  */
 export function renderNav(nodes: NavNode[], linkSuffix = "", base = "", hash = false): string {
   const hrefFor = (p: string) => (hash ? `#${navHref(p, linkSuffix, base)}` : navHref(p, linkSuffix, base));
-  const items = nodes.map((n) => {
-    if (n.type === "file") {
-      const href = hrefFor(n.path);
-      return `<li><a href="${href}" data-path="${n.path}">${escapeHtml(n.title)}</a></li>`;
-    }
-    const groupTitle = n.index
-      ? `<a href="${hrefFor(n.index)}" data-path="${n.index}">${escapeHtml(n.title)}</a>`
-      : escapeHtml(n.title);
-    return `<li class="group">${groupTitle}<ul>${renderNav(n.items, linkSuffix, base, hash)}</ul></li>`;
-  });
-  return `<ul>${items.join("")}</ul>`;
+  const fileItem = (n: { path: string; title: string }): string =>
+    `<a class="side-item" href="${hrefFor(n.path)}" data-path="${escapeHtml(n.path)}">${escapeHtml(n.title)}</a>`;
+  const item = (n: NavNode): string => {
+    if (n.type === "file") return fileItem(n);
+    // 分组：side-title（含 index 时首页条目内联为组内首个 side-item）
+    const indexItem = n.index ? fileItem({ path: n.index, title: n.title }) : "";
+    const children = n.items.map(item).join("");
+    const sub = children ? `<div class="side-sub">${children}</div>` : "";
+    return `<div class="side-group">${indexItem}<div class="side-title">${escapeHtml(n.title)}</div>${sub}</div>`;
+  };
+  return `<ul>${nodes.map((n) => `<li>${item(n)}</li>`).join("")}</ul>`;
 }
 
 /**
  * 面包屑链（05 §5.4.2 进阶 SEO）：首页 → 分组链 → 当前页。
  * 仅链接有 index 页的分组（避免死链）；无 index 的分组只作层级标签。
+ * 根标签「文档」与演示页 crumb 对齐（2026-08-16 设计对齐）。
  * 纯函数（可测）：输入导航树 + 文档相对路径 → 面包屑数组。
  */
 export function breadcrumbFor(
@@ -225,7 +295,7 @@ export function breadcrumbFor(
   base: string,
   title: string
 ): Array<{ label: string; href: string }> {
-  const crumbs: Array<{ label: string; href: string }> = [{ label: "首页", href: base ? `${base}/` : "/" }];
+  const crumbs: Array<{ label: string; href: string }> = [{ label: "文档", href: base ? `${base}/` : "/" }];
   const segments = relPath.split("/");
   segments.pop(); // 文件名
   let level = nodes;
@@ -256,7 +326,7 @@ export function countWords(html: string): number {
 /**
  * OG 分享卡片图（05 §5.4.2：Node 侧生成，无浏览器依赖）。
  * 1200×630 SVG：品牌色块 + 站点字标 + 标题/描述/站点名。
- * 注：部分平台不支持 SVG og:image（需光栅图），本实现为零依赖的先行版，后续可换 PNG/服务端。
+ * 2026-08-16 设计对齐：品牌色改为松绿 Pine（宪法 §3.1 --accent 家族）。
  */
 export function ogCardSvg(options: { title: string; description?: string; siteTitle: string }): string {
   const safe = (s: string) => escapeHtml(s.replace(/[\p{Cc}\p{Cf}]/gu, " ")); // 剥离控制字符（防 SVG 注入/渲染异常）
@@ -280,15 +350,15 @@ export function ogCardSvg(options: { title: string; description?: string; siteTi
   });
   const descLines = wrap(options.description ?? "", 34, 2).map((l, i) => {
     const y = 500 + i * 44;
-    return `<text x="80" y="${y}" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="32" fill="#ccfbf1">${safe(l)}</text>`;
+    return `<text x="80" y="${y}" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="32" fill="#b9e8d3">${safe(l)}</text>`;
   });
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <rect width="1200" height="630" fill="#0f766e"/>
-  <rect width="1200" height="14" fill="#0d9488"/>
-  <text x="80" y="120" font-family="ui-monospace,Menlo,monospace" font-size="36" letter-spacing="6" fill="#5eead4">DOCLIGHT</text>
+  <rect width="1200" height="630" fill="#14714e"/>
+  <rect width="1200" height="14" fill="#0e5a3d"/>
+  <text x="80" y="120" font-family="ui-monospace,Menlo,monospace" font-size="36" letter-spacing="6" fill="#8fe3bd">DOCLIGHT</text>
   ${titleLines.join("\n")}
   ${descLines.join("\n")}
-  <text x="80" y="588" font-family="system-ui,'PingFang SC',sans-serif" font-size="28" fill="#99f6e4">${safe(options.siteTitle)}</text>
+  <text x="80" y="588" font-family="system-ui,'PingFang SC',sans-serif" font-size="28" fill="#b9e8d3">${safe(options.siteTitle)}</text>
 </svg>
 `;
 }
@@ -307,6 +377,8 @@ export interface SeoOptions {
   breadcrumb?: Array<{ label: string; href: string }>;
   /** 正文字数（JSON-LD wordCount） */
   wordCount?: number;
+  /** 阅读时长（分钟，FRONT-001 analyzeDoc 自动计算；2026-08 精致化：文章头部可见元信息） */
+  readingTime?: number;
   /** 更新时间 ISO（JSON-LD dateModified） */
   updatedAt?: string;
   /** 作者（JSON-LD author） */
@@ -325,11 +397,11 @@ export interface RenderPageOptions {
   title: string;
   /** 站点标题 */
   siteTitle: string;
-  /** 服务端直出的导航 <ul> */
+  /** 服务端直出的导航（renderNav 产物） */
   navHtml: string;
   /** 渲染内核输出的已 sanitize 内容 HTML */
   contentHtml: string;
-  /** SEO meta description（缺省省略该标签） */
+  /** SEO meta description（缺省省略该标签）；同时作为正文引言 lede（演示页对齐） */
   description?: string;
   /** 形态：dev（__doclight 端点 + SSE）/ ssg（静态产物路径 + 内联全局覆盖）/ bundle（单文件内嵌数据） */
   form: PageForm;
@@ -356,12 +428,31 @@ export interface RenderPageOptions {
   defaultTheme?: "light" | "dark";
   /** VIS-001：固定主题模式（主题画廊面板用——忽略 localStorage/系统偏好，钉死亮或暗） */
   fixedTheme?: "light" | "dark";
+  /** 设计对齐（2026-08-16）：导航树（顶栏 topnav / 上一页下一页 / 下一步卡片 / eyebrow 数据源） */
+  nav?: NavNode[];
+  /** 设计对齐：当前文档相对路径（docs/ 根起，如 guide/quickstart.md） */
+  currentPath?: string;
+  /** 设计对齐：页面摘要表（path → 摘要，next-grid 卡片描述用；缺省由 contentHtml 提取首段） */
+  summaries?: Record<string, string>;
+  /** 设计对齐：站点镀铬（顶栏版本按钮 / GitHub 图标 / footer 链接与状态） */
+  chrome?: {
+    /** 版本号（如 "2.4"）：提供时顶栏渲染版本按钮 */
+    version?: string;
+    /** GitHub 仓库 URL：提供时顶栏渲染 GitHub 图标 + TOC 卡「在 GitHub 上编辑此页」 */
+    github?: string;
+    /** footer 链接（服务条款/隐私政策等） */
+    footerLinks?: Array<{ label: string; href: string }>;
+    /** footer 状态文案（缺省「所有系统正常」+ 对勾） */
+    statusText?: string;
+  };
 }
 
 /**
  * 三形态全局覆盖脚本：
  * - dev/ssg：window.DOCLIGHT_SEARCH_VERSION（搜索索引缓存校验，内容哈希）
  * - ssg：vendor/search 端点指到静态产物（base 子路径部署时带前缀）+ __DOCLLIGHT_SSG__ 标记
+ * - 全部非 bundle 形态：window.DOCLIGHT_BASE（子路径基址；展示层导航高亮/搜索链接据此归一，
+ *   修复 --base 部署下高亮失效与搜索 404——2026-08 前端审查 H4）
  * - bundle：window.__DOCLLIGHT_BUNDLE__（内嵌 pages/titles/nav/searchIndex，hash 路由 + 零网络）
  */
 function globalOverridesScript(
@@ -373,6 +464,9 @@ function globalOverridesScript(
   const lines: string[] = [];
   if (searchVersion && form !== "bundle") {
     lines.push(`window.DOCLIGHT_SEARCH_VERSION = ${JSON.stringify(searchVersion)};`);
+  }
+  if (form !== "bundle") {
+    lines.push(`window.DOCLIGHT_BASE = ${JSON.stringify(base)};`);
   }
   if (form === "ssg") {
     lines.push(`window.DOCLIGHT_VENDOR_BASE = ${JSON.stringify(`${base}/vendor/`)};`);
@@ -405,7 +499,7 @@ function safeJson(obj: unknown): string {
   return JSON.stringify(obj).replace(/</g, "\\u003c");
 }
 
-/** 面包屑可见 UI（05 §5.4.2：结构化数据 + 可见导航） */
+/** 面包屑可见 UI（05 §5.4.2：结构化数据 + 可见导航；设计对齐：演示页 crumb 形态） */
 function breadcrumbHtml(crumbs: Array<{ label: string; href: string }>): string {
   const items = crumbs
     .map((c, i) => {
@@ -418,82 +512,911 @@ function breadcrumbHtml(crumbs: Array<{ label: string; href: string }>): string 
       return `<li>${inner}</li>`;
     })
     .join("");
-  return `<nav class="breadcrumb" aria-label="面包屑"><ol>${items}</ol></nav>`;
+  return `<nav class="crumb" aria-label="面包屑"><ol>${items}</ol></nav>`;
 }
 
 /**
- * 默认主题设计令牌（THEME-001 + VIS-001）：即 Minimal 设计语言（11 §3.1——
- * teal/白/6px/680px，与 04-reading-experience 排版系统一致）。
- * 独立导出：设计合规门禁（design-compliance）对默认主题同样断言（WCAG AA/8pt/1.25）。
+ * 从内容 HTML 提取 h2/h3 目录（服务端直出 TOC 链接，SEO 友好 + 无 JS 可用；
+ * 展示层挂载后接管滚动监听与指示条，结构与演示页 toc-list 对齐）。
+ */
+export function extractToc(contentHtml: string): Array<{ id: string; text: string; level: number }> {
+  const out: Array<{ id: string; text: string; level: number }> = [];
+  for (const m of contentHtml.matchAll(/<h([23]) id="([^"]+)"[^>]*>([\s\S]*?)<\/h\1>/g)) {
+    const text = m[3]!.replace(/<[^>]+>/g, "").trim();
+    if (text) out.push({ id: m[2]!, text, level: Number(m[1]!) });
+  }
+  return out;
+}
+
+/** 导航树 → 有序文件列表（上一页/下一页数据源；分组 index 在前，与 renderNav 顺序一致） */
+export function flattenNav(nodes: NavNode[]): string[] {
+  const out: string[] = [];
+  const walk = (items: NavNode[]) => {
+    for (const n of items) {
+      if (n.type === "file") out.push(n.path);
+      else walk(n.items);
+    }
+  };
+  walk(nodes);
+  return out;
+}
+
+/** 上一页/下一页（导航顺序中的前一篇/后一篇文档；无则缺省） */
+export function pagerFor(
+  nav: NavNode[],
+  relPath: string,
+  linkSuffix: string,
+  base: string,
+  hash: boolean,
+  titles: Record<string, string>
+): { prev?: { href: string; title: string }; next?: { href: string; title: string } } {
+  const flat = flattenNav(nav);
+  const idx = flat.indexOf(relPath);
+  const titleOf = (p: string) => titles[p] ?? p.replace(/\.md$/, "").split("/").pop()!;
+  return {
+    ...(idx > 0 ? { prev: { href: hash ? `#${navHref(flat[idx - 1]!, linkSuffix, base)}` : navHref(flat[idx - 1]!, linkSuffix, base), title: titleOf(flat[idx - 1]!) } } : {}),
+    ...(idx >= 0 && idx < flat.length - 1 ? { next: { href: hash ? `#${navHref(flat[idx + 1]!, linkSuffix, base)}` : navHref(flat[idx + 1]!, linkSuffix, base), title: titleOf(flat[idx + 1]!) } } : {}),
+  };
+}
+
+/** 子树是否包含指定文档路径 */
+function containsPath(items: NavNode[], relPath: string): boolean {
+  for (const n of items) {
+    if (n.type === "file") {
+      if (n.path === relPath) return true;
+    } else if (containsPath(n.items, relPath)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * 「下一步」卡片（设计对齐：演示页 next-grid）——取当前页所属顶层分组的
+ * 后续分组首页（≤4 张，与演示「核心概念/指南/API 参考/示例」语义一致）。
+ */
+export function nextCardsFor(
+  nav: NavNode[],
+  relPath: string,
+  linkSuffix: string,
+  base: string,
+  hash: boolean,
+  titles: Record<string, string>,
+  summaries: Record<string, string> = {}
+): Array<{ label: string; title: string; href: string; desc: string }> {
+  const firstFile = (items: NavNode[]): NavNode | null => {
+    for (const n of items) {
+      if (n.type === "file") return n;
+      const f = firstFile(n.items);
+      if (f) return f;
+    }
+    return null;
+  };
+  // 当前页所在顶层分组下标（不在任何分组内 → -1）
+  let currentGroupIdx = -1;
+  for (let i = 0; i < nav.length; i++) {
+    const n = nav[i]!;
+    if (n.type !== "group") continue;
+    if (containsPath(n.items, relPath)) {
+      currentGroupIdx = i;
+      break;
+    }
+  }
+  const cards: Array<{ label: string; title: string; href: string; desc: string }> = [];
+  if (currentGroupIdx < 0) {
+    // 扁平站点：取后续兄弟文档（≤4）
+    const flat = flattenNav(nav);
+    const idx = flat.indexOf(relPath);
+    const titleOf = (p: string) => titles[p] ?? p.replace(/\.md$/, "").split("/").pop()!;
+    for (const p of flat.slice(idx + 1, idx + 5)) {
+      cards.push({ label: "", title: titleOf(p), href: hash ? `#${navHref(p, linkSuffix, base)}` : navHref(p, linkSuffix, base), desc: summaries[p] ?? "" });
+    }
+    return cards;
+  }
+  for (const n of nav.slice(currentGroupIdx + 1)) {
+    if (n.type !== "group") continue;
+    const f = firstFile(n.items);
+    if (!f) continue;
+    cards.push({
+      label: n.title,
+      title: titles[f.path] ?? f.path.replace(/\.md$/, "").split("/").pop()!,
+      href: hash ? `#${navHref(f.path, linkSuffix, base)}` : navHref(f.path, linkSuffix, base),
+      desc: summaries[f.path] ?? "",
+    });
+    if (cards.length >= 4) break;
+  }
+  return cards;
+}
+
+/**
+ * 默认主题设计令牌与组件样式（THEME-001 + 设计对齐 2026-08-16）。
+ *
+ * 视觉与交互 1:1 对齐 docs/design-new/index.html（Aster 设计演示）；
+ * 设计最高准则 docs/design-new/DESIGN.md（项目设计第一文档）：
+ * - 排版即界面：层级由字重/字号/字距/留白构建
+ * - 唯一强调色松绿 Pine（#14714e 亮 / #63d2a0 暗），只出现在功能位
+ * - 发丝线分隔、8pt 网格、圆角仅 8/10px、动效克制（≤300ms 反馈）
+ * - 暗色模式独立设计（暖黑 #111110，禁止 #000）
+ * - 对比度：正文 ≥7 AAA / 辅助 ≥4.5 AA / 强调色文字 ≥4.5（--text-3 按 AA 提级）
+ * 独立导出：设计合规门禁（design-compliance）对默认主题同样断言（vitest + visual.mjs 双保险）。
  */
 export const DEFAULT_THEME_CSS = `  :root {
-    /* 颜色 - 品牌（单一强调色 teal；Luminous 光之容器——晨光亮色面） */
-    --color-primary: #0d9488; --color-primary-hover: #0f766e; --color-primary-light: #ccfbf1;
-    /* 颜色 - 中性灰阶（8 级；晨光：微暖白纸感基底） */
-    --color-bg: #fdfdfc; --color-bg-soft: #f7f7f5; --color-bg-code: #f3f4f6;
-    --color-border: #e7e7e3; --color-border-soft: #f1f1ee;
-    --color-text-muted: #71717a; --color-text-secondary: #6b7280;
-    --color-text: #374151; --color-text-strong: #111827;
-    /* 语义色（克制使用） */
-    --color-success: #059669; --color-warning: #d97706; --color-error: #dc2626; --color-info: #2563eb;
-    /* 字体（不引 Web Font，用系统最佳） */
-    --font-sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --font-mono: "JetBrains Mono", "SF Mono", "Cascadia Code", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
-    /* 字号（模块化缩放 1.25，VIS-001：从 base 起严格 ×1.25——lg 20px / xl 25px / 2xl 31.25px / 3xl 39px；
-       xs/sm 为基础 UI 字号（12/14px），不在正文节奏链上（design-compliance 门禁校验）） */
-    --font-size-xs: 0.75rem; --font-size-sm: 0.875rem; --font-size-base: 1rem;
-    --font-size-lg: 1.25rem; --font-size-xl: 1.5625rem;
-    --font-size-2xl: 1.953rem; --font-size-3xl: 2.441rem;
-    /* 行高 */
-    --line-height-tight: 1.3; --line-height-normal: 1.5; --line-height-relaxed: 1.75;
-    /* 字距（VIS-002：标题收紧 / 标签放宽） */
-    --tracking-tight: -0.01em; --tracking-normal: 0; --tracking-wide: 0.04em;
-    /* 间距（4px 基准，8pt 网格；VIS-002 补齐 5/10 档） */
+    color-scheme: light;
+    /* ===== 中性色：暖调，避免纯黑纯白（宪法 §3.1） ===== */
+    --bg:            #ffffff;
+    --bg-subtle:     #fafaf8;
+    --surface:       #f5f5f2;
+    --text:          #1b1b18;
+    --text-2:        #57554e;
+    --text-3:        #6e6b62;  /* 按宪法 AA 提级（演示 #8b887f 仅 3.56:1） */
+    --line:          rgba(27,27,24,.08);
+    --line-strong:   rgba(27,27,24,.16);
+    /* ===== 唯一强调色：松绿 Pine（宪法 §3.1；职务 = 链接/激活/焦点/关键状态） ===== */
+    --accent:        #14714e;
+    --accent-hover:  #0e5a3d;
+    --accent-soft:   rgba(20,113,78,.07);
+    --accent-ink:    #14714e;
+    /* ===== 语义色（宪法 §3.1：仅三枚，只用于状态指示，不用于大面积填充） ===== */
+    --success:       #3d9e4f;
+    --warning:       #b45309;
+    --error:         #b3261e;
+    /* ===== 代码 ===== */
+    --code-bg:       #f7f7f4;
+    --code-line:     rgba(27,27,24,.09);
+    --syn-k:  #7c3aed;  /* keyword  */
+    --syn-s:  #0e7490;  /* string   */
+    --syn-c:  #8a877c;  /* comment（按 AA 提级，演示 #9b988d 仅 2.5:1） */
+    --syn-n:  #b45309;  /* number   */
+    --syn-f:  #14714e;  /* function（= 强调色，宪法 §3.1 联动） */
+    --syn-p:  #57554e;  /* plain    */
+    /* ===== 浮层 / 圆角 ===== */
+    --topbar-bg: rgba(255,255,255,.82);
+    --shadow-pop: 0 12px 40px -12px rgba(27,27,24,.18), 0 2px 8px -2px rgba(27,27,24,.08);
+    --radius: 10px;
+    --radius-sm: 8px;
+    /* ===== 字体（宪法 §3.2；Inter 拉丁 / 系统中文 / JetBrains Mono 代码 / Source Serif 引言） ===== */
+    --font-sans: "Inter", -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    --font-serif: "Source Serif 4", Georgia, "Songti SC", "STSong", "SimSun", serif;
+    --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+    /* ===== 类型阶（宪法 §3.2 唯一批准档位） ===== */
+    --font-size-xs: 0.75rem;    /* 12px  标签/辅助 */
+    --font-size-sm: 0.8125rem;  /* 13px  次级 */
+    --font-size-base: 0.969rem; /* 15.5px 正文 */
+    --font-size-lg: 1.125rem;   /* 18px  引言 */
+    --font-size-xl: 1.3125rem;  /* 21px  H2 */
+    --font-size-2xl: 1.625rem;  /* 26px  备用档 */
+    --font-size-3xl: 2.125rem;  /* 34px  H1 */
+    /* ===== 间距（宪法 §3.3：8pt 网格，只许 4 的倍数） ===== */
     --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
-    --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
-    --space-12: 48px; --space-16: 64px;
-    /* 布局 */
-    --max-width-content: 680px; --sidebar-width: 280px; --toc-width: 220px; --topbar-height: 56px;
-    /* 圆角 */
-    --radius-sm: 4px; --radius: 6px; --radius-lg: 8px;
-    /* 阴影（VIS-002 分层：克制使用） */
-    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05); --shadow: 0 1px 3px rgba(0,0,0,0.1);
-    --shadow-lg: 0 4px 12px rgba(0,0,0,0.1); --shadow-xl: 0 12px 32px rgba(0,0,0,0.14);
-    /* 过渡与缓动（VIS-002：标准反馈 / 柔和出场） */
-    --transition-fast: 150ms ease; --transition: 200ms ease;
-    --ease-standard: cubic-bezier(0.2, 0, 0, 1); --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-    /* 聚焦环（WCAG 2.4.7；色相随主题） */
-    --ring-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
-    /* 代码块令牌（VIS-002 惊艳化：恒定深色基底——顶级文档站标准；
-       亮暗主题共享深色代码区，主题可覆盖为纸色/暖色/玻璃等个性形态） */
-    --code-bg: #0d1117; --code-text: #e6edf3; --code-border: rgba(148, 163, 184, 0.14);
-    --code-token-comment: #7d8590; --code-token-punct: #8b949e; --code-token-keyword: #79c0ff;
-    --code-token-string: #a5d6ff; --code-token-number: #d2a8ff; --code-token-func: #56d4dd;
-    --code-token-tag: #7ee787; --code-token-attr: #79c0ff; --code-token-class: #ffa657;
-    --code-token-op: #e6edf3; --code-token-regex: #a5d6ff;
-    /* Luminous 光效令牌（VIS-002 惊艳化） */
-    --gradient-brand: linear-gradient(135deg, var(--color-primary), #14b8a6);
-    --glow-primary: 0 0 0 1px color-mix(in srgb, var(--color-primary) 16%, transparent), 0 8px 32px color-mix(in srgb, var(--color-primary) 12%, transparent);
+    --space-5: 20px; --space-6: 24px; --space-7: 28px; --space-8: 32px;
+    --space-9: 36px; --space-10: 40px; --space-11: 44px; --space-12: 48px;
+    --space-14: 56px; --space-16: 64px; --space-24: 96px;
+    /* ===== 动效（宪法 §3.4：唯一缓动；反馈 ≤300ms） ===== */
+    --ease: cubic-bezier(.22,.68,.2,1);
+    --dur-fast: .15s;
+    --dur: .25s;
+    --dur-slow: .6s;
+    /* ===== 布局 ===== */
+    --topbar-height: 60px;
+    --sidebar-width: 264px;
+    --toc-width: 224px;
+    --content-max: 700px;
   }
   [data-theme="dark"] {
-    /* Luminous 夜航面：深蓝黑底 + teal 辉光 */
-    --color-bg: #0a0e14; --color-bg-soft: #11161f; --color-bg-code: #262626;
-    --color-border: #1e2530; --color-border-soft: #161c26;
-    --color-text-muted: #73737f; --color-text-secondary: #a3a3ad;
-    --color-text: #d4d4d8; --color-text-strong: #f5f5f7;
-    --color-primary-light: #134e4a;
-    --color-success: #10b981; --color-warning: #f59e0b; --color-error: #ef4444; --color-info: #3b82f6;
-    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3); --shadow: 0 1px 3px rgba(0,0,0,0.4);
-    --shadow-lg: 0 4px 16px rgba(0,0,0,0.5); --shadow-xl: 0 16px 40px rgba(0,0,0,0.6);
-    --code-token-comment: #8b949e; --code-token-punct: #8b949e;
-    --gradient-brand: linear-gradient(135deg, #2dd4bf, #14b8a6);
+    /* 暗色是独立设计，不是反色（宪法 §3.1：暖黑，禁止 #000） */
+    color-scheme: dark;
+    --bg:            #111110;
+    --bg-subtle:     #161614;
+    --surface:       #1c1c19;
+    --text:          #ebeae5;
+    --text-2:        #a5a29a;
+    --text-3:        #9a968c;  /* 按宪法 AA 提级 */
+    --line:          rgba(235,234,229,.09);
+    --line-strong:   rgba(235,234,229,.18);
+    --accent:        #63d2a0;
+    --accent-hover:  #85e0b8;
+    --accent-soft:   rgba(99,210,160,.10);
+    --accent-ink:    #63d2a0;
+    --success:       #4cc36c;
+    --warning:       #f59e0b;
+    --error:         #f87171;
+    --code-bg:       #151513;
+    --code-line:     rgba(235,234,229,.10);
+    --syn-k:  #d699b6;
+    --syn-s:  #a7c080;
+    --syn-c:  #7a8478;
+    --syn-n:  #e69875;
+    --syn-f:  #83c092;
+    --syn-p:  #a5a29a;
+    --topbar-bg: rgba(17,17,16,.8);
+    --shadow-pop: 0 16px 48px -12px rgba(0,0,0,.6), 0 2px 8px -2px rgba(0,0,0,.4);
   }
+
+  /* ===== Reset & Base（设计对齐：演示页 §Reset & Base） ===== */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 88px; }
+  body {
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01", "ss03";
+    background: var(--bg);
+    color: var(--text);
+    font-size: var(--font-size-base);
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    transition: background .35s ease, color .35s ease;
+  }
+  ::selection { background: var(--accent); color: #fff; }
+  a { color: var(--accent-ink); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  button { font-family: inherit; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 6px; border: 3px solid transparent; background-clip: content-box; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  .mono { font-family: var(--font-mono); }
+  kbd {
+    font-family: var(--font-mono);
+    font-size: .78em; padding: 2px 6px;
+    background: var(--surface); border: 1px solid var(--line-strong);
+    border-bottom-width: 2px; border-radius: 5px; color: var(--text-2);
+  }
+
+  /* ===== 顶部阅读进度条（设计对齐：2px 存在但不喧哗） ===== */
+  #progress {
+    position: fixed; top: 0; left: 0; height: 2px; width: 0%;
+    background: var(--accent); z-index: 100;
+    transition: width .1s linear;
+  }
+
+  /* ===== Topbar ===== */
+  .topbar {
+    position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-height); z-index: 50;
+    display: flex; align-items: center; gap: 24px;
+    padding: 0 24px;
+    background: var(--topbar-bg);
+    backdrop-filter: saturate(1.6) blur(14px);
+    -webkit-backdrop-filter: saturate(1.6) blur(14px);
+    border-bottom: 1px solid transparent;
+    transition: border-color .3s ease, background .35s ease;
+  }
+  .topbar.scrolled { border-bottom-color: var(--line); }
+  .brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 600; font-size: 15px; letter-spacing: -.01em; }
+  .brand:hover { text-decoration: none; }
+  .brand .logo {
+    width: 26px; height: 26px; border-radius: 7px;
+    background: var(--text); color: var(--bg);
+    display: grid; place-items: center; flex: none;
+    transition: background .35s ease, color .35s ease;
+  }
+  .brand .tag {
+    font-size: 11.5px; font-weight: 500; color: var(--text-3);
+    border: 1px solid var(--line-strong); border-radius: 99px;
+    padding: 1px 8px; margin-left: 2px;
+  }
+  .topnav { display: flex; gap: 4px; margin-left: 8px; }
+  .topnav a {
+    color: var(--text-2); font-size: 13.5px; font-weight: 500;
+    padding: 6px 11px; border-radius: 7px;
+  }
+  .topnav a:hover { color: var(--text); background: var(--surface); text-decoration: none; }
+  .topnav a.active { color: var(--text); background: var(--surface); }
+  .topbar .spacer { flex: 1; }
+  .search-btn {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--line);
+    color: var(--text-3); font-size: 13px;
+    padding: 6px 10px 6px 12px; border-radius: 8px;
+    min-width: 220px; transition: border-color .2s, color .2s;
+  }
+  .search-btn:hover { border-color: var(--line-strong); color: var(--text-2); }
+  .search-btn kbd { margin-left: auto; border-bottom-width: 1px; padding: 1px 5px; font-size: 11px; }
+  .icon-btn {
+    width: 34px; height: 34px; border-radius: 8px; flex: none;
+    display: grid; place-items: center;
+    background: transparent; border: 1px solid transparent;
+    color: var(--text-2); transition: background .2s, color .2s;
+  }
+  .icon-btn:hover { background: var(--surface); color: var(--text); }
+  .version-btn {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 13px; font-weight: 500; color: var(--text-2);
+    background: transparent; border: 1px solid var(--line);
+    padding: 6px 10px; border-radius: 8px;
+  }
+  .version-btn:hover { border-color: var(--line-strong); color: var(--text); }
+  .version-btn .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+
+  /* ===== Layout：三栏 —— 导航 / 内容 / 页内目录（设计对齐） ===== */
+  .layout {
+    display: grid;
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--toc-width);
+    max-width: 1440px; margin: 0 auto;
+    padding-top: var(--topbar-height);
+  }
+
+  /* ---------- 左侧导航 ---------- */
+  .sidebar {
+    position: sticky; top: var(--topbar-height); height: calc(100vh - var(--topbar-height));
+    overflow-y: auto; padding: 28px 20px 48px 24px;
+    border-right: 1px solid var(--line);
+  }
+  .sidebar ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav > ul > li { margin: 0; }
+  .side-group { margin-bottom: 24px; }
+  .side-title {
+    font-size: 11px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--text-3);
+    padding: 0 10px; margin-bottom: 6px;
+  }
+  .side-item {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13.5px; color: var(--text-2);
+    padding: 8px 10px; border-radius: 7px;
+    position: relative; transition: color .15s, background .15s;
+  }
+  .side-item:hover { color: var(--text); background: var(--surface); text-decoration: none; }
+  .side-item.active { color: var(--accent-ink); background: var(--accent-soft); font-weight: 500; }
+  .side-item.active::before {
+    content: ""; position: absolute; left: -21px; top: 8px; bottom: 8px;
+    width: 2px; border-radius: 2px; background: var(--accent);
+  }
+  .side-sub { margin: 2px 0 2px 13px; padding-left: 12px; border-left: 1px solid var(--line); }
+  .side-sub .side-item { font-size: 13px; padding: 8px 10px; }
+
+  /* ---------- 正文 ---------- */
+  .content {
+    min-width: 0; padding: 40px 56px 96px;
+    animation: rise .6s var(--ease) .06s both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .article { max-width: var(--content-max); }
+  .crumb {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12.5px; color: var(--text-3); margin-bottom: 18px;
+  }
+  .crumb ol { list-style: none; display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin: 0; padding: 0; }
+  .crumb a { color: var(--text-3); }
+  .crumb a:hover { color: var(--text-2); }
+  .crumb li { display: inline-flex; align-items: center; gap: 7px; }
+  .crumb li + li::before { content: "/"; opacity: .5; }
+  .crumb [aria-current="page"] { color: var(--text-2); }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--accent-ink); margin-bottom: 10px;
+  }
+  .eyebrow::before { content: ""; width: 16px; height: 1.5px; background: var(--accent); border-radius: 2px; }
+  article h1 {
+    font-size: 34px; font-weight: 700; letter-spacing: -.025em;
+    line-height: 1.2; margin-bottom: 12px; color: var(--text);
+  }
+  .lede { font-size: 17px; line-height: 1.7; color: var(--text-2); margin-bottom: 16px; text-wrap: pretty; }
+  .meta {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    font-size: 12.5px; color: var(--text-3);
+    padding-bottom: 26px; margin-bottom: 32px;
+    border-bottom: 1px solid var(--line);
+  }
+  .meta .sep { width: 3px; height: 3px; border-radius: 50%; background: var(--text-3); opacity: .6; }
+  article h2 {
+    font-size: 21px; font-weight: 650; letter-spacing: -.015em;
+    margin: 44px 0 14px; padding-top: 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  article h3 { font-size: 16px; font-weight: 600; margin: 30px 0 10px; letter-spacing: -.01em; }
+  .anchor {
+    opacity: 0; color: var(--text-3); font-weight: 400; font-size: .85em;
+    transition: opacity .2s, color .2s;
+  }
+  h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+  .anchor:hover { color: var(--accent-ink); text-decoration: none; }
+  article p { margin-bottom: 16px; color: var(--text); text-wrap: pretty; }
+  p code, li code, td code {
+    font-family: var(--font-mono);
+    font-size: .84em; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 5px;
+    padding: 1.5px 5.5px; color: var(--text); white-space: nowrap;
+  }
+  article strong { font-weight: 600; }
+  article ul, article ol { margin: 0 0 16px 22px; }
+  article li { margin-bottom: 6px; }
+  article li::marker { color: var(--text-3); }
+  article blockquote {
+    margin: 20px 0 24px; padding: 12px 16px;
+    border-left: 2.5px solid var(--line-strong);
+    color: var(--text-2); font-size: 14px; line-height: 1.7;
+  }
+  article blockquote > :first-child { margin-top: 0; }
+  article blockquote > :last-child { margin-bottom: 0; }
+  article hr { border: none; height: 1px; margin: 32px 0; background: var(--line); }
+  article img { max-width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--line); }
+  article del { color: var(--text-3); }
+  /* 任务列表（GFM）：去掉默认标记，checkbox 用强调色 */
+  article ul:has(> li > input[type="checkbox"]), article ol:has(> li > input[type="checkbox"]) { list-style: none; padding-left: 0.4em; }
+  article li:has(> input[type="checkbox"]) { display: flex; align-items: baseline; gap: 8px; }
+  article input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px; flex-shrink: 0; margin: 0; transform: translateY(2px); }
+
+  /* ---------- 提示块（宪法 §4.4：左侧 2.5px 竖线 + 极浅同色系底色，不加彩色徽章） ---------- */
+  .doclight-container {
+    display: flex; gap: 12px;
+    padding: 14px 16px; margin: 22px 0;
+    border: 1px solid var(--line); border-left: 2.5px solid var(--accent);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    background: var(--accent-soft);
+    font-size: 14px; line-height: 1.7;
+  }
+  .doclight-container > :not(.icon) { min-width: 0; flex: 1; }
+  .doclight-container .icon { flex: none; margin-top: 2px; color: var(--accent-ink); display: inline-flex; }
+  .doclight-container p { margin: 0; font-size: 14px; color: var(--text-2); }
+  .doclight-container > :first-child { margin-top: 0; }
+  .doclight-container > :last-child { margin-bottom: 0; }
+  .doclight-container strong { color: var(--text); }
+  .doclight-tip { border-left-color: var(--success); background: rgba(61,158,79,.06); }
+  .doclight-warning { border-left-color: var(--warning); background: rgba(180,83,9,.06); }
+  .doclight-danger { border-left-color: var(--error); background: rgba(179,38,30,.06); }
+  [data-theme="dark"] .doclight-tip { background: rgba(76,195,108,.08); }
+  [data-theme="dark"] .doclight-warning { background: rgba(245,158,11,.08); }
+  [data-theme="dark"] .doclight-danger { background: rgba(248,113,113,.08); }
+
+  /* ---------- 代码块（设计对齐：头部条 = 文件名 + 语言 + 复制按钮） ---------- */
+  .codeblock {
+    margin: 20px 0 24px;
+    border: 1px solid var(--code-line); border-radius: var(--radius);
+    background: var(--code-bg); overflow: hidden;
+  }
+  .codeblock .code-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px 8px 14px;
+    border-bottom: 1px solid var(--code-line);
+    font-size: 12px; color: var(--text-3);
+  }
+  .codeblock .fname { font-family: var(--font-mono); font-weight: 500; color: var(--text-2); }
+  .codeblock .lang { margin-left: auto; text-transform: uppercase; font-size: 10.5px; letter-spacing: .08em; }
+  .copy-btn {
+    display: flex; align-items: center; gap: 5px;
+    background: transparent; border: none; color: var(--text-3);
+    font-size: 11.5px; padding: 3px 6px; border-radius: 5px;
+    transition: color .2s, background .2s;
+  }
+  .copy-btn:hover { color: var(--text); background: var(--surface); }
+  .codeblock pre {
+    padding: 16px 18px; overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 13px; line-height: 1.75; color: var(--text);
+  }
+  .codeblock pre.doclight-code { background: transparent; border: none; margin: 0; }
+  /* 语法高亮令牌（宪法 §3.1：函数色 = 强调色；每主题一调色板 ≤6 色） */
+  .tok-k, .token.keyword, .token.rule, .token.important { color: var(--syn-k); }
+  .tok-s, .token.string, .token.char, .token.attr-value, .token.regex { color: var(--syn-s); }
+  .tok-c, .token.comment, .token.prolog, .token.doctype, .token.cdata { color: var(--syn-c); font-style: italic; }
+  .tok-n, .token.number, .token.boolean, .token.constant { color: var(--syn-n); }
+  .tok-f, .token.function, .token.method { color: var(--syn-f); }
+  .tok-p, .token.punctuation, .token.operator, .token.property, .token.variable, .token.builtin { color: var(--syn-p); }
+
+  /* ---------- Tabs（跨组联动，设计对齐） ---------- */
+  .tabs { margin: 20px 0 24px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .tab-bar {
+    display: flex; gap: 2px; padding: 5px;
+    background: var(--bg-subtle); border-bottom: 1px solid var(--line);
+  }
+  .tab-btn {
+    border: none; background: transparent; color: var(--text-2);
+    font-size: 12.5px; font-weight: 500; font-family: var(--font-mono);
+    padding: 5px 14px; border-radius: 6px; transition: all .18s;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { background: var(--bg); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 0 0 1px var(--line); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .tab-panel .codeblock { margin: 0; border: none; border-radius: 0; }
+  .tab-panel .codeblock pre { padding: 14px 18px; }
+
+  /* ---------- 步骤组件（设计对齐） ---------- */
+  .steps { list-style: none; margin: 24px 0; counter-reset: step; }
+  .steps li {
+    counter-increment: step; position: relative;
+    padding: 0 0 28px 44px; margin: 0;
+  }
+  .steps li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: 1px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--bg); border: 1px solid var(--line-strong);
+    color: var(--text-2); font-size: 12.5px; font-weight: 600;
+    display: grid; place-items: center;
+  }
+  .steps li::after {
+    content: ""; position: absolute; left: 13px; top: 32px; bottom: 4px;
+    width: 1px; background: var(--line-strong);
+  }
+  .steps li:last-child::after { display: none; }
+  .steps li:last-child { padding-bottom: 4px; }
+  .steps .step-title { font-weight: 600; font-size: 14.5px; margin-bottom: 4px; display: block; }
+  .steps p { font-size: 14px; color: var(--text-2); margin: 0; }
+
+  /* ---------- 表格：发丝线（宪法 §4.3：只有横线，没有竖线） ---------- */
+  .table-wrap { margin: 20px 0 26px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  th {
+    text-align: left; font-size: 11.5px; font-weight: 600;
+    letter-spacing: .06em; text-transform: uppercase; color: var(--text-3);
+    padding: 10px 16px; background: var(--bg-subtle);
+    border-bottom: 1px solid var(--line);
+  }
+  td { padding: 11px 16px; border-bottom: 1px solid var(--line); color: var(--text-2); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td:first-child { font-family: var(--font-mono); font-size: 12.5px; color: var(--text); white-space: nowrap; }
+  tbody tr { transition: background .15s; }
+  tbody tr:hover { background: var(--bg-subtle); }
+  .table-wrap.more-right { box-shadow: inset -16px 0 16px -16px rgba(0,0,0,.14); }
+
+  /* ---------- 下一步卡片（设计对齐） ---------- */
+  .next-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 22px 0 8px;
+  }
+  .next-card {
+    display: block; padding: 16px 20px;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    color: var(--text); transition: border-color .2s, transform .2s, box-shadow .2s;
+  }
+  .next-card:hover { text-decoration: none; border-color: var(--line-strong); transform: translateY(-1px); box-shadow: 0 4px 16px -6px rgba(0,0,0,.1); }
+  .next-card .nc-label { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); margin-bottom: 6px; }
+  .next-card .nc-title { font-size: 14.5px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .next-card .nc-title svg { color: var(--text-3); transition: transform .2s, color .2s; }
+  .next-card:hover .nc-title svg { transform: translateX(3px); color: var(--accent-ink); }
+  .next-card .nc-desc { font-size: 13px; color: var(--text-2); margin-top: 4px; line-height: 1.6; }
+
+  /* ---------- 上一页 / 下一页（设计对齐） ---------- */
+  .pager {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    margin-top: 56px; padding-top: 28px; border-top: 1px solid var(--line);
+  }
+  .pager a {
+    padding: 16px 20px; border: 1px solid var(--line); border-radius: var(--radius);
+    color: var(--text); transition: border-color .2s;
+  }
+  .pager a:hover { text-decoration: none; border-color: var(--accent); }
+  .pager .dir { font-size: 11.5px; color: var(--text-3); letter-spacing: .05em; text-transform: uppercase; font-weight: 600; margin-bottom: 3px; }
+  .pager .pg-title { font-size: 14px; font-weight: 600; }
+  .pager .next { text-align: right; }
+
+  /* ---------- 右侧页内目录（设计对齐：指示条 + 链接 + 反馈卡） ---------- */
+  .toc {
+    position: sticky; top: var(--topbar-height); height: calc(100vh - var(--topbar-height));
+    overflow-y: auto; padding: 40px 24px 48px 8px;
+    border-left: 1px solid var(--line);
+  }
+  .toc-title {
+    font-size: 11px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--text-3); margin-bottom: 10px; padding-left: 12px;
+  }
+  .toc-list { position: relative; }
+  .toc-indicator {
+    position: absolute; left: 0; top: 0; width: 2px; height: 20px;
+    background: var(--accent); border-radius: 2px;
+    transition: transform .25s cubic-bezier(.4,0,.2,1), opacity .25s;
+    opacity: 0;
+  }
+  .toc a {
+    display: block; font-size: 12.5px; color: var(--text-3);
+    padding: 4px 0 4px 12px; line-height: 1.5;
+    transition: color .18s;
+  }
+  .toc a:hover { color: var(--text); text-decoration: none; }
+  .toc a.active { color: var(--accent-ink); font-weight: 500; }
+  .toc a.l3 { padding-left: 24px; font-size: 12px; }
+  .toc-card {
+    margin-top: 28px; padding: 14px 16px;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--bg-subtle);
+  }
+  .toc-card .q { font-size: 12.5px; font-weight: 600; margin-bottom: 10px; }
+  .toc-card .row { display: flex; gap: 8px; }
+  .toc-card button {
+    flex: 1; font-size: 12px; font-weight: 500; color: var(--text-2);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 7px;
+    padding: 5px 0; transition: all .18s;
+  }
+  .toc-card button:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .toc-card .edit { display: block; margin-top: 12px; font-size: 12px; color: var(--text-3); }
+  .toc-card .edit:hover { color: var(--accent-ink); }
+
+  /* ---------- Footer ---------- */
+  .footer {
+    border-top: 1px solid var(--line);
+    padding: 28px 24px;
+  }
+  .footer-inner {
+    max-width: 1440px; margin: 0 auto;
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    font-size: 12.5px; color: var(--text-3);
+  }
+  .footer a { color: var(--text-3); }
+  .footer a:hover { color: var(--text-2); }
+  .status { display: flex; align-items: center; gap: 7px; margin-left: auto; }
+  .status svg { color: var(--success); flex: none; }
+  .powered-by { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-3); }
+  .powered-by a { color: var(--text-3); }
+  .powered-by a:hover { color: var(--text-2); }
+  .powered-by button { border: 0; background: transparent; color: var(--text-3); cursor: pointer; padding: 2px 6px; border-radius: 5px; }
+  .powered-by button:hover { color: var(--error); }
+
+  /* ---------- 搜索弹层（设计对齐） ---------- */
+  .modal-mask {
+    position: fixed; inset: 0; z-index: 90;
+    background: rgba(15,15,14,.4);
+    backdrop-filter: blur(3px);
+    display: none; align-items: flex-start; justify-content: center;
+    padding-top: 14vh;
+  }
+  .modal-mask.open { display: flex; animation: fadeIn .15s ease; }
+  @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+  .modal {
+    width: min(560px, 92vw);
+    background: var(--bg); border: 1px solid var(--line-strong);
+    border-radius: var(--radius); box-shadow: var(--shadow-pop);
+    overflow: hidden;
+    animation: pop .18s cubic-bezier(.2,.8,.3,1.1);
+  }
+  @keyframes pop { from { opacity: 0; transform: scale(.97) translateY(-6px); } to { opacity: 1; transform: none; } }
+  .modal .search-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px; border-bottom: 1px solid var(--line);
+  }
+  .modal input {
+    flex: 1; border: none; background: transparent; outline: none;
+    font-size: 15px; color: var(--text); font-family: inherit;
+  }
+  .modal input::placeholder { color: var(--text-3); }
+  .modal .esc { font-size: 10.5px; }
+  .modal .results { max-height: 320px; overflow-y: auto; padding: 8px; }
+  .result-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 12px; border-radius: 8px; cursor: pointer;
+  }
+  .result-item.sel { background: var(--accent-soft); }
+  .result-item .ri-icon { color: var(--text-3); flex: none; }
+  .result-item.sel .ri-icon { color: var(--accent-ink); }
+  .result-item .ri-title { font-size: 13.5px; font-weight: 500; color: var(--text); }
+  .result-item .ri-sec { font-size: 11.5px; color: var(--text-3); margin-left: auto; }
+  .modal .modal-foot {
+    display: flex; gap: 16px; padding: 10px 16px;
+    border-top: 1px solid var(--line);
+    font-size: 11px; color: var(--text-3);
+  }
+  .modal .modal-foot span { display: flex; align-items: center; gap: 5px; }
+
+  /* ---------- 图解（宪法 §4.5：inline SVG，复用全部 design token） ---------- */
+  figure.diagram {
+    margin: 24px 0 28px; padding: 26px 20px 14px;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--bg-subtle); overflow-x: auto;
+  }
+  figure.diagram figcaption {
+    font-size: 12px; color: var(--text-3); text-align: center; margin-top: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .diagram svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  .d-box { fill: var(--bg); stroke: var(--line-strong); stroke-width: 1; }
+  .d-box-accent { fill: var(--accent-soft); stroke: var(--accent); }
+  .d-node-title { font-size: 12.5px; font-weight: 500; fill: var(--text); }
+  .d-node-sub { font-family: var(--font-mono); font-size: 9.5px; fill: var(--text-3); letter-spacing: .04em; }
+  .d-node-sub-accent { fill: var(--accent-ink); }
+  .d-edge { stroke: var(--text-3); stroke-width: 1.2; fill: none; }
+  .d-edge-dash { stroke-dasharray: 4 4; }
+  .d-arrow { fill: var(--text-3); }
+  .d-edge-label { font-size: 10px; fill: var(--text-3); font-family: var(--font-mono); }
+  /* Mermaid（PLUG-012）：样式由 @doclight/plugin-mermaid 的 styles 声明提供
+     （按需注入，令牌化对齐新设计语言——见 plugins-official/mermaid.ts） */
+
+  /* ---------- KaTeX（REND-002 扩展） ---------- */
+  .doclight-katex-block { overflow-x: auto; overflow-y: hidden; padding: 4px 0; margin: 0 0 16px; }
+  .doclight-katex-inline { padding: 0 2px; }
+
+  /* ---------- 跳转至主内容（键盘可达性，宪法 §6） ---------- */
+  .skip {
+    position: fixed; top: 10px; left: 10px; z-index: 200;
+    background: var(--text); color: var(--bg);
+    font-size: 12.5px; font-weight: 500; padding: 7px 14px; border-radius: 8px;
+    transform: translateY(-300%); transition: transform .2s var(--ease);
+  }
+  .skip:focus { transform: none; text-decoration: none; }
+
+  /* ---------- 第二层优化：工艺细节（设计对齐：编辑级排版 + 入场编排 + 锚点闪烁） ---------- */
+  .lede {
+    font-family: var(--font-serif);
+    font-size: 18px; line-height: 1.8; letter-spacing: 0;
+  }
+  h1, h2, .lede { text-wrap: balance; }
+  article p { hanging-punctuation: first allow-end; }
+  table, .meta, .toc-card { font-variant-numeric: tabular-nums; }
+  .sidebar { animation: rise .5s var(--ease) both; }
+  .toc { animation: rise .5s var(--ease) .12s both; }
+  @keyframes flash { 0% { background: var(--accent-soft); box-shadow: 0 0 0 6px var(--accent-soft); } 100% { background: transparent; box-shadow: 0 0 0 6px transparent; } }
+  h2.flash { animation: flash 1.5s var(--ease); border-radius: 6px; }
+
+  /* ---------- 尊重用户的动效偏好（宪法 §3.4 + §6） ---------- */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    html { scroll-behavior: auto; }
+  }
+
+  /* ---------- 打印（宪法 §6） ---------- */
+  @media print {
+    .topbar, .sidebar, .toc, .footer, .modal-mask, #progress, .pager, .skip { display: none !important; }
+    .layout { display: block; padding-top: 0; }
+    .content { padding: 0; animation: none; }
+    body { background: #fff; color: #000; font-size: 12pt; }
+    .codeblock, .table-wrap, figure.diagram { break-inside: avoid; }
+    a { color: #000; }
+  }
+
+  /* ---------- 响应式（设计对齐） ---------- */
+  @media (max-width: 1180px) {
+    .layout { grid-template-columns: var(--sidebar-width) minmax(0, 1fr); }
+    .toc { display: none; }
+  }
+  /* ---------- 移动端抽屉与 TOC 面板（DocLight 既有能力，设计语言一致；基类隐藏，媒体查询显示） ---------- */
+  #sidebar-toggle { display: none; }
+  .toc-fab { display: none; }
+  .toc-sheet { display: none; }
+  @media (max-width: 860px) {
+    #sidebar-toggle { display: inline-flex; }
+    .toc-fab { display: flex; align-items: center; justify-content: center; }
+  }
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: minmax(0, 1fr); }
+    .sidebar { display: none; }
+    .topnav, .search-btn { display: none; }
+    .content { padding: 32px 22px 72px; }
+    .next-grid { grid-template-columns: 1fr; }
+    /* 移动端抽屉侧边栏 */
+    .icon-btn { width: 44px; height: 44px; }
+    .sidebar {
+      display: block; position: fixed; left: 0; top: var(--topbar-height); bottom: 0; height: auto;
+      transform: translateX(-100%); visibility: hidden; z-index: 40;
+      width: min(80vw, var(--sidebar-width)); background: var(--bg);
+      border-right: 1px solid var(--line);
+      transition: transform .2s ease, visibility 0s linear .2s;
+      padding-bottom: calc(48px + env(safe-area-inset-bottom));
+    }
+    .sidebar.open { transform: translateX(0); visibility: visible; transition: transform .2s ease, visibility 0s; }
+    .topbar { padding: 0 12px; gap: 12px; }
+    .version-btn { display: none; }
+    /* 移动端 TOC：右下角浮动按钮 + 底部面板 */
+    .toc-fab { position: fixed; right: 16px; bottom: 24px; z-index: 40; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--bg-subtle); color: var(--text-2); font-size: 18px; cursor: pointer; box-shadow: 0 2px 8px -2px rgba(27,27,24,.12); }
+    .toc-sheet { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; max-height: 70%; background: var(--bg); border-top: 1px solid var(--line); border-radius: 10px 10px 0 0; transform: translateY(100%); visibility: hidden; transition: transform .2s ease, visibility 0s linear .2s; }
+    .toc-sheet.open { transform: translateY(0); visibility: visible; transition: transform .2s ease, visibility 0s; }
+    .toc-sheet-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--line); font-weight: 600; font-size: 14px; color: var(--text); }
+    .toc-sheet-close { border: none; background: none; font-size: 20px; cursor: pointer; color: var(--text-2); }
+    .toc-sheet-nav { padding: 12px; overflow-y: auto; max-height: calc(70vh - 48px); }
+    .toc-sheet-nav .toc-list { position: static; }
+    .toc-sheet-nav .toc-indicator { display: none; }
+    .toc-sheet-nav a { font-size: 13.5px; }
+  }
+  /* 触摸反馈（移动端替代 hover）：按下微暗 */
+  @media (max-width: 860px) {
+    .icon-btn:active, .toc-fab:active { background: var(--surface); }
+  }
+
+  /* ---------- 页面切换过渡（SPA 导航后内容淡入，设计对齐 rise） ---------- */
+  @keyframes doclight-page-in { from { opacity: 0; transform: translateY(8px); } }
+  article.page-enter { animation: doclight-page-in .25s var(--ease); }
+  body, .topbar, .sidebar, .content, .toc { transition: background-color .35s ease, color .35s ease, border-color .3s ease; }
 `;
 
 /**
- * 组装完整 HTML 页（首屏直出：内容 + 导航服务端渲染）。
- * 含：顶栏（站点标题/菜单/搜索/主题切换）、防闪烁脚本、完整设计令牌（THEME-001）、
- * TOC 导轨/移动端底部面板（TOC-001）、搜索框样式（SRCH-001）、移动端侧边栏、
+ * 剥除正文首个 h1（页面标题由壳层 h1 承载——frontmatter.title 为单一事实来源，
+ * 防「壳层标题 + markdown 标题」重复；无首个 h1 的正文原样返回）。
+ * 安全性：正则只作用于渲染内核输出的已 sanitize HTML（< 已转义，代码块内无法匹配）。
+ */
+export function stripFirstH1(html: string): string {
+  return html.replace(/^<h1\b[^>]*>[\s\S]*?<\/h1>\s*/, "");
+}
+
+/** 提取正文首个 h1 文本（frontmatter.title 缺失时的页标题回退；与 stripFirstH1 同规则） */
+export function firstH1Text(html: string): string | undefined {
+  const m = /^<h1\b[^>]*>([\s\S]*?)<\/h1>/.exec(html);
+  if (!m) return undefined;
+  const text = m[1]!
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim();
+  return text || undefined;
+}
+
+/**
+ * 组装文章正文（三形态共享，SNAP-001 同构——dev / SSG / bundle 的 article 内容完全一致）。
+ * 设计对齐（2026-08-16：演示页文章结构）：
+ *   面包屑 → 插槽 content:before → eyebrow（所属分组）→ h1（frontmatter.title）→
+ *   lede（description）→ meta（更新时间/阅读时长/字数）→ 正文（剥首个 h1）→
+ *   「下一步」卡片（导航树驱动）→ 上一页/下一页 → 插槽 content:after
+ * bundle 形态内嵌页面复用本函数：SPA 导航后每页拥有完整壳层（crumb/pager/meta）。
+ */
+export interface ArticleBodyOptions {
+  title: string;
+  contentHtml: string;
+  description?: string;
+  seo?: SeoOptions;
+  nav?: NavNode[];
+  currentPath?: string;
+  summaries?: Record<string, string>;
+  linkSuffix: string;
+  hash: boolean;
+  base: string;
+  slotBefore?: string;
+  slotAfter?: string;
+}
+
+export function articleBodyHtml(options: ArticleBodyOptions): string {
+  const { title, contentHtml, description, seo, nav = [], currentPath = "", summaries = {}, linkSuffix, hash, base } = options;
+  // 面包屑（设计对齐演示页 crumb：文档 / 分组链 / 当前页）
+  const breadcrumb = nav.length && currentPath ? breadcrumbHtml(breadcrumbFor(nav, currentPath, linkSuffix, base, title)) : "";
+  // eyebrow：当前页所属顶层分组
+  const sectionOf = sectionForPath(nav);
+  const eyebrow = currentPath ? sectionOf(currentPath) : "";
+  // 文章头部元信息行（设计对齐：演示页 meta——更新时间 / 阅读时长 / 字数；有数据才渲染）
+  let docMeta = "";
+  if (seo && (seo.readingTime || seo.wordCount || seo.updatedAt)) {
+    const metaItems: string[] = [];
+    if (seo.updatedAt) {
+      const d = new Date(seo.updatedAt);
+      const ds = Number.isNaN(d.getTime()) ? seo.updatedAt.slice(0, 10) : d.toISOString().slice(0, 10);
+      const parts = ds.split("-").map((s) => Number(s));
+      const dateText = parts.length === 3 ? `${parts[0]} 年 ${parts[1]} 月 ${parts[2]} 日` : ds;
+      metaItems.push(`<span>最后更新于 ${escapeHtml(dateText)}</span>`);
+    }
+    if (seo.readingTime) metaItems.push(`<span>约 ${seo.readingTime} 分钟阅读</span>`);
+    if (seo.wordCount) metaItems.push(`<span>${seo.wordCount.toLocaleString("zh-CN")} 字</span>`);
+    if (metaItems.length) docMeta = `<div class="meta">${metaItems.map((m, i) => (i ? `<span class="sep"></span>${m}` : m)).join("")}</div>`;
+  }
+  // 下一步卡片 + 上一页/下一页（导航顺序驱动）
+  const navTitles: Record<string, string> = {};
+  const collectTitles = (items: NavNode[]) => {
+    for (const n of items) {
+      if (n.type === "file") navTitles[n.path] = n.title;
+      else collectTitles(n.items);
+    }
+  };
+  collectTitles(nav);
+  const cards = nav.length && currentPath ? nextCardsFor(nav, currentPath, linkSuffix, base, hash, navTitles, summaries) : [];
+  const nextGrid =
+    cards.length > 0
+      ? `<h2 id="next">下一步 <a class="anchor" href="#next">#</a></h2>
+      <div class="next-grid">${cards
+        .map(
+          (c) => `<a class="next-card" href="${c.href}">
+          ${c.label ? `<div class="nc-label">${escapeHtml(c.label)}</div>` : ""}
+          <div class="nc-title">${escapeHtml(c.title)}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </div>
+          ${c.desc ? `<div class="nc-desc">${escapeHtml(c.desc)}</div>` : ""}
+        </a>`
+        )
+        .join("")}</div>`
+      : "";
+  const pager = nav.length && currentPath ? pagerFor(nav, currentPath, linkSuffix, base, hash, navTitles) : {};
+  const pagerHtml =
+    pager.prev || pager.next
+      ? `<div class="pager">
+      ${pager.prev ? `<a href="${pager.prev.href}"><div class="dir">← 上一页</div><div class="pg-title">${escapeHtml(pager.prev.title)}</div></a>` : `<span></span>`}
+      ${pager.next ? `<a href="${pager.next.href}" class="next"><div class="dir">下一页 →</div><div class="pg-title">${escapeHtml(pager.next.title)}</div></a>` : ""}
+    </div>`
+      : "";
+  const lede = description ? `<p class="lede">${escapeHtml(description)}</p>` : "";
+  return `${breadcrumb}${options.slotBefore ?? ""}${eyebrow ? `<div class="eyebrow">${escapeHtml(eyebrow)}</div>` : ""}<h1>${escapeHtml(title)}</h1>${lede}${docMeta}${stripFirstH1(contentHtml)}${nextGrid}${pagerHtml}${options.slotAfter ?? ""}`;
+}
+
+/**
+ * 组装完整 HTML 页（首屏直出：内容 + 导航服务端渲染；设计对齐 docs/design-new/index.html）。
+ * 含：顶栏（品牌/导航/搜索/版本/主题/GitHub）、防闪烁脚本、完整设计令牌（THEME-001）、
+ * 面包屑/引言/元信息/下一步/上一页下一页（articleBodyHtml 共享，三形态同构）、
+ * TOC（服务端直出链接 + 反馈卡）、搜索弹层、阅读进度条、移动端侧边栏/TOC 面板、
  * 扩展语法渲染样式（REND-002/003）、展示层 bundle（自挂载）。
  * 渐进式水合（05 §5.3.2）：内容纯静态 HTML，JS 接管交互不重渲染。
  */
@@ -506,6 +1429,36 @@ export function renderPage(options: RenderPageOptions): string {
     form === "bundle" && options.displayScript
       ? `<script type="module">\n${options.displayScript}\n</script>`
       : `<script type="module" src="${base}/${form === "dev" ? "__doclight/display.js" : "display.js"}"></script>`;
+  // SSG 产物 file:// 降级适配（2026-08 用户反馈）：SSG 形态需 HTTP（SPA fetch 在 file:// 被 CORS
+  // 拦截、绝对链接指向盘符根目录）。双击打开时——跳过展示层、站内链接改相对整页跳转
+  // （每页均为服务端直出的完整 HTML，可正常阅读与导航；TOC/搜索/主题等交互降级为静态）。
+  // 仅 file: 协议生效，HTTP 零影响；file:// 离线完整体验请用 doclight bundle 单文件。
+  const fileAdaptor =
+    form === "ssg"
+      ? `<script>
+(function () {
+  if (location.protocol !== "file:") return;
+  // 移除展示层外链（file:// 下 /display.js 被 CORS 拦截，避免错误噪音）
+  var s = document.currentScript;
+  while (s && s.nextElementSibling) {
+    if (s.nextElementSibling.tagName === "SCRIPT" && s.nextElementSibling.getAttribute("src")) s.nextElementSibling.remove();
+    else s = s.nextElementSibling;
+  }
+  // 站内绝对链接 → 相对整页跳转（防跳盘符根）
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    var a = t && t.closest ? t.closest("a[href]") : null;
+    if (!a) return;
+    var href = a.getAttribute("href");
+    if (href && href.charAt(0) === "/" && href.charAt(1) !== "/") {
+      e.preventDefault();
+      var dir = location.href.slice(0, location.href.lastIndexOf("/") + 1);
+      location.href = dir + href.replace(/^\\/+/, "");
+    }
+  }, true);
+})();
+</script>`
+      : "";
   const sseScript =
     form === "dev"
       ? `<script>
@@ -523,7 +1476,6 @@ export function renderPage(options: RenderPageOptions): string {
   // ===== SEO（05 §5.4）：canonical / Open Graph / Twitter Card / JSON-LD / 面包屑 =====
   // bundle 为分发形态（file:// 单文件），不输出 SEO 绝对链接
   let seoHead = "";
-  let breadcrumb = "";
   if (seo && form !== "bundle") {
     const canonical = siteUrl && seo.canonicalPath ? absUrl(siteUrl, base, seo.canonicalPath) : undefined;
     const ogDesc = options.description;
@@ -565,7 +1517,6 @@ export function renderPage(options: RenderPageOptions): string {
         })),
       };
       seoHead += `<script type="application/ld+json">${safeJson(crumbsJson)}</script>\n`;
-      breadcrumb = breadcrumbHtml(seo.breadcrumb);
     }
 
     // AEO-001：发布产物 Agent 友好——
@@ -583,14 +1534,75 @@ export function renderPage(options: RenderPageOptions): string {
     }
   }
 
+  // ===== 设计对齐：顶栏/正文/页脚数据装配（nav / currentPath / chrome） =====
+  const linkSuffix = form === "dev" ? "" : ".html";
+  const hash = form === "bundle";
+  const nav = options.nav ?? [];
+  const currentPath = options.currentPath ?? "";
+  const chrome = options.chrome ?? {};
+  // 顶栏导航（topnav）：顶层分组（设计对齐演示页）
+  const topnavLinks = topGroups(nav)
+    .map((g) => {
+      const href = g.firstPath ? (hash ? `#${navHref(g.firstPath, linkSuffix, base)}` : navHref(g.firstPath, linkSuffix, base)) : "#";
+      return `<a href="${href}" data-topgroup="${escapeHtml(g.title)}">${escapeHtml(g.title)}</a>`;
+    })
+    .join("");
+  // TOC：服务端直出 h2/h3 链接 + 「下一步」节（articleBodyHtml 渲染的 next-grid 锚点，
+  // 演示页目录含「下一步」——1:1 对齐；展示层挂载后接管滚动监听与指示条）
+  const hasNextSection =
+    nav.length && currentPath ? nextCardsFor(nav, currentPath, linkSuffix, base, hash, {}).length > 0 : false;
+  const tocEntries = extractToc(contentHtml);
+  if (hasNextSection) tocEntries.push({ id: "next", text: "下一步", level: 2 });
+  const tocLinks = tocEntries
+    .map(
+      (h) =>
+        `<a href="#${h.id}" data-target="${h.id}"${h.level === 3 ? ' class="l3"' : ""}>${escapeHtml(h.text)}</a>`
+    )
+    .join("");
+  const tocHtml = tocLinks
+    ? `<div class="toc-title">本页内容</div>
+    <div class="toc-list" id="tocList">
+      <div class="toc-indicator" id="tocIndicator"></div>
+      ${tocLinks}
+    </div>`
+    : "";
+  const editLink = chrome.github && currentPath
+    ? `<a class="edit" href="${escapeHtml(chrome.github.replace(/\/+$/, ""))}/edit/main/${escapeHtml(currentPath)}" target="_blank" rel="noopener">在 GitHub 上编辑此页 →</a>`
+    : "";
+  const statusText = chrome.statusText ?? "所有系统正常";
+  const footerLinks = (chrome.footerLinks ?? [])
+    .map((l) => `<a href="${escapeHtml(l.href)}">${escapeHtml(l.label)}</a>`)
+    .join("");
+  const year = new Date().getFullYear();
+
   const overrides = globalOverridesScript(form, base, options.searchVersion, options.bundleData);
   const pluginCfg = pluginConfigsScript(options.pluginConfigs);
   const overridesScript = overrides || pluginCfg ? `<script>\n${overrides}${overrides && pluginCfg ? "\n" : ""}${pluginCfg}\n</script>` : "";
   // PLUG-005：插槽内容注入（构建时静态 HTML + data-doclight-slot 标记供运行时追加）
+  // head 插槽必须用 <template>：head 内不允许 span（HTML5 解析器遇 span 会隐式开 body，
+  // 使全部 SEO 元数据落入 body——2026-08 前端审查 P1-1 实测修复）；template 是 head 合法内容。
   const slot = (name: string): string => {
     const html = options.slotContent?.[name] ?? "";
+    if (name === "head:start" || name === "head:end") {
+      return `${html}<template data-doclight-slot="${name}"${html ? ` data-doclight-static="1"` : ""}></template>`;
+    }
     return `<span data-doclight-slot="${name}"${html ? ` data-doclight-static="1"` : ""}>${html}</span>`;
   };
+  // 文章正文（articleBodyHtml 共享：三形态同构，SPA/bundle 内嵌页复用同一组装）
+  const articleBody = articleBodyHtml({
+    title,
+    contentHtml,
+    description: options.description,
+    seo,
+    nav,
+    currentPath,
+    summaries: options.summaries,
+    linkSuffix,
+    hash,
+    base,
+    slotBefore: slot("content:before"),
+    slotAfter: slot("content:after"),
+  });
   return `<!DOCTYPE html>
 <html lang="zh-CN" data-theme="auto">
 <head>
@@ -600,6 +1612,9 @@ ${slot("head:start")}
 <title>${escapeHtml(title)} · ${escapeHtml(siteTitle)}</title>
 ${metaDescription}
 ${seoHead}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500&display=swap" rel="stylesheet">
 <script>
   // 防闪烁（03 §3.6.2）：同步确定主题，在 CSS 前执行
   // VIS-001：优先级 = fixedTheme（画廊面板钉死）→ localStorage → 主题包默认模式（modern 暗色）→ 系统偏好
@@ -618,281 +1633,8 @@ ${seoHead}
   })();
 </script>
 <style>
-  /* ===== 设计令牌（03 §3.6 + 04 §4.3，THEME-001；即 Minimal 设计语言，VIS-001）===== */
+  /* ===== 设计令牌与组件（设计对齐 docs/design-new/index.html，宪法 docs/design-new/DESIGN.md） ===== */
   ${DEFAULT_THEME_CSS}
-  * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  @media (prefers-reduced-motion: reduce) {
-    * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
-  }
-  body { margin: 0; background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); font-size: var(--font-size-base); line-height: var(--line-height-relaxed); text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
-  /* Luminous 光之容器：背景光晕（右上主光 + 左下补光；夜航面强度更高） */
-  body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(1100px 520px at 72% -12%, color-mix(in srgb, var(--color-primary) 8%, transparent), transparent 62%), radial-gradient(900px 480px at -10% 108%, color-mix(in srgb, var(--color-primary) 5%, transparent), transparent 55%); }
-  /* Luminous 夜航面：光晕强度提升（辉光是夜航主场） */
-  [data-theme="dark"] body::before { background: radial-gradient(1200px 600px at 74% -14%, color-mix(in srgb, var(--color-primary) 16%, transparent), transparent 64%), radial-gradient(1000px 560px at -12% 110%, color-mix(in srgb, var(--color-primary) 10%, transparent), transparent 58%); }
-  /* Luminous 星芒微粒：极淡光点阵（夜航面如夜空、晨光面几乎不可见） */
-  body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 0.4; background-image: radial-gradient(1.5px 1.5px at 12% 22%, color-mix(in srgb, var(--color-primary) 35%, transparent) 50%, transparent 51%), radial-gradient(1px 1px at 28% 66%, color-mix(in srgb, var(--color-primary) 25%, transparent) 50%, transparent 51%), radial-gradient(1.5px 1.5px at 55% 34%, color-mix(in srgb, var(--color-primary) 20%, transparent) 50%, transparent 51%), radial-gradient(1px 1px at 78% 58%, color-mix(in srgb, var(--color-primary) 25%, transparent) 50%, transparent 51%), radial-gradient(1.5px 1.5px at 92% 18%, color-mix(in srgb, var(--color-primary) 30%, transparent) 50%, transparent 51%), radial-gradient(1px 1px at 64% 84%, color-mix(in srgb, var(--color-primary) 20%, transparent) 50%, transparent 51%); }
-  /* VIS-002：表格数字列等宽数字对齐（金额/计数/版本号） */
-  td, th { font-variant-numeric: tabular-nums; }
-  /* ===== 顶栏（Luminous：毛玻璃 + 渐变光条 + 光芒品牌；56px 对齐现代主流 64px 的紧凑折中） ===== */
-  .topbar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: var(--space-2); height: var(--topbar-height); padding: 0 var(--space-5); background: color-mix(in srgb, var(--color-bg) 82%, transparent); backdrop-filter: blur(12px) saturate(1.4); -webkit-backdrop-filter: blur(12px) saturate(1.4); border-bottom: 1px solid var(--color-border); }
-  /* Luminous 顶栏光条：底缘一道渐变光线（晨光微弱 / 夜航明亮） */
-  .topbar::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-primary) 50%, transparent) 50%, transparent); opacity: 0.5; pointer-events: none; }
-  .topbar .brand { display: flex; align-items: center; gap: var(--space-2); margin-right: var(--space-2); text-decoration: none; }
-  /* 光芒品牌（Luminous）：渐变底 + 柔和光晕 + 白色光芒 SVG */
-  .topbar .brand-mark { position: relative; width: 28px; height: 28px; border-radius: 8px; background: var(--gradient-brand); display: inline-flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; box-shadow: 0 1px 3px color-mix(in srgb, var(--color-primary) 45%, transparent); }
-  .topbar .brand-mark::after { content: ""; position: absolute; inset: -3px; border-radius: 10px; background: radial-gradient(circle, color-mix(in srgb, var(--color-primary) 35%, transparent), transparent 70%); z-index: -1; }
-  .topbar .brand-mark svg { width: 16px; height: 16px; filter: drop-shadow(0 0 2px rgba(255,255,255,0.45)); }
-  .topbar .site-title { font-weight: 700; letter-spacing: -0.01em; color: var(--color-text-strong); white-space: nowrap; }
-  .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; border: 1px solid transparent; background: transparent; color: var(--color-text-secondary); border-radius: var(--radius); cursor: pointer; transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast); }
-  .icon-btn:hover { color: var(--color-primary); background: var(--color-bg-soft); border-color: var(--color-border); }
-  .icon-btn:active { transform: scale(0.92); }
-  .icon-btn.active { color: var(--color-primary); border-color: color-mix(in srgb, var(--color-primary) 40%, transparent); background: var(--color-bg-soft); }
-  .icon-btn svg { width: 17px; height: 17px; }
-  .icon-btn .label { font-size: var(--font-size-xs); font-weight: 600; }
-  #sidebar-toggle { display: none; }
-  /* 搜索触发器：顶栏内嵌的搜索框形态按钮（点击打开搜索层；现代主流：Search...⌘K） */
-  .search-trigger { margin-left: auto; display: inline-flex; align-items: center; gap: var(--space-2); height: 36px; min-width: 200px; padding: 0 var(--space-3); border: 1px solid var(--color-border); border-radius: 999px; background: var(--color-bg-soft); color: var(--color-text-muted); font-size: var(--font-size-sm); font-family: var(--font-sans); cursor: pointer; transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast); }
-  .search-trigger:hover { border-color: var(--color-primary); background: var(--color-bg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 12%, transparent); }
-  .search-trigger svg { width: 15px; height: 15px; flex-shrink: 0; }
-  .search-trigger .placeholder { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .search-trigger .kbd { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); border: 1px solid var(--color-border); border-radius: 4px; padding: 1px 5px; background: var(--color-bg); white-space: nowrap; }
-  /* ===== 布局：三栏（侧边栏 | 正文 | 右侧目录），侧边栏 sticky 独立滚动 ===== */
-  .layout { display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); min-height: calc(100vh - var(--topbar-height)); }
-  .sidebar { position: sticky; top: var(--topbar-height); height: calc(100vh - var(--topbar-height)); overflow-y: auto; overscroll-behavior: contain; border-right: 1px solid var(--color-border); padding: var(--space-8) var(--space-3) var(--space-16); font-size: var(--font-size-sm); line-height: 1.5; scrollbar-width: thin; scrollbar-color: var(--color-border) transparent; }
-  .sidebar::-webkit-scrollbar { width: 8px; }
-  .sidebar::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; }
-  .sidebar ul { list-style: none; padding-left: var(--space-3); margin: 0; }
-  .sidebar > ul { padding-left: 0; }
-  .sidebar li { margin: 0; }
-  /* 分组：安静小标签（设计证据：Tailwind = 12px/600/深色；分组比导航项更醒目——
-     目录结构用深色，内容项用灰色；左边缘与导航项对齐 10px） */
-  .sidebar .group { margin-top: var(--space-6); }
-  .sidebar .group > a, .sidebar .group { display: block; font-size: var(--font-size-xs); font-weight: 600; color: var(--color-text-strong); letter-spacing: var(--tracking-normal); text-transform: none; padding: 0 10px; margin-bottom: var(--space-2); }
-  .sidebar .group > a:hover { color: var(--color-primary); background: none; }
-  /* 当前分组状态（设计师手笔：不仅当前页有状态，所在分组标题也高亮——
-     纯 CSS :has()，随页面 active 自动联动，零 JS） */
-  .sidebar .group:has(a.active) > a, .sidebar .group:has(a.active) { color: var(--color-primary); }
-  /* 嵌套分组（二级+）：层级降级——间距收紧 + 次级色（弱于一级分组的深色） */
-  .sidebar .group .group { margin-top: var(--space-4); }
-  .sidebar .group .group > a, .sidebar .group .group { color: var(--color-text-secondary); margin-bottom: var(--space-1); }
-  /* 导航项：现代文档站主流（调研证据：Next.js/shadcn/Nuxt = 14px/500 + 圆角 + 状态背景块；
-     hover = 文字变深 + 5% 浅背景，active = 主色 600 + 8% teal 背景块（Starlight 背景块的克制版）；
-     行高 1.5 防继承正文 1.75 松散） */
-  .sidebar a { display: block; padding: 5px 10px; border-radius: 6px; color: var(--color-text-secondary); text-decoration: none; transition: color var(--transition-fast), background var(--transition-fast); }
-  .sidebar a:hover { color: var(--color-text-strong); background: color-mix(in srgb, var(--color-text-strong) 5%, transparent); }
-  .sidebar a.active { color: var(--color-primary); font-weight: 600; background: color-mix(in srgb, var(--color-primary) 8%, transparent); box-shadow: none; }
-  main { grid-column: 2; min-width: 0; max-width: var(--max-width-content); width: 100%; margin: 0 auto; padding: var(--space-12) var(--space-6) var(--space-16); }
-  /* 正文排版（04 §4.2：16px × 1.75，680px 行宽） */
-  article h1 { font-size: var(--font-size-3xl); line-height: var(--line-height-tight); font-weight: 700; margin: 0 0 0.8em; color: var(--color-text-strong); letter-spacing: -0.01em; }
-  article h2 { font-size: var(--font-size-2xl); line-height: var(--line-height-tight); font-weight: 600; margin: 3em 0 0.6em; padding-top: 1.1em; border-top: 1px solid var(--color-border-soft); color: var(--color-text-strong); letter-spacing: -0.005em; }
-  article h3 { font-size: var(--font-size-xl); line-height: 1.4; font-weight: 600; margin: 1.8em 0 0.5em; color: var(--color-text-strong); }
-  article h4 { font-size: var(--font-size-lg); line-height: 1.4; font-weight: 600; margin: 1.2em 0 0.4em; color: var(--color-text-strong); }
-  article h2[id], article h3[id] { scroll-margin-top: 80px; }
-  /* 标题锚点（VIS-002 惊艳化：hover 显示 #，点击复制节链接——顶级文档站细节） */
-  .doclight-anchor { position: absolute; margin-left: var(--space-2); font-family: var(--font-mono); font-size: 0.7em; font-weight: 400; color: var(--color-text-muted); text-decoration: none; border-bottom: none !important; opacity: 0; transform: translateX(-3px); transition: opacity var(--transition-fast), transform var(--transition-fast), color var(--transition-fast); }
-  article h2, article h3 { position: relative; }
-  article h2:hover .doclight-anchor, article h3:hover .doclight-anchor, .doclight-anchor:focus-visible { opacity: 1; transform: translateX(0); }
-  .doclight-anchor:hover { color: var(--color-primary); }
-  .doclight-anchor.copied { color: var(--color-success); opacity: 1; }
-  article p { margin: 0 0 1.5em; text-indent: 0; }
-  /* 链接（现代文档站证据：VitePress 500 字重 + 无下划线；Tailwind 600） */
-  article a { color: var(--color-primary); font-weight: 500; text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent); transition: color var(--transition-fast), border-color var(--transition-fast); }
-  article a:hover { color: var(--color-primary-hover); border-bottom-color: var(--color-primary); }
-  /* 列表（精致化：marker 用主色柔化 + 呼吸感行距） */
-  article ul, article ol { margin: 0 0 1.5em; padding-left: 1.6em; }
-  article li { margin: 0.35em 0; line-height: 1.7; }
-  article li > ul, article li > ol { margin: 0.35em 0; }
-  article ul li::marker { color: var(--color-primary); }
-  article ol li::marker { color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
-  /* 面包屑（05 §5.4.2：结构化数据 + 可见 UI） */
-  .breadcrumb { font-size: var(--font-size-sm); color: var(--color-text-muted); margin: 0 0 var(--space-6); }
-  .breadcrumb ol { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 0; margin: 0; }
-  .breadcrumb li { display: inline-flex; align-items: center; }
-  .breadcrumb li + li::before { content: "/"; margin-right: var(--space-2); color: var(--color-border); }
-  .breadcrumb a { color: var(--color-text-secondary); text-decoration: none; }
-  .breadcrumb a:hover { color: var(--color-primary); }
-  .breadcrumb [aria-current="page"] { color: var(--color-text-strong); font-weight: 600; }
-  pre { background: var(--code-bg); color: var(--code-text); border: 1px solid var(--code-border); padding: var(--space-4) var(--space-6); border-radius: var(--radius-lg); overflow-x: auto; font-size: var(--font-size-sm); line-height: 1.6; box-shadow: var(--shadow-sm), inset 0 1px 0 color-mix(in srgb, var(--code-text) 6%, transparent), 0 0 24px color-mix(in srgb, var(--color-primary) 7%, transparent); }
-  code { font-family: var(--font-mono); font-size: 0.875em; padding: 2px 6px; background: var(--color-bg-code); border-radius: var(--radius-sm); color: var(--color-primary); }
-  pre code { background: none; border: none; padding: 0; color: var(--code-text); }
-  blockquote { margin: 0 0 1.5em; padding: var(--space-3) var(--space-4); border-left: 3px solid var(--color-primary); border-radius: 0 var(--radius) var(--radius) 0; background: color-mix(in srgb, var(--color-bg-soft) 80%, var(--color-bg)); color: var(--color-text-secondary); }
-  blockquote > :first-child { margin-top: 0; }
-  blockquote > :last-child { margin-bottom: 0; }
-  /* 分隔线（Luminous 细节：中间主色微光、两端淡出——Linear 式） */
-  hr { border: none; height: 1px; margin: var(--space-10) 0; background: linear-gradient(90deg, transparent, var(--color-border) 20%, var(--color-border) 80%, transparent); }
-  /* 图片（精致化：圆角 + 边框 + 阴影） */
-  img { max-width: 100%; border-radius: var(--radius); border: 1px solid var(--color-border-soft); box-shadow: var(--shadow-sm); }
-  /* 表格（精致化：垂直呼吸感 padding + 2px 表头分隔线 + 行 hover 微反馈） */
-  .table-wrap { position: relative; overflow-x: auto; margin-bottom: 1.5em; border: 1px solid var(--color-border); border-radius: var(--radius-lg); scrollbar-width: thin; scrollbar-color: var(--color-border) transparent; }
-  .table-wrap::-webkit-scrollbar { height: 8px; }
-  .table-wrap::-webkit-scrollbar-track { background: transparent; }
-  .table-wrap::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; border: 2px solid var(--color-bg); }
-  .table-wrap::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
-  /* 右侧渐隐提示（04 §4.4.5 兑现）：内容在可滚动时淡出，滚到底消失；JS 切换 .at-end */
-  .table-wrap.more-right { box-shadow: inset -16px 0 16px -16px rgba(0, 0, 0, 0.14); }
-  table { border-collapse: collapse; width: 100%; }
-  th, td { border-bottom: 1px solid var(--color-border-soft); padding: 10px var(--space-4); text-align: left; line-height: 1.6; vertical-align: top; }
-  th { background: var(--color-bg-soft); font-weight: 600; color: var(--color-text-strong); border-bottom: 2px solid var(--color-border); white-space: nowrap; }
-  tbody tr:last-child td { border-bottom: none; }
-  tbody tr:hover td { background: color-mix(in srgb, var(--color-text-strong) 2%, transparent); }
-  /* 表格内行内代码/链接：与正文一致但不额外拥挤 */
-  th code, td code { white-space: nowrap; }
-  /* 键盘可达性：全局焦点环（WCAG 2.4.7） */
-  :focus-visible { outline: 2px solid var(--color-ring, var(--color-primary)); outline-offset: 2px; border-radius: 2px; }
-  /* 跳转链接（04 §4.6.2 兑现，WCAG 2.4.1）：键盘用户 Tab 首键直达正文 */
-  .skip-link { position: fixed; top: -48px; left: var(--space-3); z-index: 70; padding: var(--space-2) var(--space-4); background: var(--color-primary); color: #fff; font-size: var(--font-size-sm); border-radius: 0 0 var(--radius) var(--radius); transition: top var(--transition-fast); }
-  .skip-link:focus { top: 0; }
-  /* 页面切换过渡（04 §4.5.2 兑现，VIS-002）：SPA 导航后内容 150ms 淡入；reduced-motion 全局禁用 */
-  @keyframes doclight-page-in { from { opacity: 0; transform: translateY(4px); } }
-  article.page-enter { animation: doclight-page-in 150ms var(--ease-out); }
-  /* 主题切换过渡（亮暗交替平滑；reduced-motion 下禁用） */
-  body, .topbar, .sidebar, main, .toc-rail { transition: background-color var(--transition), color var(--transition), border-color var(--transition); }
-  /* ===== TOC（03 §3.7，TOC-001；宽屏常驻右侧目录面板） ===== */
-  .toc-rail { position: sticky; top: var(--topbar-height); height: calc(100vh - var(--topbar-height)); overflow-y: auto; overscroll-behavior: contain; padding: var(--space-8) 0 var(--space-16); width: var(--toc-width); scrollbar-width: thin; scrollbar-color: var(--color-border) transparent; }
-  .toc-rail::-webkit-scrollbar { width: 8px; }
-  .toc-rail::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; }
-  .toc-label { display: block; font-size: var(--font-size-xs); font-weight: 600; color: var(--color-text-strong); letter-spacing: var(--tracking-normal); text-transform: none; margin-bottom: var(--space-3); padding: 0 var(--space-2); }
-  .toc-dots { display: none; }
-  .toc-panel { display: flex; flex-direction: column; gap: 1px; }
-  /* TOC 项：与侧边栏同设计语言（现代文档站主流——圆角 + 状态背景块；
-     hover = 文字变深 + 5% 背景，active = 主色 600 + 8% teal 背景块） */
-  .toc-link { display: block; padding: 4px 8px; border-radius: 6px; font-size: var(--font-size-sm); line-height: var(--line-height-normal); color: var(--color-text-secondary); text-decoration: none; cursor: pointer; transition: color var(--transition-fast), background var(--transition-fast); }
-  .toc-link-l3 { padding-left: var(--space-4); font-size: var(--font-size-xs); }
-  .toc-link:hover { color: var(--color-text-strong); background: color-mix(in srgb, var(--color-text-strong) 5%, transparent); }
-  .toc-link.active { color: var(--color-primary); font-weight: 600; background: color-mix(in srgb, var(--color-primary) 8%, transparent); box-shadow: none; }
-  /* 移动端 TOC：右下角浮动按钮 + 底部面板 */
-  .toc-fab { display: none; position: fixed; right: var(--space-4); bottom: var(--space-6); z-index: 40; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--color-border); background: var(--color-bg-soft); color: var(--color-text-secondary); font-size: 18px; cursor: pointer; box-shadow: var(--shadow); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-  .toc-sheet { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; max-height: 70%; background: var(--color-bg); border-top: 1px solid var(--color-border); border-radius: var(--radius-lg) var(--radius-lg) 0 0; transform: translateY(100%); transition: transform var(--transition); box-shadow: var(--shadow); }
-  .toc-sheet.open { transform: translateY(0); }
-  .toc-sheet-header { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-border); font-weight: 600; color: var(--color-text-strong); }
-  .toc-sheet-close { border: none; background: none; font-size: 20px; cursor: pointer; color: var(--color-text-secondary); }
-  .toc-sheet-nav { padding: var(--space-3); overflow-y: auto; max-height: calc(70vh - 48px); }
-  /* ===== 搜索（03 §3.5，SRCH-001；命令面板式：毛玻璃遮罩 + 图标 + Esc 徽标） ===== */
-  .search-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.35); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; animation: doclight-fade var(--transition) var(--ease-out); }
-  .search-box { width: min(600px, calc(100vw - 32px)); background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-xl), var(--glow-primary); overflow: hidden; animation: doclight-rise var(--transition) var(--ease-out); }
-  @keyframes doclight-fade { from { opacity: 0; } }
-  @keyframes doclight-rise { from { opacity: 0; transform: translateY(6px); } }
-  .search-input-wrap { display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-5); border-bottom: 1px solid var(--color-border-soft); }
-  .search-input-icon { width: 18px; height: 18px; flex-shrink: 0; color: var(--color-text-muted); }
-  .search-input { flex: 1; min-width: 0; padding: var(--space-4) 0; border: none; outline: none; font-size: var(--font-size-lg); font-family: var(--font-sans); color: var(--color-text); background: transparent; }
-  .search-input::placeholder { color: var(--color-text-muted); }
-  .search-esc-kbd { flex-shrink: 0; font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); border: 1px solid var(--color-border); border-radius: 4px; padding: 1px 6px; background: var(--color-bg-soft); }
-  .search-status { padding: var(--space-2) var(--space-5); font-size: var(--font-size-sm); color: var(--color-text-muted); }
-  .search-results { max-height: 55vh; overflow-y: auto; padding: var(--space-2); }
-  .search-result { display: block; padding: var(--space-2) var(--space-3); border-radius: var(--radius); text-decoration: none; color: var(--color-text); cursor: pointer; transition: background var(--transition-fast); }
-  .search-result.active, .search-result:hover { background: var(--color-bg-soft); }
-  .search-result-title { display: block; font-weight: 600; color: var(--color-text-strong); }
-  .search-result-path { display: block; font-size: var(--font-size-xs); color: var(--color-text-muted); font-family: var(--font-mono); }
-  .search-result-snippet { display: block; font-size: var(--font-size-sm); color: var(--color-text-secondary); line-height: var(--line-height-normal); }
-  .search-result mark, .search-result-title mark { background: none; color: var(--color-primary); font-weight: 600; }
-  .search-empty { padding: var(--space-6) var(--space-4); text-align: center; color: var(--color-text-muted); font-size: var(--font-size-sm); }
-  .search-recent-label { padding: var(--space-2) var(--space-3) var(--space-1); font-size: var(--font-size-xs); color: var(--color-text-muted); letter-spacing: var(--tracking-wide); }
-  .search-recent-item { display: block; width: 100%; text-align: left; padding: var(--space-2) var(--space-3); border: none; background: none; cursor: pointer; color: var(--color-text); border-radius: var(--radius); font-size: var(--font-size-sm); font-family: var(--font-sans); transition: background var(--transition-fast), color var(--transition-fast); }
-  .search-recent-item:hover { background: var(--color-bg-soft); color: var(--color-primary); }
-  /* ===== REND-002 扩展语法渲染（容器 / 代码块+复制 / Mermaid 容错 / KaTeX） ===== */
-  /* 代码块（Next.js 风格）：wrapper 承载背景/圆角/工具条，pre 独立滚动（滚动条不遮工具条） */
-  pre.doclight-code { background: var(--code-bg); color: var(--code-text); border: 1px solid var(--code-border); padding: var(--space-4) var(--space-6); border-radius: var(--radius-lg); overflow-x: auto; font-size: var(--font-size-sm); line-height: 1.6; }
-  .doclight-code-wrap { position: relative; background: var(--code-bg); border: 1px solid var(--code-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm), inset 0 1px 0 color-mix(in srgb, var(--code-text) 6%, transparent), 0 0 24px color-mix(in srgb, var(--color-primary) 7%, transparent); }
-  .doclight-code-wrap pre.doclight-code { margin: 0; border: none; border-radius: 0; box-shadow: none; background: transparent; padding: 42px var(--space-6) var(--space-4); scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--code-text) 25%, transparent) transparent; }
-  .doclight-code-wrap pre.doclight-code::-webkit-scrollbar { height: 8px; }
-  .doclight-code-wrap pre.doclight-code::-webkit-scrollbar-track { background: transparent; }
-  .doclight-code-wrap pre.doclight-code::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--code-text) 18%, transparent); border-radius: 4px; border: 2px solid var(--code-bg); }
-  .doclight-code-wrap pre.doclight-code::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--code-text) 35%, transparent); }
-  /* 工具条：语言标签左上 + 复制按钮右上 + 细分隔线（挂 wrapper，不随 pre 滚动） */
-  .doclight-code-wrap::before { content: ""; position: absolute; left: var(--space-4); right: var(--space-4); top: 34px; height: 1px; background: color-mix(in srgb, var(--code-text) 8%, transparent); pointer-events: none; }
-  .doclight-code-wrap .doclight-lang { position: absolute; top: 0; left: var(--space-4); height: 34px; display: inline-flex; align-items: center; padding: 0 var(--space-2); font-family: var(--font-mono); font-size: 11px; line-height: 1; color: var(--code-token-comment); letter-spacing: 0.03em; user-select: none; pointer-events: none; }
-  .doclight-code-wrap .doclight-copy {
-    position: absolute; top: 6px; right: var(--space-3); z-index: 2;
-    border: 1px solid color-mix(in srgb, var(--code-text) 18%, transparent); background: color-mix(in srgb, var(--code-bg) 85%, transparent);
-    color: var(--code-token-comment); border-radius: var(--radius-sm);
-    font-size: var(--font-size-xs); font-family: var(--font-sans);
-    padding: 3px 10px; cursor: pointer; opacity: 0; transition: opacity var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
-  }
-  .doclight-code-wrap:hover .doclight-copy { opacity: 1; }
-  .doclight-code-wrap .doclight-copy:hover { color: var(--code-text); border-color: color-mix(in srgb, var(--code-text) 45%, transparent); background: color-mix(in srgb, var(--code-bg) 92%, transparent); }
-  .doclight-code-wrap .doclight-copy.copied { color: #34d399; border-color: rgba(52, 211, 153, 0.5); opacity: 1; }
-  /* 代码高亮 token 配色（Prism token class；VIS-002：令牌化，默认深色代码区配色——
-     亮暗主题下代码区均为深色基底，语法色精心调校（slate 底 + 冷色系高亮）） */
-  .token.comment, .token.prolog, .token.doctype, .token.cdata { color: var(--code-token-comment); font-style: italic; }
-  .token.punctuation { color: var(--code-token-punct); }
-  .token.keyword, .token.rule, .token.important { color: var(--code-token-keyword); }
-  .token.string, .token.attr-value, .token.char { color: var(--code-token-string); }
-  .token.number, .token.boolean, .token.constant, .token.symbol { color: var(--code-token-number); }
-  .token.function, .token.method { color: var(--code-token-func); }
-  .token.tag, .token.selector, .token.atrule { color: var(--code-token-tag); }
-  .token.attr-name, .token.property, .token.builtin { color: var(--code-token-attr); }
-  .token.class-name, .token.maybe-class-name, .token.type { color: var(--code-token-class); }
-  .token.operator, .token.entity, .token.url { color: var(--code-token-op); }
-  .token.regex, .token.variable { color: var(--code-token-regex); }
-  /* 自定义容器（:::tip / :::warning / :::danger / :::info）
-     VIS-002：圆底语义色徽标图标（纯 class 承载，符合扩展承载铁律，零 JS 依赖） */
-  .doclight-container { position: relative; margin: 0 0 1.5em; padding: var(--space-4) var(--space-5) var(--space-4) var(--space-12); border-left: 3px solid var(--color-info); background: color-mix(in srgb, var(--color-bg-soft) 88%, var(--color-bg)); border-radius: 0 var(--radius) var(--radius) 0; }
-  .doclight-container::before { position: absolute; left: var(--space-4); top: var(--space-4); width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-sans); font-size: 12px; line-height: 1; font-weight: 700; color: #fff; }
-  .doclight-tip::before { content: "✓"; background: var(--color-success); }
-  .doclight-info::before { content: "i"; background: var(--color-info); font-style: italic; }
-  .doclight-warning::before { content: "!"; background: var(--color-warning); }
-  .doclight-danger::before { content: "×"; background: var(--color-error); }
-  .doclight-container > :first-child { margin-top: 0; }
-  .doclight-container > :last-child { margin-bottom: 0; }
-  .doclight-tip { border-left-color: var(--color-success); }
-  .doclight-warning { border-left-color: var(--color-warning); }
-  .doclight-danger { border-left-color: var(--color-error); }
-  /* Mermaid（PLUG-012）：样式由 @doclight/plugin-mermaid 的 styles 声明提供（按需注入） */
-  /* KaTeX：块级公式居中 + 横向滚动 */
-  .doclight-katex-block { overflow-x: auto; overflow-y: hidden; padding: var(--space-1) 0; margin: 0 0 1.5em; }
-  .doclight-katex-inline { padding: 0 2px; }
-  /* 响应式（04 §4.8）：≥1280px 三栏（含右侧目录）；1024-1279 两栏；<768px 移动端 */
-  @media (min-width: 1280px) {
-    .layout { grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--toc-width); }
-    .toc-rail { display: block; border-left: 1px solid var(--color-border-soft); padding-left: var(--space-4); }
-  }
-  @media (max-width: 1279px) {
-    .toc-rail { display: none; }
-  }
-  @media (max-width: 768px) {
-    #sidebar-toggle { display: inline-flex; }
-    .topbar .brand { margin-right: 0; }
-    .search-trigger { min-width: 0; width: 34px; padding: 0; justify-content: center; border-radius: var(--radius); background: transparent; border-color: transparent; }
-    .search-trigger .placeholder, .search-trigger .kbd { display: none; }
-    .sidebar { position: fixed; left: 0; top: var(--topbar-height); bottom: 0; height: auto; transform: translateX(-100%); transition: transform 0.2s ease; background: var(--color-bg); z-index: 35; width: min(80vw, var(--sidebar-width)); box-shadow: none; padding-bottom: calc(var(--space-16) + env(safe-area-inset-bottom)); }
-    .sidebar.open { transform: translateX(0); box-shadow: 0 8px 32px rgba(0,0,0,0.25); }
-    .toc-fab { display: flex; align-items: center; justify-content: center; }
-    .toc-sheet { display: block; padding-bottom: env(safe-area-inset-bottom); }
-    main { grid-column: 1 / -1; padding: var(--space-6) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom)); font-size: 15px; }
-    .layout { grid-template-columns: minmax(0, 1fr); }
-    .topbar { height: 48px; padding: 0 var(--space-3); }
-    :root { --topbar-height: 48px; } /* 移动端顶栏变矮 → sidebar/toc 的 sticky top 联动（修复遮挡） */
-    /* 触摸反馈（04 §4.8 移动端替代 hover）：按下微暗 */
-    .icon-btn:active, .toc-fab:active, .back-to-top:active, .search-trigger:active { background: var(--color-bg-code); }
-  }
-  /* ===== C4 体验细节：专注模式 / 打印 / Powered by ===== */
-  /* 阅读进度条（04 §4.5.3 兑现：顶栏下 2px teal 细线，展示层滚动驱动） */
-  .reading-progress { position: fixed; top: 0; left: 0; height: 2px; width: 100%; z-index: 45; pointer-events: none; opacity: 0; transition: opacity var(--transition); }
-  .reading-progress::after { content: ""; display: block; height: 100%; width: var(--progress, 0%); background: linear-gradient(90deg, var(--color-primary), var(--color-primary-hover)); border-radius: 0 2px 2px 0; transition: width 80ms linear; }
-  .reading-progress.visible { opacity: 1; }
-  /* 回到顶部（04 §4.5.4 兑现：滚动 2 屏后浮现，40px 圆形；移动端叠于 TOC FAB 上方） */
-  .back-to-top { position: fixed; right: var(--space-4); bottom: var(--space-6); z-index: 39; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--color-border); background: var(--color-bg-soft); color: var(--color-text-secondary); cursor: pointer; box-shadow: var(--shadow); display: flex; align-items: center; justify-content: center; opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity var(--transition), transform var(--transition), color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-  .back-to-top svg { width: 18px; height: 18px; }
-  .back-to-top.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
-  .back-to-top:hover { color: var(--color-primary); border-color: var(--color-primary); background: var(--color-bg); }
-  @media (max-width: 768px) { .back-to-top { bottom: calc(var(--space-6) + 56px); } }
-  /* Powered by：默认显示、一行可关闭（尊重自托管数据洁癖，13 §4） */
-  .powered-by { display: flex; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-4); border-top: 1px solid var(--color-border-soft); color: var(--color-text-muted); font-size: var(--font-size-sm); }
-  .powered-by a { color: var(--color-text-muted); text-decoration: none; border-bottom: 1px solid var(--color-border); }
-  .powered-by a:hover { color: var(--color-primary); }
-  .powered-by button { border: 0; background: transparent; color: var(--color-text-muted); cursor: pointer; padding: 2px 6px; border-radius: var(--radius-sm); }
-  .powered-by button:hover { color: var(--color-error); }
-  /* 打印（C4）：隐藏导航/控件，内容全宽纯文本 */
-  @media print {
-    .topbar, .sidebar, .toc-rail, .toc-fab, .toc-sheet, .powered-by, .reading-progress, .back-to-top { display: none !important; }
-    .layout { display: block; }
-    main { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
-    .paper { box-shadow: none !important; border: 0 !important; }
-    body { background: #fff !important; color: #000 !important; }
-    article { font-size: 12pt; line-height: 1.6; }
-    a { color: inherit; text-decoration: none; }
-  }
 </style>
 ${options.themeCss ? `<style data-doclight-theme>\n${options.themeCss}\n</style>` : ""}
 ${options.pluginCss ? `<style data-doclight-plugin-css>\n${options.pluginCss}\n</style>` : ""}
@@ -900,33 +1642,114 @@ ${options.extraHead ?? ""}
 ${slot("head:end")}
 </head>
 <body>
-<a class="skip-link" href="#main-content">跳到正文</a>
-<header class="topbar">
+<a class="skip" href="#main">跳到主要内容</a>
+<div id="progress"></div>
+
+<!-- ================= Topbar（设计对齐：品牌 / 导航 / 搜索 / 版本 / 主题 / GitHub） ================= -->
+<header class="topbar" id="topbar">
   ${slot("topbar:before")}
-  <button id="sidebar-toggle" class="icon-btn" aria-label="菜单" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
-  <a class="brand" href="${base}/" aria-label="${escapeHtml(siteTitle)} 首页"><span class="brand-mark"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.2c.5 3.9 1.6 5.2 4.4 6.2 1.2.4 1.2 2 0 2.4-2.8 1-3.9 2.3-4.4 6.2-.5-3.9-1.6-5.2-4.4-6.2-1.2-.4-1.2-2 0-2.4 2.8-1 3.9-2.3 4.4-6.2Z"/><path d="M19.5 13.8c.3 2 1.2 2.9 2.7 3.4.8.3.8 1.5 0 1.8-1.5.5-2.4 1.4-2.7 3.4-.3-2-1.2-2.9-2.7-3.4-.8-.3-.8-1.5 0-1.8 1.5-.5 2.4-1.4 2.7-3.4Z"/></svg></span><span class="site-title">${escapeHtml(siteTitle)}</span></a>
-  <button id="search-toggle" class="search-trigger" aria-label="搜索（Ctrl+K）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><span class="placeholder">搜索文档…</span><span class="kbd">Ctrl K</span></button>
-  <button id="theme-toggle" class="icon-btn" aria-label="切换主题" title="切换主题"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg></button>
+  <a class="brand" href="${base}/" aria-label="${escapeHtml(siteTitle)} 首页">
+    <span class="logo">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
+        <path d="M12 3v18M5 7.5l14 9M19 7.5l-14 9"/>
+      </svg>
+    </span>
+    ${escapeHtml(siteTitle)}
+    <span class="tag">文档</span>
+  </a>
+  <button id="sidebar-toggle" class="icon-btn" aria-label="菜单" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+  <nav class="topnav" aria-label="站点导航">${topnavLinks}</nav>
+  <div class="spacer"></div>
+  <button class="search-btn" id="searchBtn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+    搜索文档…
+    <kbd>Ctrl K</kbd>
+  </button>
+  ${chrome.version ? `<button class="version-btn"><span class="dot"></span> v${escapeHtml(chrome.version)}
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+  </button>` : ""}
+  <button class="icon-btn" id="themeBtn" title="切换主题" aria-label="切换主题">
+    <svg id="iconSun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    <svg id="iconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:none"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+  </button>
+  ${chrome.github ? `<a class="icon-btn" href="${escapeHtml(chrome.github)}" target="_blank" rel="noopener" title="GitHub" aria-label="GitHub">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.2.8-.6v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.4-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0C17.3 4.7 18.3 5 18.3 5c.6 1.6.2 2.8.1 3.1.7.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.2c0 .4.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z"/></svg>
+  </a>` : ""}
   ${slot("topbar:after")}
 </header>
+
 <div class="layout">
-  <aside class="sidebar">${slot("sidebar:before")}${navHtml}${slot("sidebar:after")}</aside>
-  <main class="paper" id="main-content">${breadcrumb}${slot("content:before")}<article>${contentHtml}</article>${slot("content:after")}</main>
-  <aside class="toc-rail" aria-label="本页目录">${slot("toc:before")}<span class="toc-label">本页目录</span><div class="toc-dots"></div><nav class="toc-panel"></nav>${slot("toc:after")}</aside>
+
+  <!-- ================= 左侧导航（设计对齐：分组 + 子级） ================= -->
+  <aside class="sidebar">
+    ${slot("sidebar:before")}
+    <nav aria-label="站点导航">${navHtml}</nav>
+    ${slot("sidebar:after")}
+  </aside>
+
+  <!-- ================= 正文（articleBodyHtml 共享组装：三形态同构） ================= -->
+  <main class="content" id="main">
+    <article class="article">
+      ${articleBody}
+    </article>
+  </main>
+
+  <!-- ================= 右侧目录（设计对齐：指示条 + 链接 + 反馈卡） ================= -->
+  <aside class="toc" aria-label="本页目录">
+    ${slot("toc:before")}
+    ${tocHtml}
+    <div class="toc-card">
+      <div class="q">本页内容是否有帮助？</div>
+      <div class="row">
+        <button id="fbYes">有帮助</button>
+        <button id="fbNo">需改进</button>
+      </div>
+      ${editLink}
+    </div>
+    ${slot("toc:after")}
+  </aside>
 </div>
-<button class="toc-fab" aria-label="目录"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+
+<!-- ================= Footer（设计对齐：版权 / 链接 / 状态） ================= -->
+<footer class="footer">
+  <div class="footer-inner">
+    <span>© ${year} ${escapeHtml(siteTitle)}</span>
+    ${footerLinks}
+    <span class="status">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>
+      ${escapeHtml(statusText)}
+    </span>
+    <span class="powered-by">${slot("footer")}Powered by <a href="https://doclight.tech" target="_blank" rel="noopener">DocLight</a><button id="powered-by-close" aria-label="隐藏 Powered by 标记">×</button></span>
+  </div>
+</footer>
+
+<!-- ================= 移动端 TOC 面板（DocLight 既有能力，设计语言一致） ================= -->
+<button class="toc-fab" aria-label="目录"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
 <div class="toc-sheet">
   <div class="toc-sheet-header">本页目录<button class="toc-sheet-close" aria-label="关闭目录">×</button></div>
-  <nav class="toc-sheet-nav"></nav>
+  <nav class="toc-sheet-nav" aria-label="本页目录"></nav>
 </div>
-<!-- 阅读进度（04 §4.5.3）与回到顶部（04 §4.5.4）：展示层滚动驱动 -->
-<div class="reading-progress" aria-hidden="true"></div>
-<button class="back-to-top" aria-label="回到顶部" title="回到顶部"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
-<!-- C4 Powered by：默认显示、可一行关闭（13 §4 传播机制） -->
-<footer class="powered-by">${slot("footer")}Powered by <a href="https://doclight.tech" target="_blank" rel="noopener">DocLight</a><button id="powered-by-close" aria-label="隐藏 Powered by 标记">×</button></footer>
+
+<!-- ================= 搜索弹层（设计对齐） ================= -->
+<div class="modal-mask" id="modalMask">
+  <div class="modal" role="dialog" aria-label="搜索文档">
+    <div class="search-row">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-3)"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="searchInput" type="text" placeholder="搜索文档、指南与 API…" autocomplete="off">
+      <kbd class="esc">ESC</kbd>
+    </div>
+    <div class="results" id="results"></div>
+    <div class="modal-foot">
+      <span><kbd>↑↓</kbd> 导航</span>
+      <span><kbd>⏎</kbd> 打开</span>
+      <span><kbd>esc</kbd> 关闭</span>
+    </div>
+  </div>
+</div>
+
 ${overridesScript}
 ${sseScript}
-${displayTag}
+${fileAdaptor}${displayTag}
 </body>
 </html>`;
 }

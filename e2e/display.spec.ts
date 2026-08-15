@@ -4,6 +4,7 @@
  * 对应：10 §2.1 验证矩阵（browser-matrix）+ PHASE-1-complete 下一步建议 #1。
  * 场景源自 .spike/display-integration.mjs（已证明可行），抽为正式 check：
  * 主题切换 + 持久化 / SPA 导航（注入/URL/无整页刷新）/ 前进后退 / 移动端侧边栏。
+ * 设计对齐（2026-08-16）：TOC/搜索选择器随新设计语言更新（演示页结构）。
  *
  * dev server 直接复用 startDevServer（Playwright esbuild 转译 TS 源码），
  * 不再 spawn 子进程；docs 夹具在 beforeAll 建临时目录、afterAll 清理。
@@ -74,7 +75,7 @@ test("主题已应用、切换翻转并持久化", async ({ page }) => {
 
   // 点击主题切换按钮 → data-theme 翻转 + localStorage 持久化
   const flipped = themeBefore === "dark" ? "light" : "dark";
-  await page.click("#theme-toggle");
+  await page.click("#themeBtn");
   await expect(page.locator("html")).toHaveAttribute("data-theme", flipped);
   const stored = await page.evaluate(() => localStorage.getItem("doclight-theme"));
   expect(stored).toBe(flipped);
@@ -114,29 +115,34 @@ test("移动端侧边栏可开合", async ({ page }) => {
   await expect(page.locator("aside.sidebar")).toHaveClass(/open/);
 
   // 点击侧边栏外的可见内容区关闭（移动端遮罩效果）
-  // 注意：400px 视口下 280px 侧边栏盖住 main 中心点，须点右侧可见条带
-  await page.mouse.click(390, 300);
+  // 注意：400px 视口下 264px 侧边栏盖住 main 中心点，须点右侧可见条带；
+  // x=390 落在 webkit 滚动条区域（hit-test 为 null）——用 x=360 全浏览器可命中
+  await page.mouse.click(360, 300);
   await expect(page.locator("aside.sidebar")).not.toHaveClass(/open/);
 });
 
-test("TOC：桌面右侧导轨生成并渲染标题", async ({ page }) => {
+test("TOC：右侧目录生成（设计对齐：文本链接 + 指示条）", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(server.url);
 
-  await expect(page.locator(".toc-rail")).toBeVisible();
-  // 只含 h2/h3（不含 h1「首页」）；h3 缩进
-  await expect(page.locator(".toc-panel")).toContainText("安装");
-  await expect(page.locator(".toc-panel")).toContainText("系统要求");
-  await expect(page.locator(".toc-panel")).not.toContainText("首页");
-  await expect(page.locator(".toc-panel .toc-link-l3")).toHaveCount(1);
+  await expect(page.locator(".toc")).toBeVisible();
+  // 链接数 = 章节数（h2/h3，不含 h1）+「下一步」节（next-grid 锚点，演示页同款）
+  await expect(page.locator("#tocList a[data-toc-id]")).toHaveCount(4); // 安装 / 系统要求 / 配置 / 下一步
+  // 只含 h2/h3（不含 h1「首页」）；h3 加 l3 缩进类
+  await expect(page.locator("#tocList")).toContainText("安装");
+  await expect(page.locator("#tocList")).toContainText("系统要求");
+  await expect(page.locator("#tocList")).not.toContainText("首页");
+  await expect(page.locator("#tocList a.l3")).toHaveCount(1);
+  // 指示条存在（滑动指示，opacity 随滚动）
+  await expect(page.locator("#tocIndicator")).toBeAttached();
 });
 
 test("TOC：点击目录项跳转并更新锚点", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(server.url);
 
-  // 目录面板常驻可点（VIS-001 重设计后 toc-dot 指示点已隐藏）；中文锚点做编码解码比对（跨浏览器一致）
-  await page.click(".toc-link[data-toc-id='安装']");
+  // 点击目录链接跳转（设计对齐：平滑滚动 + 标题闪烁 + hash 更新）；中文锚点做编码解码比对
+  await page.click("#tocList a[data-toc-id='安装']");
   const hash = await page.evaluate(() => decodeURIComponent(location.hash));
   expect(hash).toBe("#安装");
 });
@@ -144,12 +150,14 @@ test("TOC：点击目录项跳转并更新锚点", async ({ page }) => {
 test("TOC：SPA 导航后目录重建", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(server.url);
-  await expect(page.locator(".toc-panel")).toContainText("安装");
+  await expect(page.locator("#tocList a[data-toc-id]")).toHaveCount(4);
 
   await page.click('a[href="/guide/quickstart.md"]');
   await expect(page.locator("article")).toContainText("快速开始");
-  await expect(page.locator(".toc-panel")).toContainText("快速上手");
-  await expect(page.locator(".toc-panel")).not.toContainText("安装");
+  // 目录随内容重建（quickstart 页 2 章：快速上手 / 常用命令；后续无分组 → 无「下一步」节）
+  await expect(page.locator("#tocList a[data-toc-id]")).toHaveCount(2);
+  await expect(page.locator("#tocList a[data-toc-id='快速上手']")).toBeAttached();
+  await expect(page.locator("#tocList a[data-toc-id='安装']")).toHaveCount(0);
 });
 
 test("TOC：移动端底部面板开合", async ({ page }) => {
@@ -175,36 +183,34 @@ test("搜索：Cmd/Ctrl+K 打开、懒加载索引、实时出结果", async ({ 
   expect(indexRequests.length).toBe(0);
 
   await page.keyboard.press("ControlOrMeta+k");
-  await expect(page.locator(".search-overlay")).toBeVisible();
+  await expect(page.locator("#modalMask.open")).toBeVisible();
   await expect.poll(() => indexRequests.length).toBeGreaterThan(0);
 
-  await page.fill(".search-input", "三步");
-  await expect(page.locator(".search-result")).toHaveCount(1);
-  await expect(page.locator(".search-result-title")).toContainText("快速开始");
-  // 摘要含命中上下文且命中词有高亮（<mark>，单字/二元组逐词包）
-  await expect(page.locator(".search-result-snippet")).toContainText("三步");
-  await expect(page.locator(".search-result mark").first()).toBeVisible();
-  await expect(page.locator(".search-result-path")).toContainText("guide/quickstart.md");
+  await page.fill("#searchInput", "三步");
+  await expect(page.locator(".result-item")).toHaveCount(1);
+  await expect(page.locator(".result-item .ri-title")).toContainText("快速开始");
+  // 分组节标签（设计对齐 ri-sec：文档所属顶层分组）
+  await expect(page.locator(".result-item .ri-sec")).toContainText("guide");
 });
 
 test("搜索：键盘导航 Enter 经 SPA 打开结果", async ({ page }) => {
   await page.goto(server.url);
   await page.keyboard.press("ControlOrMeta+k");
-  await page.fill(".search-input", "三步");
-  await expect(page.locator(".search-result")).toHaveCount(1);
+  await page.fill("#searchInput", "三步");
+  await expect(page.locator(".result-item")).toHaveCount(1);
 
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await expect(page.locator("article")).toContainText("快速开始");
   await expect(page).toHaveURL(/\/guide\/quickstart\.md$/);
-  await expect(page.locator(".search-overlay")).toBeHidden();
+  await expect(page.locator("#modalMask")).not.toHaveClass(/open/);
 });
 
 test("搜索：顶栏按钮打开，Esc 关闭", async ({ page }) => {
   await page.goto(server.url);
-  await page.click("#search-toggle");
-  await expect(page.locator(".search-overlay")).toBeVisible();
+  await page.click("#searchBtn");
+  await expect(page.locator("#modalMask.open")).toBeVisible();
 
   await page.keyboard.press("Escape");
-  await expect(page.locator(".search-overlay")).toBeHidden();
+  await expect(page.locator("#modalMask")).not.toHaveClass(/open/);
 });

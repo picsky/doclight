@@ -18,10 +18,12 @@ import {
 describe("REND-002 扩展语法注册表", () => {
   afterEach(() => setExtensions(DEFAULT_EXTENSIONS));
 
-  it("默认白名单含 3 个扩展（code-block / container / katex；mermaid 已迁移为插件，PLUG-012）", () => {
+  it("默认白名单含 5 个扩展（code-block / container / tabs / steps / katex；mermaid 已迁移为插件，PLUG-012）", () => {
     const ids = getExtensions().map((e) => e.id);
     expect(ids).toContain("code-block");
     expect(ids).toContain("container");
+    expect(ids).toContain("tabs");
+    expect(ids).toContain("steps");
     expect(ids).toContain("katex");
     expect(ids).not.toContain("mermaid");
     expect(isEnabled("mermaid")).toBe(false);
@@ -33,6 +35,8 @@ describe("REND-002 扩展语法注册表", () => {
     expect(classes).toContain("doclight-code");
     expect(classes).not.toContain("doclight-mermaid");
     expect(classes).toContain("doclight-tip");
+    expect(classes).toContain("tabs");
+    expect(classes).toContain("steps");
     expect(classes).toContain("doclight-katex-inline");
     expect(classes).toContain("doclight-katex-block");
   });
@@ -68,6 +72,101 @@ describe("REND-002 代码块标记（高亮 + 复制）", () => {
     expect(html).toContain('<pre class="doclight-code"><code class="language-mermaid">');
     expect(html).not.toContain("doclight-mermaid");
     expect(html).toContain("A--&gt;B");
+  });
+});
+
+describe("REND-002 代码块头部条（设计对齐 2026-08-16：codeblock/code-head/fname/lang/copy）", () => {
+  it("代码块包裹 codeblock 结构（头部条 + 代码体）", () => {
+    const { html } = render("```ts\nconst a: number = 1;\n```");
+    expect(html).toContain('<div class="codeblock">');
+    expect(html).toContain('<div class="code-head">');
+    expect(html).toContain('<span class="lang">ts</span>');
+    expect(html).toContain('class="copy-btn"');
+    expect(html).toContain('<pre class="doclight-code"><code class="language-ts">');
+  });
+
+  it("info string 解析：title=\"文件\" → fname；裸文件名同样支持", () => {
+    const { html } = render('```ts title="lib/aster.ts"\nconst x = 1;\n```');
+    expect(html).toContain('<span class="fname">lib/aster.ts</span>');
+    const bare = render("```ts lib/a.ts\nconst x = 1;\n```");
+    expect(bare.html).toContain('<span class="fname">lib/a.ts</span>');
+    const filePrefix = render('```ts file=a.ts\nconst x = 1;\n```');
+    expect(filePrefix.html).toContain('<span class="fname">a.ts</span>');
+  });
+
+  it("文件名/语言转义（防注入：脚本标签不存活，尖括号转义）", () => {
+    const { html } = render('```ts title="a"><script>alert(1)</script>"\nx\n```');
+    expect(html).not.toContain("<script>");
+    // DOMPurify 会解析后重新序列化：文本节点内的 " 恢复原样（文本节点中无注入面），
+    // < > 保持转义（防标签逃逸）
+    expect(html).toContain("&gt;&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(html).toContain("language-ts");
+  });
+
+  it("无语言代码块：无 lang 标签但仍带头部条与复制按钮", () => {
+    const { html } = render("```\n纯文本\n```");
+    expect(html).toContain('<div class="codeblock">');
+    expect(html).not.toContain('<span class="lang">');
+    expect(html).toContain('class="copy-btn"');
+  });
+});
+
+describe("REND-002 Tabs 容器（:::tabs / :::tab，设计对齐演示页跨组联动）", () => {
+  it("多 tab 渲染：tab-bar + tab-btn（首个 active）+ tab-panel（首个 active）+ 内容", () => {
+    const md = [
+      ":::tabs",
+      ":::tab npm",
+      "```bash",
+      "npm install x",
+      "```",
+      ":::",
+      ":::tab pnpm",
+      "```bash",
+      "pnpm add x",
+      "```",
+      ":::",
+      ":::",
+    ].join("\n");
+    const { html } = render(md);
+    expect(html).toContain('<div class="tabs"');
+    expect(html).toContain('<div class="tab-bar">');
+    expect(html).toContain('<button class="tab-btn active" type="button" data-tab="npm">npm</button>');
+    expect(html).toContain('<button class="tab-btn" type="button" data-tab="pnpm">pnpm</button>');
+    expect(html).toContain('<div class="tab-panel active" data-panel="npm">');
+    expect(html).toContain('<div class="tab-panel" data-panel="pnpm">');
+    expect(html).toContain("language-bash");
+  });
+
+  it("tab 名含特殊字符转义", () => {
+    const { html } = render(':::tabs\n:::tab a"b\nx\n:::\n:::');
+    expect(html).toContain('data-tab="a&quot;b"');
+  });
+
+  it("无 tab 段的 :::tabs 不识别（降级为普通文本）", () => {
+    const { html } = render(":::tabs\n没有 tab 标记\n:::");
+    expect(html).not.toContain('data-tabs');
+  });
+});
+
+describe("REND-002 步骤容器（:::steps，设计对齐演示页）", () => {
+  it("有序列表模型：ol.steps + 首段加粗提升为 step-title + 正文段落", () => {
+    const md = [
+      ":::steps",
+      "1. **定义任务处理函数**：处理函数是一个普通的异步函数。",
+      "2. **启动 Worker**：Worker 可以独立部署。",
+      ":::",
+    ].join("\n");
+    const { html } = render(md);
+    expect(html).toContain('<ol class="steps">');
+    expect(html).toContain("<li><span class=\"step-title\">定义任务处理函数</span><p>：处理函数是一个普通的异步函数。</p></li>");
+    expect(html).toContain('<span class="step-title">启动 Worker</span>');
+  });
+
+  it("非列表内容回退为逐块 li", () => {
+    const { html } = render(":::steps\n**标题**\n\n正文内容\n:::");
+    expect(html).toContain('<ol class="steps">');
+    expect(html).toContain('<li><span class="step-title">标题</span></li>');
+    expect(html).toContain("<li><p>正文内容</p></li>");
   });
 });
 

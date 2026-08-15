@@ -1,14 +1,18 @@
-# 11 · 默认模板设计（Default Themes）
+# 11 · 默认模板设计（Default Themes）——历史存档
 
-> 状态：待评审（🟡）
-> 对应原则：[开箱即惊艳](./01-product-positioning.md)、[原则零 Agent-First](./01-product-positioning.md)
-> 验证依据：[10-agent-dev-environment.md](./10-agent-dev-environment.md)
+> 状态：**历史存档（🗄️，2026-08-16 DP-001 单主题收敛）**
+> 2026-08-16 用户决策：**只做一套主题，把一套做好做精**——serif / modern / warm 三套内置主题
+> 完全退役，默认主题（松绿 Pine 设计语言）为唯一内置主题；自定义 CSS 主题机制保留。
+> 现行规格：`docs/design-new/DESIGN.md`（宪法）+ `18-design-polish.md`（Phase 7 计划）。
+> 本文件保留为历史资料（多套主题时代的定位论述），不再作为现行设计依据。
 
 ---
 
 ## 1. 设计原则
 
 ### 1.1 为什么是多套完整设计语言
+
+> （历史论述——多套主题时代。现行决策见 18-design-polish §0：单主题做精。）
 
 DocLight 的核心卖点是「零配置」，**默认形态就是产品本身**。用户第一次打开看到的界面，决定了要不要继续用。
 
@@ -42,7 +46,7 @@ DocLight 的核心卖点是「零配置」，**默认形态就是产品本身**�
 
 | 维度 | Minimal | Serif | Modern | Warm |
 |---|---|---|---|---|
-| 主色 | teal `#0d9488` | 深靛蓝 `#1e3a5f` | violet `#7c3aed` | 暖橙 `#d97706` |
+| 主色 | teal `#0d9488` | 深靛蓝 `#1e3a5f` | violet `#8b5cf6`（2026-08 提亮至链接 AA；原 #7c3aed 暗底仅 3.36:1） | 暖橙 `#b45309`（2026-08 提深至链接 AA；原 #d97706 亮底仅 3.04:1） |
 | 衬底背景 | 纯白/近黑灰 | 米白纸感 `#faf8f5` | 深黑蓝 `#0b0f19` | 暖米白 `#fdf9f3` |
 | 正文字体 | 系统无衬线 | 衬线标题 + 无衬线正文 | 系统无衬线 | 系统无衬线 |
 | 标题字体 | 无衬线 | **衬线**（思源宋体/Georgia 栈） | 无衬线（更紧凑） | 无衬线（圆润感） |
@@ -63,8 +67,9 @@ DocLight 的核心卖点是「零配置」，**默认形态就是产品本身**�
 ```
 设计 token 要点
   --color-primary:       #0d9488  (teal-600)
-  --color-bg:            #ffffff
-  --color-bg-soft:       #f9fafb
+  --color-link:          #0f766e  (teal-700；正文链接专用——亮底 AA 4.5，2026-08 新增)
+  --color-bg:            #fdfdfc  (晨光微暖白，2026-08 回写)
+  --color-bg-soft:       #f7f7f5
   --color-text:          #374151
   --font-sans:           系统中文栈（PingFang SC / Microsoft YaHei 优先）
   --radius:              6px
@@ -74,7 +79,7 @@ DocLight 的核心卖点是「零配置」，**默认形态就是产品本身**�
 **特点**：
 - 全站唯一彩色是 teal，其余纯灰阶
 - 侧边栏：浅灰底、细边框、当前项 teal 高亮
-- TOC 导轨：细线 + hover 展开（03 文档的少数派式设计）
+- TOC：宽屏常驻右侧目录面板（≥1280px 三栏；2026-08 回写——早期"细线导轨"设计已演进移除）
 - 行内代码用 teal 色（技术文章可读性关键）
 - 代码块深一级灰底，圆角统一
 
@@ -109,7 +114,7 @@ DocLight 的核心卖点是「零配置」，**默认形态就是产品本身**�
 
 ```
 设计 token 要点
-  --color-primary:       #7c3aed  (violet-600)
+  --color-primary:       #8b5cf6  (violet-500；2026-08 提亮——暗底正文链接 AA 4.5)
   --color-bg:            #0b0f19  (深黑蓝)
   --color-bg-soft:       #111827
   --color-text:          #d4d4d4
@@ -131,7 +136,7 @@ DocLight 的核心卖点是「零配置」，**默认形态就是产品本身**�
 
 ```
 设计 token 要点
-  --color-primary:       #d97706  (amber-600)
+  --color-primary:       #b45309  (amber-700；2026-08 提深——亮底正文链接 AA 4.5)
   --color-bg:            #fdf9f3  (暖米白)
   --color-bg-soft:       #f7f0e6
   --color-text:          #4a4238  (暖棕)
@@ -167,7 +172,7 @@ DocLight 的核心卖点是「零配置」，**默认形态就是产品本身**�
 
 | 要求 | 说明 |
 |---|---|
-| **theme.json 可读** | 每个模板有结构化 `theme.json`，字段语义明确，Agent 能读能改 |
+| **theme.json 可读** | 每个模板有结构化 `theme.json`，字段语义明确，Agent 能读能改（**未实现**——主题元数据当前在 `packages/cli/src/themes.ts`，2026-08 标注待办） |
 | **变量即接口** | 模板只依赖 `--color-*` / `--font-*` / `--radius-*` 等公开 token，不依赖私有类 |
 | **脚手架生成** | `doclight theme new` 生成模板骨架，注释即文档 |
 | **自动截图** | Agent 可一键生成某模板 × 某断点的截图自审 |

@@ -32,7 +32,7 @@ describe("dev server（DEV-001）", () => {
     expect(res.headers.get("content-type")).toContain("text/html");
     const body = await res.text();
     expect(body).toContain("欢迎来到测试站"); // README 内容直出
-    expect(body).toContain('<a href="/guide/quickstart.md"'); // 服务端渲染导航
+    expect(body).toContain('href="/guide/quickstart.md"'); // 服务端渲染导航（side-item）
   });
 
   it("文档页按路径渲染且 sanitize 生效（DEV-001）", async () => {
@@ -40,7 +40,7 @@ describe("dev server（DEV-001）", () => {
     expect(res.status).toBe(200);
     const body = await res.text();
     // 仅断言内容区（<article>）——页面 shell 自带受控内联 SSE 脚本
-    const article = body.slice(body.indexOf("<article>"), body.indexOf("</article>"));
+    const article = body.slice(body.indexOf("<article"), body.indexOf("</article>"));
     expect(article).toContain("快速开始");
     expect(article).not.toContain("<script");
     expect(article).not.toContain("alert(");

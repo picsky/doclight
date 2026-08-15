@@ -10,6 +10,8 @@
 - 标准 Markdown + GFM（标题 / 列表 / 表格 / 任务列表 / 删除线 / 代码围栏）
 - 代码高亮 + 复制按钮（无 Prism 时保留纯代码块（可读 + 可复制））
 - 自定义容器（:::tip / :::warning / :::danger / :::info）（纯 CSS 标记（dev server 样式），无 JS 依赖，降级为普通 div）
+- Tabs 容器（:::tabs / :::tab，跨组联动）（纯 CSS 标记：首面板直出可见，无 JS 时其余面板隐藏）
+- 步骤容器（:::steps，编号 + 连线）（纯 CSS 标记（计数器 + 连线），无 JS 依赖，降级为有序列表）
 - KaTeX 公式（$...$ / $$...$$）（未加载 KaTeX → TeX 源码可见（降级为可读文本））
 
 ## frontmatter 约定
@@ -34,11 +36,10 @@
 - /search-index.json
 - /capabilities.json
 - /.well-known/mcp
-- /mcp — MCP Server（工具：get_capabilities / search_docs / read_doc / list_docs / get_site_summary / get_outline / find_examples）；独立服务或 `doclight dev --mcp`
+- /mcp — MCP Server（工具：get_capabilities / search_docs / read_doc / list_docs / get_site_summary / get_outline / find_examples / write_doc / update_doc / delete_doc）；独立服务或 `doclight dev --mcp`
 
 ## 写作流程（推荐）
 
 1. 读 /capabilities.json 确认支持的语法（不要用本站不支持的语法）
 2. 在 docs/ 下写 .md（frontmatter 按上表；正文用支持语法）
 3. `doclight dev` 预览 → 人确认 → `doclight build` → `doclight publish`
-

@@ -3,8 +3,9 @@
  *
  * 管理插件的注册、生命周期钩子调用、卸载。与事件总线 + 路由钩子 + 插槽系统集成。
  *
- * 生命周期（07 §7.2）：
- *   register(plugin) → init(app) → [onMount(app) → onRouteChange(path)]* → destroy()
+ * 生命周期（07 §7.2；2026-08 H1 修复后——onRouteChange 是路由前置守卫，
+ * 返回 false 取消 / 返回字符串重定向，onMount 在内容注入完成后）：
+ *   register(plugin) → init(app) → [onRouteChange(path) → onMount(app)]* → destroy()
  *
  * 插件通过 doclight.use() 注册（07 §7.5）。支持三种形式：
  * - 函数：等同于 beforeRender 钩子（简写形式，展示层不支持构建时钩子，忽略）
@@ -29,6 +30,9 @@ export interface PluginManagerOptions {
   currentPath?: () => string;
   /** 获取当前页 frontmatter */
   currentFrontmatter?: () => Record<string, unknown>;
+  /** 注册路由前置守卫（mount 时注入 router.beforeEach——
+   *  2026-08 H1 修复：onRouteChange 取消/重定向契约真正接入导航决策链） */
+  registerRouteGuard?: (guard: (path: string) => boolean | string | void) => void;
 }
 
 /**
@@ -71,6 +75,11 @@ export class PluginManager {
     this.slotManager = new SlotManager();
   }
 
+  /** 注入运行时依赖（mount 时调用；可重复调用合并 opts——替换早期 ["opts"] 私有越界写入） */
+  configure(opts: PluginManagerOptions): void {
+    this.opts = { ...this.opts, ...opts };
+  }
+
   /** 注册插件（07 §7.5 doclight.use()） */
   use(plugin: PluginDef): void {
     if (this.plugins.some((p) => p.name === plugin.name)) return; // 防重复
@@ -99,7 +108,7 @@ export class PluginManager {
     this.plugins.splice(idx, 1);
   }
 
-  /** 初始化：构建 AppApi + 注册路由钩子 + 调用各插件 init */
+  /** 初始化：构建 AppApi + 注册路由守卫 + 调用各插件 init */
   initApp(): AppApi {
     const api: AppApi = {
       insertSlot: (slotName: string, content: string | HTMLElement | ((ctx: { path: string }) => string)) => {
@@ -116,6 +125,11 @@ export class PluginManager {
       emit: (event, payload) => bus.emit(event, payload),
     };
     this.appApi = api;
+
+    // 2026-08 H1 修复：onRouteChange 契约接入路由 beforeEach 决策链——
+    // 返回 false 取消导航 / 返回字符串重定向（此前事件在 pushState 后发出、返回值被丢弃，
+    // 插件永远无法取消/重定向）
+    this.opts.registerRouteGuard?.((path: string) => this.notifyRouteChange(path));
 
     // 调用各插件 init
     for (const plugin of this.plugins) {
@@ -167,12 +181,13 @@ export class PluginManager {
     }
   }
 
-  /** 订阅路由变化事件（bus 集成，mount 后调用一次） */
+  /** 订阅路由变化事件（bus 集成，mount 后调用一次）。
+   *  2026-08 H1 修复：onRouteChange 已由路由 beforeEach 决策链执行（可取消/重定向），
+   *  此处只做导航完成后的副作用——插槽重渲染 + onMount（新页面内容已注入）。 */
   subscribeRouteChange(): void {
     this.routeUnsub = bus.on("doclight:routechange", (payload) => {
       const ctx = payload as { to?: string } | undefined;
       if (ctx?.to) {
-        this.notifyRouteChange(ctx.to);
         // 路由变化后重新渲染动态插槽
         this.slotManager.renderToDom({ path: ctx.to });
         // 通知各插件 onMount（新页面内容已注入）

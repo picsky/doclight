@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * doclight-cli 入口（DEV-001 + SSG-001 + Phase 3 剩余）
  *
@@ -10,8 +11,9 @@
  *   doclight deploy [--dir] [--title]                          一键部署（GitHub Pages 等，05 §5.5）
  */
 import { join, resolve } from "node:path";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
+import { pathToFileURL } from "node:url";
 import { startDevServer } from "./dev-server.ts";
 import { buildSite } from "./build.ts";
 import { bundleSite } from "./bundle.ts";
@@ -174,6 +176,10 @@ export async function runDev(options: Partial<CliOptions> = {}): Promise<{ url: 
   // PLUG-014：doclight.json 插件配置注入页面（展示层自动注册 init/onMount）
   const cfg = loadConfig([join(process.cwd(), "doclight.json"), join(resolve(merged.dir), "doclight.json")]);
   const theme = loadConfiguredTheme(merged.dir);
+  // 设计对齐（2026-08-16）：站点镀铬（顶栏版本/GitHub、footer 链接与状态）
+  const chrome = cfg.version || cfg.github || cfg.footer
+    ? { version: cfg.version, github: cfg.github, footerLinks: cfg.footer?.links, statusText: cfg.footer?.status }
+    : undefined;
   return startDevServer({
     ...merged,
     buildPlugins: loadConfiguredPlugins(merged.dir),
@@ -183,6 +189,7 @@ export async function runDev(options: Partial<CliOptions> = {}): Promise<{ url: 
     pluginFiles: configuredPluginWatchFiles(merged.dir),
     reloadPlugins: () => reloadConfiguredPluginsAsync(merged.dir),
     pluginConfigs: cfg.plugins,
+    chrome,
   });
 }
 
@@ -202,6 +209,10 @@ export function runBuild(options: Partial<CliOptions> = {}): ReturnType<typeof b
     // PLUG-009 接线：doclight.json plugins → 构建管线
     buildPlugins: loadConfiguredPlugins(dir),
     pluginConfigs: cfg.plugins,
+    // 设计对齐（2026-08-16）：站点镀铬（顶栏版本/GitHub、footer 链接与状态）
+    chrome: cfg.version || cfg.github || cfg.footer
+      ? { version: cfg.version, github: cfg.github, footerLinks: cfg.footer?.links, statusText: cfg.footer?.status }
+      : undefined,
     // VIS-001：--themes 构建主题画廊（产物 gallery/）
     themes: options.themes,
   });
@@ -232,6 +243,10 @@ export function runBundle(options: Partial<CliOptions> = {}): ReturnType<typeof 
     // PLUG-009 接线：doclight.json plugins → 构建管线（bundle 形态补齐）
     buildPlugins: loadConfiguredPlugins(dir),
     pluginConfigs: cfg.plugins,
+    // 设计对齐（2026-08-16）：站点镀铬（顶栏版本/GitHub、footer 链接与状态）
+    chrome: cfg.version || cfg.github || cfg.footer
+      ? { version: cfg.version, github: cfg.github, footerLinks: cfg.footer?.links, statusText: cfg.footer?.status }
+      : undefined,
   });
 }
 
@@ -270,7 +285,11 @@ export function runDeploy(options: Partial<CliOptions> = {}): ReturnType<typeof 
 
 // 直接运行：node packages/cli/src/index.ts <命令> [选项]
 // 注：Node 22.6+ 需 --experimental-strip-types；Node 23.6+ 默认支持 TS 类型剥离
-if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+// 入口判定（2026-08 修复）：npm link / pnpm link 全局安装后，process.argv[1] 是
+// 全局 bin 目录里的符号链接/Junction 路径，而 import.meta.url 是 ESM realpath 解析
+// 后的真实路径——两者不相等导致 CLI 静默退出（无输出、exit 0）。用 realpathSync
+// 规范化 argv[1] 后再比较，链接安装与直接运行都能命中入口。
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const [command, ...rest] = process.argv.slice(2);
   const opts = parseArgs(rest);
 
@@ -294,6 +313,8 @@ if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
         console.log(`  MCP 插件:  ${dev.url}mcp（POST JSON-RPC）+ ${dev.url}.well-known/mcp`);
       }
       console.log(`  按 Ctrl+C 停止\n`);
+      // 保持进程存活（HTTP 服务器监听但 ESM 模块结束后事件循环可能提前退出）
+      await new Promise(() => {});
     } else if (command === "build") {
       const result = runBuild({
         dir: opts["dir"],
@@ -323,6 +344,8 @@ if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
       console.log(`  产物目录:  ${opts["dir"] ?? "dist-site"}`);
       if (opts["themes"] === "true") console.log(`  主题画廊:  ${preview.url}gallery/（11 §4）`);
       console.log(`  按 Ctrl+C 停止\n`);
+      // 2026-08 修复：保持进程存活（HTTP 服务器监听但 ESM 模块结束后事件循环可能提前退出）
+      await new Promise(() => {});
     } else if (command === "init") {
       const result = initProject({ dir: opts["dir"], title: opts["title"], description: opts["description"] });
       console.log(`\n  DocLight 项目已初始化 ✓\n`);

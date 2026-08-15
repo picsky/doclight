@@ -1,5 +1,5 @@
 /**
- * 视觉回归（VIS-001，11-default-themes §6.1：4 模板 × 亮暗 × 3 断点共 24 组截图）
+ * 视觉回归（VIS-001，11-default-themes §6.1；DP-001 单主题收敛：1 模板 × 亮暗 × 3 断点共 6 组截图）
  *
  * 独立于 verify 的像素级门禁（verify 的 visual check 只做静态设计合规 + 画廊产物）：
  * - 基线缺失时：npm run verify:visual:update 生成基线（首次由人确认后锁定——11 §6.2）
@@ -16,7 +16,7 @@ import { expect, test } from "@playwright/test";
 const GALLERY = join(process.cwd(), "artifacts", "visual", "gallery");
 /** DEMO-001：演示产物（visual check 构建；自包含单文件，file:// 直开） */
 const SLIDES_DEMO = join(process.cwd(), "artifacts", "visual", "slides-demo.html");
-const THEMES = ["minimal", "serif", "modern", "warm"];
+const THEMES = ["minimal"];
 const MODES = ["light", "dark"] as const;
 const VIEWPORTS = [
   { name: "desktop", width: 1440, height: 900 },
@@ -31,6 +31,18 @@ let server: ReturnType<typeof createServer> | null = null;
 let baseUrl = "";
 
 test.beforeAll(async () => {
+  // 门禁加固（P1-2）：产物缺失必须显式失败（beforeAll throw → 全部用例失败），
+  // 不允许 test.skip 静默跳过——0 像素被比较 = 假绿
+  if (!existsSync(join(GALLERY, "index.html"))) {
+    throw new Error(
+      "画廊产物缺失（artifacts/visual/gallery/）：请先运行 npm run verify（visual check 会构建画廊），或直接运行 npm run verify:visual（已内置前置构建）"
+    );
+  }
+  if (!existsSync(SLIDES_DEMO)) {
+    throw new Error(
+      "演示产物缺失（artifacts/visual/slides-demo.html）：请先运行 npm run verify（visual check 会构建演示）"
+    );
+  }
   server = createServer((req, res) => {
     const rel = decodeURIComponent((req.url ?? "/").split("?")[0]!.replace(/^\/+/, ""));
     const file = join(GALLERY, rel === "" ? "index.html" : rel);
@@ -56,9 +68,11 @@ for (const theme of THEMES) {
   for (const mode of MODES) {
     for (const vp of VIEWPORTS) {
       test(`画廊 ${theme} ${mode} ${vp.name}`, async ({ page }) => {
-        test.skip(!existsSync(join(GALLERY, "index.html")), "画廊产物缺失：先运行 npm run verify（visual check 构建）");
         await page.setViewportSize({ width: vp.width, height: vp.height });
         await page.goto(`${baseUrl}${theme}/${mode}/index.html`, { waitUntil: "networkidle" });
+        // 2026-08-16 设计对齐：默认模板加载 Google Fonts（Inter 等）——字体交换完成前截图
+        // 会捕获到 reflow 中间态（两次运行字体加载时机不同 → 基线抖动）。等待字体就绪再拍。
+        await page.evaluate(() => document.fonts?.ready);
         // 面板内无异步渲染（KaTeX/Mermaid 为静态降级源），直接整页截图
         await expect(page).toHaveScreenshot(`gallery-${theme}-${mode}-${vp.name}.png`, {
           maxDiffPixelRatio: 0.01,
@@ -71,14 +85,12 @@ for (const theme of THEMES) {
 
 /* DEMO-001：演示形态截图回归（自包含单文件，file:// 直开——正是分发形态） */
 test("演示 dark 封面页", async ({ page }) => {
-  test.skip(!existsSync(SLIDES_DEMO), "演示产物缺失：先运行 npm run verify（visual check 构建）");
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`file://${SLIDES_DEMO.split("\\").join("/")}`, { waitUntil: "load" });
   await expect(page).toHaveScreenshot("slides-dark-cover.png", { maxDiffPixelRatio: 0.01, animations: "disabled" });
 });
 
 test("演示 dark 内容页（#3 直达）", async ({ page }) => {
-  test.skip(!existsSync(SLIDES_DEMO), "演示产物缺失：先运行 npm run verify（visual check 构建）");
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`file://${SLIDES_DEMO.split("\\").join("/")}#3`, { waitUntil: "load" });
   await expect(page).toHaveScreenshot("slides-dark-content.png", { maxDiffPixelRatio: 0.01, animations: "disabled" });

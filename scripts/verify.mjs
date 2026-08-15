@@ -4,13 +4,14 @@
 import { writeReport, printSummary } from "./lib/report.mjs";
 import { runBuild } from "./build.mjs";
 
-const CHECKS = ["lint", "typecheck", "test", "size", "contract", "visual", "e2e"];
+const CHECKS = ["lint", "typecheck", "test", "size", "contract", "visual", "e2e", "smoke"];
 // Phase 1 启用：visual / isomorphic / perf（见 10 §2.1 验证矩阵）；e2e = 展示层真实浏览器门禁
 // VIS-001：visual = 设计合规（WCAG AA/8pt/1.25）+ 主题画廊产物；像素级截图回归独立命令 verify:visual
+// 2026-08：smoke = 构建产物冒烟（CLI 现构建 SSG → 真实浏览器挂载断言，防「源码修好产物没重建」）
 
 export async function verify() {
-  // 1) 先构建（体积门禁与产物验证的前提）
-  runBuild();
+  // 1) 先构建（体积门禁与产物验证的前提；含 CLI 自包含产物 build-cli）
+  await runBuild();
 
   // 2) 依次运行各 check（每个 check 落盘独立 JSON，供 Agent 定位细节）
   const results = [];

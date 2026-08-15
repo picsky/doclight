@@ -19,7 +19,7 @@
  * - 扩展语法：从注册表（getExtensions）挂载容器 / KaTeX 等 marked 扩展
  */
 import { Marked, type RendererObject, type TokenizerAndRendererExtension, type Tokens } from "marked";
-import { isExternal, resolveRelative, slugify } from "./link.ts";
+import { headingPlainText, isExternal, resolveRelative, slugify } from "./link.ts";
 import { renderCodeBlock } from "../extensions/code.ts";
 import { getExtensions } from "../extensions/registry.ts";
 
@@ -39,7 +39,8 @@ export function renderMarkdown(md: string, options: MarkdownOptions = {}): strin
   const renderer: RendererObject = {
     heading({ tokens, depth }: Tokens.Heading) {
       const raw = tokens.map((t) => t.raw ?? "").join("");
-      return `<h${depth} id="${slugify(raw)}">${this.parser.parseInline(tokens)}</h${depth}>`;
+      // 2026-08 双读锚点修复：先剥行内标记再 slugify（与 analyze.ts 大纲同源，REND-004）
+      return `<h${depth} id="${slugify(headingPlainText(raw))}">${this.parser.parseInline(tokens)}</h${depth}>`;
     },
     link({ href, tokens }: Tokens.Link) {
       const text = this.parser.parseInline(tokens);
