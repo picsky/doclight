@@ -75,6 +75,26 @@ export function initSidebar(): void {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && sidebar.classList.contains("open")) close();
   });
+  // DP-006 抽屉边缘滑动手势（保守实现：抽屉内向右横扫 >60px 关闭；不劫持点击/纵向滚动）
+  let swipeStart: number | null = null;
+  sidebar.addEventListener(
+    "touchstart",
+    (e) => {
+      swipeStart = e.touches[0]?.clientX ?? null;
+    },
+    { passive: true }
+  );
+  sidebar.addEventListener(
+    "touchend",
+    (e) => {
+      if (swipeStart === null) return;
+      const endX = e.changedTouches[0]?.clientX ?? swipeStart;
+      const dx = swipeStart - endX;
+      swipeStart = null;
+      if (dx > 60 && sidebar.classList.contains("open")) close(); // 右滑（向边缘）关闭
+    },
+    { passive: true }
+  );
   sync();
 
   /* ===== DP-005 分组折叠（side-title 点击切换；持久化） ===== */

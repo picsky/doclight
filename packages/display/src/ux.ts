@@ -79,18 +79,22 @@ function initProgressAndTopbar(): void {
   update();
 }
 
-/** 页面切换过渡（04 §4.5.2 兑现，VIS-002 + 设计对齐）：SPA 导航后 article 淡入（克制） */
+/** 页面切换过渡（04 §4.5.2 兑现，VIS-002 + 设计对齐）：SPA 导航后 article 淡入（克制）。
+ *  DP-006 方向感知：前进从右入（默认），后退（popstate/bundle 回退）从左入。 */
 function initPageTransition(): void {
   const article = document.querySelector<HTMLElement>("article");
   if (!article) return;
-  const play = () => {
-    article.classList.remove("page-enter");
+  const play = (back: boolean): void => {
+    article.classList.remove("page-enter", "page-enter-back");
     // 强制重排以重触发动画
     void article.offsetWidth;
-    article.classList.add("page-enter");
+    article.classList.add(back ? "page-enter-back" : "page-enter");
   };
-  bus.on("doclight:routechange", play);
-  play();
+  bus.on("doclight:routechange", (payload) => {
+    const ctx = payload as { replace?: boolean } | undefined;
+    play(!!ctx?.replace);
+  });
+  play(false);
 }
 
 /** 挂载体验细节（mount() 调用） */

@@ -8,20 +8,21 @@ DocLight 是一款**主要由 Agent 自主开发**的开源文档站引擎。你
 
 ## 当前状态（2026-08-16，设计对齐宪法完成 + Phase 7 设计精修进行中）
 
-> **Phase 7 ✅ 计划批准 + DP-001~005 完成（DESIGN-POLISH，2026-08-16）**：用户决策——**只做一套主题，把一套做好做精**；其余优化方向全部通过。
+> **Phase 7 ✅ 计划批准 + DP-001~006 完成（DESIGN-POLISH，2026-08-16）**：用户决策——**只做一套主题，把一套做好做精**；其余优化方向全部通过。
 > 规格：`docs/tech-design/18-design-polish.md`。**DP-001 单主题收敛 ✅**（serif/modern/warm 完全退役
 > （文件删除 + RETIRED_THEMES 警告降级默认 + 画廊/门禁/视觉基线收敛 24→6 张；自定义 CSS 主题机制保留；
 > 交接 `docs/agent-handoffs/PHASE-7-dp001-theme-consolidation-complete.md`）；
 > **DP-002 品牌层 ✅**（icon 标志 favicon / 首页 hero `article.home` / 404 设计页三形态 /
 > 签名时刻=阅读进度收尾脉冲（用户确认）；交接 `docs/agent-handoffs/PHASE-7-dp002-brand-complete.md`）；
 > **DP-003 阅读状态感 ✅**（位置持久化 + 继续阅读 pill / TOC 已读标记 / `<time>` 相对时间 +
-> 侧边栏最近更新徽标 / 完成度一行文字；浏览器实测 5/5；
-> 交接 `docs/agent-handoffs/PHASE-7-dp003-reading-state-complete.md`）；
+> 侧边栏最近更新徽标 / 完成度一行文字；交接 `docs/agent-handoffs/PHASE-7-dp003-reading-state-complete.md`）；
 > **DP-004 内容纵深 ✅**（h4-h6 补全 / 超长代码块渐进展开 / 长表 sticky 表头 / 暗色图片降亮度 /
 > 引用-callout 分工；交接 `docs/agent-handoffs/PHASE-7-dp004-content-depth-complete.md`）；
 > **DP-005 导航智能 ✅**（分组折叠+持久化 / 双向联动 / ←→ 键盘翻页 / 版本切换器设计规格先行；
-> 浏览器实测 5/5；交接 `docs/agent-handoffs/PHASE-7-dp005-navigation-complete.md`）。
-> 下一步：DP-006 动效工艺 → DP-007 AI 原生身份。
+> 交接 `docs/agent-handoffs/PHASE-7-dp005-navigation-complete.md`）；
+> **DP-006 动效工艺 ✅**（转场方向感知 / 主题图标呼吸 / 搜索 stagger / FAB 章节序号 + 抽屉右滑；
+> 交接 `docs/agent-handoffs/PHASE-7-dp006-motion-complete.md`）。
+> 下一步：DP-007 AI 原生身份（最后一项）。
 
 > **设计对齐（2026-08-16）**：前端整体对齐 docs/design-new/ 全新设计——演示页 1:1 复刻为默认主题，
 > DESIGN.md 立为设计第一文档（宪法）。令牌体系全局替换（--bg/--text/--accent 等，禁止新旧并存）；

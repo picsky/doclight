@@ -1438,6 +1438,8 @@ export const DEFAULT_THEME_CSS = `  :root {
     .version-btn { display: none; }
     /* 移动端 TOC：右下角浮动按钮 + 底部面板 */
     .toc-fab { position: fixed; right: 16px; bottom: 24px; z-index: 40; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--bg-subtle); color: var(--text-2); font-size: 18px; cursor: pointer; box-shadow: 0 2px 8px -2px rgba(27,27,24,.12); }
+    /* DP-006：FAB 章节序号（「3/12」——把「我在哪」带到移动端） */
+    .toc-fab.with-count { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
     .toc-sheet { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; max-height: 70%; background: var(--bg); border-top: 1px solid var(--line); border-radius: 10px 10px 0 0; transform: translateY(100%); visibility: hidden; transition: transform .2s ease, visibility 0s linear .2s; }
     .toc-sheet.open { transform: translateY(0); visibility: visible; transition: transform .2s ease, visibility 0s; }
     .toc-sheet-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--line); font-weight: 600; font-size: 14px; color: var(--text); }
@@ -1455,7 +1457,16 @@ export const DEFAULT_THEME_CSS = `  :root {
   /* ---------- 页面切换过渡（SPA 导航后内容淡入，设计对齐 rise） ---------- */
   @keyframes doclight-page-in { from { opacity: 0; transform: translateY(8px); } }
   article.page-enter { animation: doclight-page-in .25s var(--ease); }
+  /* DP-006 方向感知转场：前进从右入 / 后退从左入（与浏览器手势语义一致；≤250ms） */
+  @keyframes doclight-page-in-back { from { opacity: 0; transform: translateX(-14px); } }
+  article.page-enter-back { animation: doclight-page-in-back .25s var(--ease); }
   body, .topbar, .sidebar, .content, .toc { transition: background-color .35s ease, color .35s ease, border-color .3s ease; }
+  /* DP-006 主题切换交叉淡化：图标呼吸一次（≤300ms，与令牌背景过渡叠加） */
+  #themeBtn.theme-swap svg { animation: theme-icon-swap .3s var(--ease); }
+  @keyframes theme-icon-swap { 0% { transform: scale(.72); opacity: .45; } 100% { transform: scale(1); opacity: 1; } }
+  /* DP-006 搜索弹层结果 stagger（每项 24ms 错峰，≤300ms；reduced-motion 全局静止） */
+  .modal.open .result-item { animation: result-in .22s var(--ease) both; }
+  @keyframes result-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 `;
 
 /**

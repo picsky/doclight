@@ -171,6 +171,19 @@ export function initToc(options: { articleSelector?: string } = {}): TocApi {
         if (active) el.setAttribute("aria-current", "location");
         else el.removeAttribute("aria-current");
       });
+      // DP-006：移动端 FAB 显示当前章节序号（「3/12」——把「我在哪」带到移动端）
+      if (fab && headings.length > 0) {
+        const idx = id ? headings.findIndex((h) => h.id === id) : -1;
+        if (idx >= 0) {
+          fab.classList.add("with-count");
+          fab.setAttribute("aria-label", `目录：第 ${idx + 1} 章，共 ${headings.length} 章`);
+          fab.textContent = `${idx + 1}/${headings.length}`;
+        } else {
+          fab.classList.remove("with-count");
+          fab.setAttribute("aria-label", "目录");
+          fab.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
+        }
+      }
       // 指示条：位移到激活链接（演示页 toc-indicator 逻辑）
       if (indicator && id) {
         const link = list?.querySelector<HTMLElement>(`[data-toc-id="${CSS.escape ? CSS.escape(id) : id}"]`);

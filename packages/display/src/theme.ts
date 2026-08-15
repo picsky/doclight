@@ -66,6 +66,13 @@ export function initTheme(): void {
     }
     applyTheme(next);
     sync();
+    // DP-006：主题切换交叉淡化——图标呼吸一次（CSS keyframes，reduced-motion 下全局静止）
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (!reduced && toggle) {
+      toggle.classList.remove("theme-swap");
+      void toggle.offsetWidth;
+      toggle.classList.add("theme-swap");
+    }
   });
 
   // 2026-08 修复（M5）：auto 模式实时跟随系统偏好变化——

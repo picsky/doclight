@@ -299,7 +299,8 @@ export function initSearch(options: { indexUrl?: string; toggleSelector?: string
     return indexLoading;
   }
 
-  /** 渲染结果列表（设计对齐演示页：图标 + 标题 + 分组节标签；option 语义 + 序号 id） */
+  /** 渲染结果列表（设计对齐演示页：图标 + 标题 + 分组节标签；option 语义 + 序号 id；
+   *  DP-006：错峰入场 stagger——每项 animation-delay 24ms 递增，≤300ms 封顶） */
   function renderResults(results: SearchResult[], query: string): void {
     const terms = tokenize(query);
     if (results.length === 0) {
@@ -311,13 +312,14 @@ export function initSearch(options: { indexUrl?: string; toggleSelector?: string
       .map((r, i) => {
         const doc = index?.docs.find((d) => d.path === r.path);
         const section = doc?.section ? `<span class="ri-sec">${escapeHtml(doc.section)}</span>` : "";
-        return `<a class="result-item" id="doclight-opt-${i}" role="option" aria-selected="false" href="${bundleMode ? `#/${r.path}` : `${base}/${r.path}`}" data-path="${r.path}">${DOC_ICON}<span class="ri-title">${highlight(r.title, terms)}</span>${section}</a>`;
+        const delay = Math.min(i * 24, 288); // 错峰（reduced-motion 下 CSS 全局静止）
+        return `<a class="result-item" id="doclight-opt-${i}" role="option" aria-selected="false" href="${bundleMode ? `#/${r.path}` : `${base}/${r.path}`}" data-path="${r.path}" style="animation-delay:${delay}ms">${DOC_ICON}<span class="ri-title">${highlight(r.title, terms)}</span>${section}</a>`;
       })
       .join("");
     selected = -1;
   }
 
-  /** 渲染初始列表（输入为空：全部文档，演示页行为；大站点截断 20 条） */
+  /** 渲染初始列表（输入为空：全部文档，演示页行为；大站点截断 20 条；DP-006 错峰入场） */
   function renderAllDocs(): void {
     if (!index) {
       resultsBox.innerHTML = `<div style="padding:24px;text-align:center;font-size:13px;color:var(--text-3)">输入关键词开始搜索</div>`;
@@ -327,7 +329,7 @@ export function initSearch(options: { indexUrl?: string; toggleSelector?: string
     resultsBox.innerHTML = docs
       .map(
         (d, i) =>
-          `<a class="result-item" id="doclight-opt-${i}" role="option" aria-selected="false" href="${bundleMode ? `#/${d.path}` : `${base}/${d.path}`}" data-path="${d.path}">${DOC_ICON}<span class="ri-title">${escapeHtml(d.title)}</span>${d.section ? `<span class="ri-sec">${escapeHtml(d.section)}</span>` : ""}</a>`
+          `<a class="result-item" id="doclight-opt-${i}" role="option" aria-selected="false" href="${bundleMode ? `#/${d.path}` : `${base}/${d.path}`}" data-path="${d.path}" style="animation-delay:${Math.min(i * 24, 288)}ms">${DOC_ICON}<span class="ri-title">${escapeHtml(d.title)}</span>${d.section ? `<span class="ri-sec">${escapeHtml(d.section)}</span>` : ""}</a>`
       )
       .join("");
     selected = -1;
