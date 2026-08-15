@@ -898,11 +898,25 @@ export const DEFAULT_THEME_CSS = `  :root {
   .sidebar ul { list-style: none; margin: 0; padding: 0; }
   .sidebar nav > ul > li { margin: 0; }
   .side-group { margin-bottom: 24px; }
+  /* DP-005 分组折叠：side-title 可点击 + chevron 指示；折叠隐藏子项（index 首页条目除外） */
   .side-title {
     font-size: 11px; font-weight: 600; letter-spacing: .08em;
     text-transform: uppercase; color: var(--text-3);
     padding: 0 10px; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 6px;
+    cursor: pointer; user-select: none;
+    transition: color .15s;
   }
+  .side-title:hover { color: var(--text-2); }
+  .side-title::before {
+    content: ""; flex: none; width: 6px; height: 6px;
+    border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+    transform: rotate(45deg) translateY(-1px);
+    transition: transform .18s var(--ease);
+  }
+  .side-group.collapsed .side-title::before { transform: rotate(-45deg); }
+  .side-group.collapsed .side-sub { display: none; }
+  .side-group.collapsed .side-title { margin-bottom: 4px; }
   .side-item {
     display: flex; align-items: center; gap: 8px;
     font-size: 13.5px; color: var(--text-2);

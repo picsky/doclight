@@ -106,6 +106,9 @@ export function highlightActive(url: string, navSelector = "aside.sidebar", topn
     if (on) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   });
+  // DP-005 双向联动：导航后侧边栏滚动到激活项可见（长侧边栏不迷路；nearest 避免整页跳动）
+  const sideActive = document.querySelector<HTMLElement>(`${navSelector} .side-item.active`);
+  sideActive?.scrollIntoView({ block: "nearest" });
 }
 
 /** 路由 API（initRouter 返回值，供 mount 与插件使用） */
