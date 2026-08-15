@@ -8,23 +8,15 @@ DocLight 是一款**主要由 Agent 自主开发**的开源文档站引擎。你
 
 ## 当前状态（2026-08-16，设计对齐宪法完成 + Phase 7 设计精修全部完成）
 
-> **Phase 7 ✅ 全量完成（DESIGN-POLISH，2026-08-16）**：用户决策——**只做一套主题，把一套做好做精**；其余优化方向全部通过。
-> 规格：`docs/tech-design/18-design-polish.md`。**DP-001 单主题收敛 ✅**（serif/modern/warm 完全退役
-> （文件删除 + RETIRED_THEMES 警告降级默认 + 画廊/门禁/视觉基线收敛 24→6 张；自定义 CSS 主题机制保留；
-> 交接 `docs/agent-handoffs/PHASE-7-dp001-theme-consolidation-complete.md`）；
-> **DP-002 品牌层 ✅**（icon 标志 favicon / 首页 hero `article.home` / 404 设计页三形态 /
-> 签名时刻=阅读进度收尾脉冲（用户确认）；交接 `docs/agent-handoffs/PHASE-7-dp002-brand-complete.md`）；
-> **DP-003 阅读状态感 ✅**（位置持久化 + 继续阅读 pill / TOC 已读标记 / `<time>` 相对时间 +
-> 侧边栏最近更新徽标 / 完成度一行文字；交接 `docs/agent-handoffs/PHASE-7-dp003-reading-state-complete.md`）；
-> **DP-004 内容纵深 ✅**（h4-h6 补全 / 超长代码块渐进展开 / 长表 sticky 表头 / 暗色图片降亮度 /
-> 引用-callout 分工；交接 `docs/agent-handoffs/PHASE-7-dp004-content-depth-complete.md`）；
-> **DP-005 导航智能 ✅**（分组折叠+持久化 / 双向联动 / ←→ 键盘翻页 / 版本切换器设计规格先行；
-> 交接 `docs/agent-handoffs/PHASE-7-dp005-navigation-complete.md`）；
-> **DP-006 动效工艺 ✅**（转场方向感知 / 主题图标呼吸 / 搜索 stagger / FAB 章节序号 + 抽屉右滑；
-> 交接 `docs/agent-handoffs/PHASE-7-dp006-motion-complete.md`）；
-> **DP-007 AI 原生身份 ✅**（溯源徽标 provenance 三形态 / llms.txt 收录提示仅 SSG / 画廊设计宣言 /
-> 写作端预览一致性规范；交接 `docs/agent-handoffs/PHASE-7-dp007-ai-identity-complete.md`）。
-> 展示层 13.33→16.57KB gzip（<25KB）；每项 verify 8/8 + 浏览器实测 + 交接。**Phase 7 收官。**
+> **Phase 7 ✅ 全量完成 + 用户微调（DESIGN-POLISH，2026-08-16）**：用户决策——**只做一套主题，把一套做好做精**；其余优化方向全部通过。
+> 规格：`docs/tech-design/18-design-polish.md`。DP-001 单主题收敛 ✅ → DP-002 品牌层 ✅ → DP-003 阅读状态感 ✅ →
+> DP-004 内容纵深 ✅ → DP-005 导航智能 ✅ → DP-006 动效工艺 ✅ → DP-007 AI 原生身份 ✅（各交接
+> `docs/agent-handoffs/PHASE-7-dp00X-*.md`）。
+> **用户微调（三项反馈已修，交接 `docs/agent-handoffs/PHASE-7-user-tweaks-2026-08-16.md`）**：
+> ①继续阅读 pill 移除 → 默认静默自动恢复位置（rAF 瞬移）；
+> ②「页面左右晃动」修复（根因 = DP-006 后退转场 translateX(-14px) 整页水平平移 → 改纯淡入 + html overflow-x: clip）；
+> ③TOC 已读标记移除。
+> 展示层 16.06KB gzip（<25KB）；每项 verify 8/8 + 浏览器实测。红线全部守住。
 
 > **设计对齐（2026-08-16）**：前端整体对齐 docs/design-new/ 全新设计——演示页 1:1 复刻为默认主题，
 > DESIGN.md 立为设计第一文档（宪法）。令牌体系全局替换（--bg/--text/--accent 等，禁止新旧并存）；

@@ -784,7 +784,7 @@ export const DEFAULT_THEME_CSS = `  :root {
 
   /* ===== Reset & Base（设计对齐：演示页 §Reset & Base） ===== */
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html { scroll-behavior: smooth; scroll-padding-top: 88px; }
+  html { scroll-behavior: smooth; scroll-padding-top: 88px; overflow-x: clip; } /* clip 防横向滚动/晃动（不破坏 sticky） */
   body {
     font-family: var(--font-sans);
     font-feature-settings: "cv11", "ss01", "ss03";
@@ -1202,8 +1202,6 @@ export const DEFAULT_THEME_CSS = `  :root {
   .toc a:hover { color: var(--text); text-decoration: none; }
   .toc a.active { color: var(--accent-ink); font-weight: 500; }
   .toc a.l3 { padding-left: 24px; font-size: 12px; }
-  /* DP-003：已读章节安静提级（--text-3 → --text-2，不加粗不变色） */
-  .toc a.read:not(.active) { color: var(--text-2); }
   .toc-card {
     margin-top: 28px; padding: 14px 16px;
     border: 1px solid var(--line); border-radius: var(--radius);
@@ -1362,25 +1360,6 @@ export const DEFAULT_THEME_CSS = `  :root {
   article.home h2:first-of-type { margin-top: 8px; }
 
   /* ---------- DP-003 阅读状态感 ---------- */
-  /* 继续阅读提示：左下安静 pill（发丝边框 + 浮层阴影，不遮挡内容） */
-  .resume-pill {
-    position: fixed; left: 24px; bottom: 24px; z-index: 45;
-    display: flex; align-items: center; gap: 6px;
-    background: var(--bg); border: 1px solid var(--line-strong);
-    border-radius: var(--radius-sm); box-shadow: var(--shadow-pop);
-    padding: 6px 8px 6px 14px; font-size: 12.5px; color: var(--text-2);
-    animation: resume-in .25s var(--ease) both;
-  }
-  @keyframes resume-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-  .resume-pill.resume-out { opacity: 0; transform: translateY(6px); transition: opacity .3s ease, transform .3s ease; }
-  .resume-pill button { border: none; background: transparent; cursor: pointer; }
-  .resume-go { font-size: 12.5px; font-weight: 500; color: var(--accent-ink); padding: 2px 4px; }
-  .resume-go:hover { text-decoration: underline; text-underline-offset: 3px; }
-  .resume-close { font-size: 14px; color: var(--text-3); padding: 2px 6px; border-radius: 5px; }
-  .resume-close:hover { color: var(--text); background: var(--surface); }
-  @media (max-width: 860px) {
-    .resume-pill { left: 12px; bottom: 84px; } /* 让开移动端 TOC FAB */
-  }
   /* 阅读完成度（meta 行尾部一行文字，非仪表盘） */
   .read-status { font-variant-numeric: tabular-nums; }
   /* 侧边栏「最近更新」徽标：accent 圆点（纯 CSS 标记，安静驻留） */
@@ -1479,8 +1458,9 @@ export const DEFAULT_THEME_CSS = `  :root {
   /* ---------- 页面切换过渡（SPA 导航后内容淡入，设计对齐 rise） ---------- */
   @keyframes doclight-page-in { from { opacity: 0; transform: translateY(8px); } }
   article.page-enter { animation: doclight-page-in .25s var(--ease); }
-  /* DP-006 方向感知转场：前进从右入 / 后退从左入（与浏览器手势语义一致；≤250ms） */
-  @keyframes doclight-page-in-back { from { opacity: 0; transform: translateX(-14px); } }
+  /* DP-006 后退转场：纯淡入（无水平位移——2026-08-16 修复「页面左右晃动」：
+   * translateX 会让整页内容水平平移，触控板/触屏上表现为横向晃动） */
+  @keyframes doclight-page-in-back { from { opacity: 0; } to { opacity: 1; } }
   article.page-enter-back { animation: doclight-page-in-back .25s var(--ease); }
   body, .topbar, .sidebar, .content, .toc { transition: background-color .35s ease, color .35s ease, border-color .3s ease; }
   /* DP-006 主题切换交叉淡化：图标呼吸一次（≤300ms，与令牌背景过渡叠加） */

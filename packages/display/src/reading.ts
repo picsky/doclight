@@ -1,17 +1,17 @@
 /**
- * 阅读状态感（DP-003，18-design-polish §3.3）
+ * 阅读状态感（DP-003，18-design-polish §3.3；2026-08-16 用户微调）
  *
  * - 阅读位置持久化：每篇文档记住滚动比例（localStorage + 路径键），跨会话回来时
- *   给一条安静的「继续阅读」提示（pill，可关闭、几秒自动淡出、reduced-motion 静默）
+ *   **默认继续阅读**——进入页面直接恢复位置（无提示 UI，rAF 等首屏布局完成后瞬移）
  * - 新鲜度可视化：SSR 直出的 <time class="doc-updated"> 改写为相对时间
  *   （「3 天前更新」，hover/title 保留绝对日期；SEO 直出绝对日期不受影响）
  * - 阅读完成度：meta 行尾部动态追加「已读 62% · 约剩 3 分钟」（一行文字，非仪表盘；
  *   读数来自阅读时长（meta「约 X 分钟阅读」）与滚动进度）
  *
- * 纯逻辑（relativeTimeText / readStatusText / resumeText / parseReadingTime / readingKey）
+ * 纯逻辑（relativeTimeText / readStatusText / parseReadingTime / readingKey）
  * 可 Node 测试；DOM 集中在 initReadingState。三形态同构：路径键 dev/ssg 用 pathname、
  * bundle 用 hash（bundlePageKey 同源逻辑）。
- * 明确不做（用户已判定伪需求）：专注模式、字号调节。
+ * 明确不做（用户已判定伪需求）：专注模式、字号调节、继续阅读提示 pill。
  */
 import { bus } from "./event-bus.ts";
 
@@ -36,11 +36,6 @@ export function readStatusText(pct: number, readingMinutes: number): string {
   const p = Math.min(100, Math.max(0, Math.round(pct)));
   const rest = Math.round(readingMinutes * (1 - p / 100));
   return rest >= 1 ? `已读 ${p}% · 约剩 ${rest} 分钟` : `已读 ${p}%`;
-}
-
-/** 继续阅读提示文案 */
-export function resumeText(pct: number): string {
-  return `继续阅读 · 上次读到 ${Math.min(100, Math.max(0, Math.round(pct)))}%`;
 }
 
 /** 从 meta 文本「约 X 分钟阅读」解析分钟数；无则 0 */
@@ -100,7 +95,7 @@ export function initReadingState(): void {
     statusEl.textContent = readStatusText(pct, readingMinutes);
   };
 
-  /* ===== 阅读位置持久化 + 继续阅读提示 ===== */
+  /* ===== 阅读位置持久化 + 默认继续阅读 ===== */
   const save = (): void => {
     try {
       const doc = document.documentElement;
@@ -127,9 +122,9 @@ export function initReadingState(): void {
     { passive: true }
   );
 
-  /* 继续阅读 pill：上次会话在此页读到中途 → 安静提示，点击跳转，可关闭 */
-  function offerResume(): void {
-    document.querySelector(".resume-pill")?.remove(); // 旧提示清理（SPA 换页重offer）
+  /* 默认继续阅读：上次会话在此页读到中途 → 进入页面时直接恢复位置（无提示 UI）。
+   *  用 requestAnimationFrame 等首屏布局完成后恢复（SSR 直出 + 字体加载不偏移）。 */
+  function autoResume(): void {
     let pct = -1;
     try {
       const raw = localStorage.getItem(readingKey(currentDocPath()));
@@ -138,42 +133,18 @@ export function initReadingState(): void {
       return;
     }
     if (pct <= 2 || pct >= 98) return;
-    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const pill = document.createElement("div");
-    pill.className = "resume-pill";
-    pill.setAttribute("role", "status");
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "resume-go";
-    btn.textContent = resumeText(pct);
-    const close = document.createElement("button");
-    close.type = "button";
-    close.className = "resume-close";
-    close.setAttribute("aria-label", "关闭继续阅读提示");
-    close.textContent = "×";
-    const dismiss = (): void => {
-      pill.classList.add("resume-out");
-      setTimeout(() => pill.remove(), 300);
-    };
-    btn.addEventListener("click", () => {
+    requestAnimationFrame(() => {
       const doc = document.documentElement;
       const total = doc.scrollHeight - doc.clientHeight;
-      if (total > 0) window.scrollTo({ top: (total * pct) / 100, behavior: reduced ? "auto" : "smooth" });
-      dismiss();
+      if (total > 0) window.scrollTo(0, (total * pct) / 100); // 瞬移（无动画，不打扰）
     });
-    close.addEventListener("click", dismiss);
-    if (!reduced) {
-      setTimeout(dismiss, 8000); // 8 秒不操作自动淡出（安静，不打断阅读）
-    }
-    pill.append(btn, close);
-    document.body.appendChild(pill);
   }
-  offerResume();
+  autoResume();
 
-  /* SPA 导航：内容已换 → 重建（位置提示按新路径重判断；完成度读数重算） */
+  /* SPA 导航：内容已换 → 重建（位置自动恢复按新路径重判断；完成度读数重算） */
   bus.on("doclight:routechange", () => {
     updateStatus();
-    offerResume();
+    autoResume();
   });
 
   updateStatus();

@@ -1,10 +1,10 @@
 /**
  * DP-003 阅读状态感测试（Phase 7，18-design-polish §3.3）：
- * 相对时间文案 / 完成度文案 / 继续阅读文案 / meta 阅读时长解析 / 位置键归一 / TOC 已读集合。
+ * 相对时间文案 / 完成度文案 / meta 阅读时长解析 / 位置键归一。
+ * 2026-08-16 用户微调：继续阅读 pill 移除（默认自动恢复）；TOC 已读标记移除。
  */
 import { describe, expect, it } from "vitest";
-import { parseReadingTime, readStatusText, readingKey, relativeTimeText, resumeText } from "../src/reading.ts";
-import { readTocVisited, tocReadKey } from "../src/toc.ts";
+import { parseReadingTime, readStatusText, readingKey, relativeTimeText } from "../src/reading.ts";
 
 describe("DP-003 阅读状态感（纯函数）", () => {
   it("relativeTimeText：分钟/小时/天/超 30 天", () => {
@@ -26,9 +26,7 @@ describe("DP-003 阅读状态感（纯函数）", () => {
     expect(readStatusText(0, 0)).toBe("已读 0%");
   });
 
-  it("resumeText / parseReadingTime", () => {
-    expect(resumeText(62)).toBe("继续阅读 · 上次读到 62%");
-    expect(resumeText(150)).toBe("继续阅读 · 上次读到 100%");
+  it("parseReadingTime：从 meta 文本解析分钟数", () => {
     expect(parseReadingTime("最后更新于 2026 年 8 月 16 日·约 4 分钟阅读·123 字")).toBe(4);
     expect(parseReadingTime("没有时长信息")).toBe(0);
   });
@@ -38,17 +36,5 @@ describe("DP-003 阅读状态感（纯函数）", () => {
     expect(readingKey("/guide/start?q=1")).toBe("doclight-pos-/guide/start");
     expect(readingKey("/")).toBe("doclight-pos-/");
     expect(readingKey("")).toBe("doclight-pos-/");
-  });
-
-  it("tocReadKey / readTocVisited：持久化集合解析 + 异常降级", () => {
-    expect(tocReadKey("/guide/a")).toBe("doclight-toc-read-/guide/a");
-    const storage = {
-      getItem(k: string) {
-        return k === "k-good" ? JSON.stringify(["a", "b"]) : k === "k-bad" ? "{not json" : null;
-      },
-    };
-    expect([...readTocVisited(storage, "k-good")]).toEqual(["a", "b"]);
-    expect(readTocVisited(storage, "k-bad").size).toBe(0);
-    expect(readTocVisited(storage, "k-none").size).toBe(0);
   });
 });

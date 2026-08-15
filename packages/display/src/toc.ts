@@ -6,10 +6,11 @@
  *   （IntersectionObserver 驱动：滚动点亮当前章节，指示条 translateY 跟随）
  * - 移动端底部面板：右下角浮动按钮 → 弹出底部面板（保留既有能力，新设计语言）
  * - 点击跳转：平滑滚动到标题 + 标题闪烁反馈（演示页 flash 动效）+ URL hash
- * - DP-003 已读标记：滚过的章节链接加 read 类（颜色安静提级），跨会话持久化
+ * - DP-006：移动端 FAB 章节序号（「3/12」）
  *
  * 路由变化后自动重建：router 导航成功向总线发 doclight:routechange，initToc 订阅之。
  * 纯逻辑（parseHeadings / renderTocHtml）可 Node 测试；DOM 访问集中在 initToc 内。
+ * 2026-08-16 用户微调：已读标记（DP-003）移除。
  */
 import { bus } from "./event-bus.ts";
 
@@ -66,24 +67,7 @@ export interface TocApi {
   refresh(): void;
 }
 
-/** 纯函数：TOC 已读集合键（路径级持久化；DP-003） */
-export function tocReadKey(path: string): string {
-  const p = path.split("#")[0]!.split("?")[0]!.replace(/\/+$/, "");
-  return `doclight-toc-read-${p === "" ? "/" : p}`;
-}
-
-/** 纯函数：读取已读章节 id 集合（异常降级空集） */
-export function readTocVisited(storage: Pick<Storage, "getItem">, key: string): Set<string> {
-  try {
-    const raw = storage.getItem(key);
-    const arr = raw ? (JSON.parse(raw) as unknown) : [];
-    return new Set(Array.isArray(arr) ? (arr.filter((x): x is string => typeof x === "string")) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-/** 初始化 TOC（桌面右侧目录 + 指示条 + 移动端底部面板 + 滚动监听 + 已读标记）。无 h2/h3 时静默隐藏。 */
+/** 初始化 TOC（桌面右侧目录 + 指示条 + 移动端底部面板 + 滚动监听）。无 h2/h3 时静默隐藏。 */
 export function initToc(options: { articleSelector?: string } = {}): TocApi {
   const articleSel = options.articleSelector ?? "article";
   const article = document.querySelector<HTMLElement>(articleSel);
@@ -95,15 +79,6 @@ export function initToc(options: { articleSelector?: string } = {}): TocApi {
   const fab = document.querySelector<HTMLButtonElement>(".toc-fab");
   const sheet = document.querySelector<HTMLElement>(".toc-sheet");
   const sheetNav = document.querySelector<HTMLElement>(".toc-sheet-nav");
-
-  // DP-003 已读标记：滚过的章节持久化（路径级），刷新/回访时恢复 read 类
-  let readKey = tocReadKey(location.pathname);
-  let visited = readTocVisited(localStorage, readKey);
-  const applyReadMarks = (): void => {
-    list?.querySelectorAll<HTMLElement>("a[data-toc-id]").forEach((a) => {
-      a.classList.toggle("read", visited.has(a.dataset.tocId ?? ""));
-    });
-  };
 
   /** 点击跳转：平滑滚动到标题 + 闪烁反馈 + 更新锚点 URL（replaceState 不追加历史） */
   function scrollToHeading(id: string): void {
@@ -155,18 +130,6 @@ export function initToc(options: { articleSelector?: string } = {}): TocApi {
       document.querySelectorAll<HTMLElement>("#tocList a[data-toc-id]").forEach((el) => {
         const active = el.dataset.tocId === id;
         el.classList.toggle("active", active);
-        // DP-003：滚过的章节记已读（active 及之前全部——目录顺序 = 文章顺序）
-        if (active && el.dataset.tocId) {
-          if (!visited.has(el.dataset.tocId)) {
-            visited.add(el.dataset.tocId);
-            try {
-              localStorage.setItem(readKey, JSON.stringify([...visited]));
-            } catch {
-              /* 隐私模式降级 */
-            }
-          }
-          applyReadMarks();
-        }
         // 2026-08 补齐：激活项 aria-current（读屏当前位置感知）
         if (active) el.setAttribute("aria-current", "location");
         else el.removeAttribute("aria-current");
@@ -223,9 +186,6 @@ export function initToc(options: { articleSelector?: string } = {}): TocApi {
       return;
     }
     setVisible(true);
-    // DP-003：SPA 换页 → 已读集合随路径切换
-    readKey = tocReadKey(location.pathname);
-    visited = readTocVisited(localStorage, readKey);
     // 重建链接（保留指示条元素；SSR 已直出链接，此处幂等重建）
     const links = renderTocHtml(headings);
     if (list) {
@@ -246,7 +206,6 @@ export function initToc(options: { articleSelector?: string } = {}): TocApi {
       indicator.style.transform = "translateY(0)";
     }
     startSpy();
-    applyReadMarks(); // DP-003：恢复已读标记（SSR 链接重建后）
     // 首项点亮（演示页 setActive(0)）
     const first = list?.querySelector<HTMLElement>("a[data-toc-id]");
     if (first) {
