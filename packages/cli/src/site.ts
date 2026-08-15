@@ -959,6 +959,10 @@ export const DEFAULT_THEME_CSS = `  :root {
     display: flex; align-items: center; gap: 8px;
   }
   article h3 { font-size: 16px; font-weight: 600; margin: 30px 0 10px; letter-spacing: -.01em; }
+  /* DP-004：h4+ 层级补全（宪法 §3.2 批准类型阶内；层级靠字号+字重+留白构建，不引新色） */
+  article h4 { font-size: 14.5px; font-weight: 600; margin: 24px 0 8px; color: var(--text); }
+  article h5 { font-size: 13.5px; font-weight: 600; margin: 20px 0 8px; color: var(--text-2); }
+  article h6 { font-size: 13px; font-weight: 600; margin: 16px 0 8px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); }
   .anchor {
     opacity: 0; color: var(--text-3); font-weight: 400; font-size: .85em;
     transition: opacity .2s, color .2s;
@@ -981,10 +985,18 @@ export const DEFAULT_THEME_CSS = `  :root {
     border-left: 2.5px solid var(--line-strong);
     color: var(--text-2); font-size: 14px; line-height: 1.7;
   }
+  /* DP-004 分工原则：引用 = blockquote（灰线 + 无底色，纯引述）；
+   * callout = 行动提示（语义色竖线 + 浅色底 + 图标）。引用出处用 <cite>。 */
+  article blockquote cite {
+    display: block; margin-top: 8px; font-size: 12.5px; font-style: normal;
+    color: var(--text-3);
+  }
   article blockquote > :first-child { margin-top: 0; }
   article blockquote > :last-child { margin-bottom: 0; }
   article hr { border: none; height: 1px; margin: 32px 0; background: var(--line); }
   article img { max-width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--line); }
+  /* DP-004 图文关系：暗色模式下图片降亮度 + 描边（白底截图不刺眼；纯 CSS token 值） */
+  [data-theme="dark"] article img { filter: brightness(.92) contrast(1.03); }
   article del { color: var(--text-3); }
   /* 任务列表（GFM）：去掉默认标记，checkbox 用强调色 */
   article ul:has(> li > input[type="checkbox"]), article ol:has(> li > input[type="checkbox"]) { list-style: none; padding-left: 0.4em; }
@@ -1040,6 +1052,15 @@ export const DEFAULT_THEME_CSS = `  :root {
     font-size: 13px; line-height: 1.75; color: var(--text);
   }
   .codeblock pre.doclight-code { background: transparent; border: none; margin: 0; }
+  /* DP-004：超长代码块渐进展开（JS 给 >480px 的块加 .collapsed；无 JS 自然全量显示） */
+  .codeblock.collapsed pre { max-height: 480px; overflow: hidden; }
+  .codeblock .code-expand {
+    margin-left: auto; flex: none;
+    border: none; background: transparent; cursor: pointer;
+    font-size: 11.5px; color: var(--text-3); padding: 3px 6px; border-radius: 5px;
+    transition: color .2s, background .2s;
+  }
+  .codeblock .code-expand:hover { color: var(--accent-ink); background: var(--surface); }
   /* 语法高亮令牌（宪法 §3.1：函数色 = 强调色；每主题一调色板 ≤6 色） */
   .tok-k, .token.keyword, .token.rule, .token.important { color: var(--syn-k); }
   .tok-s, .token.string, .token.char, .token.attr-value, .token.regex { color: var(--syn-s); }
@@ -1091,6 +1112,10 @@ export const DEFAULT_THEME_CSS = `  :root {
 
   /* ---------- 表格：发丝线（宪法 §4.3：只有横线，没有竖线） ---------- */
   .table-wrap { margin: 20px 0 26px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; overflow-x: auto; }
+  /* DP-004：长表纵深（展示层给 >480px 的表加 .tall——纵向滚动 + sticky 表头；
+   * 无 JS 时长表自然展开、纯 CSS 不夹断内容，渐进式水合铁律） */
+  .table-wrap.tall { max-height: 480px; overflow-y: auto; }
+  .table-wrap.tall thead th { position: sticky; top: 0; z-index: 1; }
   table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
   th {
     text-align: left; font-size: 11.5px; font-weight: 600;

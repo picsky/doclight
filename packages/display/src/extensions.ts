@@ -207,6 +207,44 @@ function addCopyButtons(scope: HTMLElement): void {
   });
 }
 
+/* ===== DP-004 内容纵深：超长代码块渐进展开（>480px 折叠 + 「显示全部」；无 JS 自然全量显示） ===== */
+
+const CODE_EXPAND_LIMIT = 480; // px：超过则折叠
+
+function addCodeExpand(scope: HTMLElement): void {
+  scope.querySelectorAll<HTMLElement>(".codeblock").forEach((block) => {
+    if (block.dataset.expandAdded) return; // 防重复
+    block.dataset.expandAdded = "1";
+    const pre = block.querySelector<HTMLElement>("pre");
+    if (!pre || pre.scrollHeight <= CODE_EXPAND_LIMIT) return;
+    const head = block.querySelector<HTMLElement>(".code-head");
+    block.classList.add("collapsed");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "code-expand";
+    btn.setAttribute("aria-expanded", "false");
+    btn.textContent = "显示全部";
+    btn.addEventListener("click", () => {
+      const collapsed = block.classList.toggle("collapsed");
+      btn.textContent = collapsed ? "显示全部" : "收起";
+      btn.setAttribute("aria-expanded", String(!collapsed));
+    });
+    if (head) head.appendChild(btn);
+    else block.prepend(btn);
+  });
+}
+
+/* ===== DP-004 内容纵深：长表格纵深（>480px 加 .tall → 纵向滚动 + sticky 表头） ===== */
+
+function addTableTall(scope: HTMLElement): void {
+  scope.querySelectorAll<HTMLElement>(".table-wrap").forEach((wrap) => {
+    if (wrap.dataset.tallAdded) return; // 防重复
+    wrap.dataset.tallAdded = "1";
+    const table = wrap.querySelector<HTMLElement>("table");
+    if (table && table.getBoundingClientRect().height > 480) wrap.classList.add("tall");
+  });
+}
+
 /* ===== code-block：Prism 懒加载高亮 ===== */
 
 async function highlightCode(scope: HTMLElement): Promise<void> {
@@ -266,10 +304,12 @@ export function initExtensions(root?: HTMLElement): ExtensionsApi {
 
   function enhance(scope?: HTMLElement): void {
     const target = scope ?? scopeRoot;
-    // 同步：复制按钮 + 标题锚点 + 表格滚动提示（零依赖）
+    // 同步：复制按钮 + 标题锚点 + 表格滚动提示 + 超长代码展开 + 长表纵深（零依赖）
     addCopyButtons(target);
     addAnchors(target);
     addTableScrollHints(target);
+    addCodeExpand(target); // DP-004
+    addTableTall(target); // DP-004
     // 异步：懒加载增强（各扩展内部自判断是否有标记，无则零开销返回）
     void highlightCode(target);
     void renderKatex(target);
