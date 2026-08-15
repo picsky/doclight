@@ -445,6 +445,8 @@ export interface RenderPageOptions {
     /** footer 状态文案（缺省「所有系统正常」+ 对勾） */
     statusText?: string;
   };
+  /** DP-002：404 页标记——跳过 TOC 链接/反馈卡（无章节的空态页） */
+  notFound?: boolean;
 }
 
 /**
@@ -767,6 +769,13 @@ export const DEFAULT_THEME_CSS = `  :root {
     position: fixed; top: 0; left: 0; height: 2px; width: 0%;
     background: var(--accent); z-index: 100;
     transition: width .1s linear;
+  }
+  /* DP-002 签名时刻候选：读完脉冲——进度条右端光点呼吸一次（≤300ms） */
+  #progress.complete { animation: progress-done .3s var(--ease); }
+  @keyframes progress-done {
+    0% { box-shadow: 0 0 0 0 transparent; }
+    40% { box-shadow: 0 0 10px 1px var(--accent-soft), 0 0 0 1px var(--accent); }
+    100% { box-shadow: 0 0 0 0 transparent; }
   }
 
   /* ===== Topbar ===== */
@@ -1236,6 +1245,34 @@ export const DEFAULT_THEME_CSS = `  :root {
   @keyframes flash { 0% { background: var(--accent-soft); box-shadow: 0 0 0 6px var(--accent-soft); } 100% { background: transparent; box-shadow: 0 0 0 6px transparent; } }
   h2.flash { animation: flash 1.5s var(--ease); border-radius: 6px; }
 
+  /* ---------- DP-002 首页 hero（排版化：留白节奏与内页分离，零插画零渐变） ---------- */
+  article.home { padding-top: 8px; }
+  article.home .crumb { display: none; }
+  article.home h1 { margin-bottom: 16px; }
+  article.home .lede { font-size: 19px; line-height: 1.85; margin-bottom: 20px; }
+  article.home .meta { margin-bottom: 36px; }
+  article.home h2:first-of-type { margin-top: 8px; }
+
+  /* ---------- DP-002 空态（404 / 未找到）：品牌化的失败时刻 ---------- */
+  .notfound { padding: 48px 0 64px; max-width: var(--content-max); }
+  .notfound .nf-code {
+    font-family: var(--font-mono); font-size: 44px; font-weight: 500;
+    letter-spacing: -.02em; color: var(--text-3); margin-bottom: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .notfound h1 { margin-bottom: 12px; }
+  .notfound .nf-lede { font-size: 15.5px; color: var(--text-2); margin-bottom: 28px; }
+  .notfound .nf-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .notfound .nf-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13.5px; font-weight: 500; color: var(--accent-ink);
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    padding: 8px 14px; background: var(--bg); cursor: pointer;
+    transition: border-color .2s, background .2s;
+  }
+  .notfound .nf-btn:hover { border-color: var(--accent); text-decoration: none; }
+  .notfound .nf-btn.ghost { color: var(--text-2); }
+
   /* ---------- 尊重用户的动效偏好（宪法 §3.4 + §6） ---------- */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -1305,6 +1342,45 @@ export const DEFAULT_THEME_CSS = `  :root {
   article.page-enter { animation: doclight-page-in .25s var(--ease); }
   body, .topbar, .sidebar, .content, .toc { transition: background-color .35s ease, color .35s ease, border-color .3s ease; }
 `;
+
+/**
+ * 404 页面（DP-002 品牌层空态系统）：复用完整壳层渲染「页面未找到」空态——
+ * 品牌化的失败时刻（大号 404 字码 + 引导文案 + 回首页/搜索行动），
+ * dev server 与 preview 未命中路径时返回（status 404 + 完整设计页面）。
+ */
+export function render404Page(options: {
+  siteTitle: string;
+  navHtml: string;
+  form: PageForm;
+  base?: string;
+  nav?: NavNode[];
+  summaries?: Record<string, string>;
+  themeCss?: string;
+  chrome?: RenderPageOptions["chrome"];
+}): string {
+  const base = normalizeBase(options.base);
+  const notFoundHtml = `<div class="notfound">
+<div class="nf-code">404</div>
+<h1>页面未找到</h1>
+<p class="nf-lede">这个页面不存在，或已经被移动。你可以在下方搜索全站文档，或回到首页。</p>
+<div class="nf-actions">
+<a class="nf-btn" href="${base}/">← 回到首页</a>
+<button class="nf-btn ghost" type="button" onclick="document.getElementById('searchBtn')?.click()">搜索文档…</button>
+</div>
+</div>`;
+  return renderPage({
+    title: "页面未找到",
+    siteTitle: options.siteTitle,
+    navHtml: options.navHtml,
+    contentHtml: notFoundHtml,
+    form: options.form,
+    nav: options.nav,
+    summaries: options.summaries,
+    themeCss: options.themeCss,
+    chrome: options.chrome,
+    notFound: true,
+  });
+}
 
 /**
  * 剥除正文首个 h1（页面标题由壳层 h1 承载——frontmatter.title 为单一事实来源，
@@ -1551,7 +1627,7 @@ export function renderPage(options: RenderPageOptions): string {
   // 演示页目录含「下一步」——1:1 对齐；展示层挂载后接管滚动监听与指示条）
   const hasNextSection =
     nav.length && currentPath ? nextCardsFor(nav, currentPath, linkSuffix, base, hash, {}).length > 0 : false;
-  const tocEntries = extractToc(contentHtml);
+  const tocEntries = options.notFound ? [] : extractToc(contentHtml);
   if (hasNextSection) tocEntries.push({ id: "next", text: "下一步", level: 2 });
   const tocLinks = tocEntries
     .map(
@@ -1603,6 +1679,8 @@ export function renderPage(options: RenderPageOptions): string {
     slotBefore: slot("content:before"),
     slotAfter: slot("content:after"),
   });
+  // DP-002 品牌层：首页 hero 形态（根 README/index → 更大留白节奏 + 入口卡，与内页分离）
+  const isHome = isRootIndex(currentPath ?? "");
   return `<!DOCTYPE html>
 <html lang="zh-CN" data-theme="auto">
 <head>
@@ -1610,6 +1688,7 @@ ${slot("head:start")}
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)} · ${escapeHtml(siteTitle)}</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2314714e'/%3E%3Cpath d='M16 7v18M8.5 12.5l15 9M23.5 12.5l-15 9' stroke='%23fff' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
 ${metaDescription}
 ${seoHead}
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1689,7 +1768,7 @@ ${slot("head:end")}
 
   <!-- ================= 正文（articleBodyHtml 共享组装：三形态同构） ================= -->
   <main class="content" id="main">
-    <article class="article">
+    <article class="article${isHome ? " home" : ""}">
       ${articleBody}
     </article>
   </main>
@@ -1698,14 +1777,14 @@ ${slot("head:end")}
   <aside class="toc" aria-label="本页目录">
     ${slot("toc:before")}
     ${tocHtml}
-    <div class="toc-card">
+    ${options.notFound ? "" : `<div class="toc-card">
       <div class="q">本页内容是否有帮助？</div>
       <div class="row">
         <button id="fbYes">有帮助</button>
         <button id="fbNo">需改进</button>
       </div>
       ${editLink}
-    </div>
+    </div>`}
     ${slot("toc:after")}
   </aside>
 </div>

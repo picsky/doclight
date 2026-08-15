@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "2",
+  "name": "Navigation 导航",
+  "category": "navigation",
+  "sourceKind": "from-scratch",
+  "confidence": "high",
+  "semanticTypeCandidates": [
+    "nav",
+    "sidebar",
+    "topbar",
+    "toc"
+  ],
+  "variantDimensions": [
+    {
+      "name": "theme",
+      "values": [
+        "light",
+        "dark"
+      ],
+      "defaultValue": "light"
+    },
+    {
+      "name": "viewport",
+      "values": [
+        "desktop",
+        "mobile"
+      ],
+      "defaultValue": "desktop"
+    }
+  ],
+  "representativeVariants": [
+    {
+      "name": "桌面三栏",
+      "whySelected": "文档站标准布局：顶栏 + 侧边栏 + TOC",
+      "traits": {
+        "topbarHeight": "64px",
+        "sidebarWidth": "280px",
+        "activeIndicator": "3px teal left bar"
+      },
+      "childrenDigest": [
+        "topbar",
+        "sidebar",
+        "toc"
+      ]
+    }
+  ],
+  "anatomy": [
+    {
+      "name": "topbar",
+      "purpose": "品牌与全局搜索"
+    },
+    {
+      "name": "sidebar",
+      "purpose": "文档分组导航"
+    },
+    {
+      "name": "toc",
+      "purpose": "当前页面大纲"
+    }
+  ],
+  "structurePatterns": [
+    "sticky topbar",
+    "scrollable sidebar",
+    "active item highlight"
+  ],
+  "usageHints": {
+    "priorityHint": "high",
+    "whenToUse": "文档站全局导航"
+  },
+  "doNotInvent": [
+    "多级折叠动画、面包屑动态加载"
+  ],
+  "unknowns": [],
+  "keyInsightSeed": "顶栏毛玻璃 + 侧边栏当前项 teal 竖线 + TOC 导轨",
+  "renderPlan": {
+    "samples": [
+      "desktop"
+    ]
+  },
+  "visualSpecs": {
+    "primary": {
+      "topbarHeight": "64px",
+      "sidebarWidth": "280px",
+      "background": "var(--color-bg-soft)",
+      "borderColor": "var(--color-border)",
+      "activeColor": "var(--color-primary)"
+    },
+    "states": {}
+  },
+  "sourceSignals": {
+    "uiCopySamples": [
+      "文档",
+      "API",
+      "主题",
+      "搜索文档"
+    ]
+  },
+  "slug": "navigation"
+}

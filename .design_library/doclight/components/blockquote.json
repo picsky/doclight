@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "2",
+  "name": "Blockquote 引用块",
+  "category": "content",
+  "sourceKind": "from-scratch",
+  "confidence": "high",
+  "semanticTypeCandidates": [
+    "blockquote",
+    "quotation",
+    "callout"
+  ],
+  "variantDimensions": [
+    {
+      "name": "theme",
+      "values": [
+        "light",
+        "dark"
+      ],
+      "defaultValue": "light"
+    }
+  ],
+  "representativeVariants": [
+    {
+      "name": "默认引用",
+      "whySelected": "文档中引用外部观点或强调注意，带背景与来源署名",
+      "traits": {
+        "borderLeft": "3px solid var(--color-primary)",
+        "background": "var(--color-bg-quote)",
+        "padding": "var(--space-4)",
+        "borderRadius": "var(--radius-md)",
+        "color": "var(--color-text-secondary)"
+      },
+      "childrenDigest": [
+        "p",
+        "cite"
+      ]
+    }
+  ],
+  "anatomy": [
+    {
+      "name": "left-bar",
+      "purpose": "视觉标识引用"
+    },
+    {
+      "name": "text",
+      "purpose": "引用正文"
+    }
+  ],
+  "structurePatterns": [
+    "left accent border",
+    "indent without italics"
+  ],
+  "usageHints": {
+    "priorityHint": "medium",
+    "whenToUse": "引用他人观点、特别提示"
+  },
+  "doNotInvent": [
+    "作者头像、引号图标装饰"
+  ],
+  "unknowns": [],
+  "keyInsightSeed": "左侧 3px 主色竖线 + 弱化文字，不抢正文节奏",
+  "renderPlan": {
+    "samples": [
+      "default"
+    ]
+  },
+  "visualSpecs": {
+    "primary": {
+      "borderLeft": "3px solid var(--color-primary)",
+      "paddingLeft": "var(--space-4)",
+      "margin": "var(--space-6) 0",
+      "color": "var(--color-text-secondary)",
+      "fontSize": "var(--font-size-body)",
+      "lineHeight": "var(--line-height-relaxed)"
+    },
+    "states": {}
+  },
+  "sourceSignals": {
+    "uiCopySamples": [
+      "这是一条引用文字。"
+    ]
+  },
+  "slug": "blockquote"
+}

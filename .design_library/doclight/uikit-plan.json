@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "headBoilerplate": "<link rel=\"stylesheet\" href=\"../../colors_and_type.css\">",
+  "corePreviewComponents": [
+    {
+      "slug": "navigation",
+      "reason": "fixed slot \"navigation\"; semantic=navigation:0.75; policy=fixed-slots-first",
+      "evidenceFile": "components/navigation.json",
+      "priority": 1,
+      "slot": "navigation"
+    },
+    {
+      "slug": "table",
+      "reason": "fixed slot \"table\"; semantic=table:0.75; policy=fixed-slots-first",
+      "evidenceFile": "components/table.json",
+      "priority": 2,
+      "slot": "table"
+    },
+    {
+      "slug": "article",
+      "reason": "fallback after fixed slots; semantic=article:0.75; policy=fixed-slots-first",
+      "evidenceFile": "components/article.json",
+      "priority": 3
+    },
+    {
+      "slug": "blockquote",
+      "reason": "fallback after fixed slots; semantic=blockquote:0.75; policy=fixed-slots-first",
+      "evidenceFile": "components/blockquote.json",
+      "priority": 4
+    },
+    {
+      "slug": "code-block",
+      "reason": "fallback after fixed slots; semantic=code-block:0.75; policy=fixed-slots-first",
+      "evidenceFile": "components/code-block.json",
+      "priority": 5
+    },
+    {
+      "slug": "container",
+      "reason": "fallback after fixed slots; semantic=container:0.75; policy=fixed-slots-first",
+      "evidenceFile": "components/container.json",
+      "priority": 6
+    }
+  ],
+  "supportEvidenceComponents": [],
+  "allowedComponents": [
+    "navigation",
+    "table",
+    "article",
+    "blockquote",
+    "code-block",
+    "container"
+  ],
+  "screenBlueprints": [
+    {
+      "name": null,
+      "componentSlugs": [],
+      "role": "primary"
+    },
+    {
+      "name": null,
+      "componentSlugs": [],
+      "role": "secondary"
+    },
+    {
+      "name": null,
+      "componentSlugs": [],
+      "role": "secondary"
+    }
+  ],
+  "productContext": {
+    "kitType": "documentation",
+    "productType": "SaaS",
+    "dominantCopy": [],
+    "pageNames": [],
+    "selectedFrameNames": []
+  },
+  "selectionPolicy": "fixed-slots-first",
+  "slotAssignments": [
+    {
+      "slot": "navigation",
+      "slug": "navigation",
+      "reason": "semantic"
+    },
+    {
+      "slot": "table",
+      "slug": "table",
+      "reason": "semantic"
+    }
+  ],
+  "missingFixedSlots": [
+    "button",
+    "menu",
+    "card",
+    "tag"
+  ],
+  "fallbackComponents": [
+    "article",
+    "blockquote",
+    "code-block",
+    "container"
+  ],
+  "needsNarrative": false,
+  "forbiddenInventedComponents": [],
+  "lowConfidence": false,
+  "warnings": [
+    "missing-fixed-slot:button",
+    "missing-fixed-slot:menu",
+    "missing-fixed-slot:card",
+    "missing-fixed-slot:tag"
+  ]
+}

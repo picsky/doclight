@@ -1,0 +1,211 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* @group-priority: doclight-teal, doclight-green, doclight-blue, doclight-amber, doclight-cyan */
+
+:root {
+  /* doclight-teal */
+  --doclight-teal-50: #f0fdfa; --doclight-teal-100: #ccfbf1; /* AI-generated */
+  --doclight-teal-200: #99f6e4; --doclight-teal-300: #5eead4; /* AI-generated */
+  --doclight-teal-400: #2dd4bf; --doclight-teal-500: #0d9488; /* AI-generated */ /* @primary */
+  --doclight-teal-600: #0f766e; --doclight-teal-700: #115e59; /* AI-generated */
+  --doclight-teal-800: #134e4a; --doclight-teal-900: #042f2e; /* AI-generated */
+  /* doclight-green */
+  --doclight-green-50: #f0fdf4; --doclight-green-100: #dcfce7; /* AI-generated */
+  --doclight-green-200: #bbf7d0; --doclight-green-300: #86efac; /* AI-generated */
+  --doclight-green-400: #4ade80; --doclight-green-500: #22c55e; /* AI-generated */ /* @primary */
+  --doclight-green-600: #16a34a; --doclight-green-700: #15803d; /* AI-generated */
+  --doclight-green-800: #166534; --doclight-green-900: #14532d; /* AI-generated */
+  /* doclight-blue */
+  --doclight-blue-50: #eff6ff; --doclight-blue-100: #dbeafe; /* AI-generated */
+  --doclight-blue-200: #bfdbfe; --doclight-blue-300: #93c5fd; /* AI-generated */
+  --doclight-blue-400: #60a5fa; --doclight-blue-500: #3b82f6; /* AI-generated */ /* @primary */
+  --doclight-blue-600: #2563eb; --doclight-blue-700: #1d4ed8; /* AI-generated */
+  --doclight-blue-800: #1e40af; --doclight-blue-900: #1e3a8a; /* AI-generated */
+  /* doclight-amber */
+  --doclight-amber-50: #fffbeb; --doclight-amber-100: #fef3c7; /* AI-generated */
+  --doclight-amber-200: #fde68a; --doclight-amber-300: #fcd34d; /* AI-generated */
+  --doclight-amber-400: #fbbf24; --doclight-amber-500: #f59e0b; /* AI-generated */ /* @primary */
+  --doclight-amber-600: #d97706; --doclight-amber-700: #b45309; /* AI-generated */
+  --doclight-amber-800: #92400e; --doclight-amber-900: #78350f; /* AI-generated */
+  /* doclight-red */
+  --doclight-red-50: #fef2f2; --doclight-red-100: #fee2e2; /* AI-generated */
+  --doclight-red-200: #fecaca; --doclight-red-300: #fca5a5; /* AI-generated */
+  --doclight-red-400: #f87171; --doclight-red-500: #ef4444; /* AI-generated */ /* @primary */
+  --doclight-red-600: #dc2626; --doclight-red-700: #b91c1c; /* AI-generated */
+  --doclight-red-800: #991b1b; --doclight-red-900: #7f1d1d; /* AI-generated */
+  /* doclight-cyan */
+  --doclight-cyan-50: #ecfeff; --doclight-cyan-100: #cffafe; /* AI-generated */
+  --doclight-cyan-200: #a5f3fc; --doclight-cyan-300: #67e8f9; /* AI-generated */
+  --doclight-cyan-400: #22d3ee; --doclight-cyan-500: #06b6d4; /* AI-generated */ /* @primary */
+  --doclight-cyan-600: #0891b2; --doclight-cyan-700: #0e7490; /* AI-generated */
+  --doclight-cyan-800: #155e75; --doclight-cyan-900: #164e63; /* AI-generated */
+  /* doclight-slate */
+  --doclight-slate-50: #f8fafc; --doclight-slate-100: #f1f5f9; /* AI-generated */
+  --doclight-slate-200: #e2e8f0; --doclight-slate-300: #cbd5e1; /* AI-generated */
+  --doclight-slate-400: #94a3b8; --doclight-slate-500: #64748b; /* AI-generated */ /* @primary */
+  --doclight-slate-600: #475569; --doclight-slate-700: #334155; /* AI-generated */
+  --doclight-slate-800: #1e293b; --doclight-slate-900: #0f172a; /* AI-generated */
+
+  /* semantic */
+  --primary: var(--doclight-teal-600); --primary-foreground: #ffffff;
+  --secondary: var(--doclight-slate-100); --secondary-foreground: var(--doclight-slate-900);
+  --accent: var(--doclight-cyan-500); --accent-foreground: #ffffff;
+  --background: #fdfdfc; --foreground: var(--doclight-slate-900);
+  --muted: var(--doclight-slate-100); --muted-foreground: var(--doclight-slate-500);
+  --border: var(--doclight-slate-200); --ring: var(--doclight-teal-500);
+
+  /* surface */
+  --surface: #fdfdfc; --surface-dim: #f4f4f3;
+  --surface-bright: #ffffff; --surface-container-lowest: #ffffff;
+  --surface-container-low: #f8f8f7; --surface-container: #f2f2f1;
+  --surface-container-high: #ececea; --surface-container-highest: #e6e6e5;
+  --inverse-surface: var(--doclight-slate-800); --inverse-on-surface: #ffffff;
+
+  /* interactive */
+  --interactive-hover: rgba(10, 14, 20, 0.06);
+  --interactive-focus: rgba(10, 14, 20, 0.10);
+  --interactive-press: rgba(10, 14, 20, 0.14);
+  --interactive-drag: rgba(10, 14, 20, 0.14);
+
+  /* status */
+  --error: var(--doclight-red-600); --error-container: var(--doclight-red-50);
+  --on-error: #ffffff; --on-error-container: var(--doclight-red-900);
+  --success: var(--doclight-green-600);
+  --warning: var(--doclight-amber-600);
+  --info: var(--doclight-blue-600);
+
+  /* color */
+  --color-primary: var(--primary); --color-text: var(--foreground);
+  --color-bg: var(--background); --color-bg-soft: var(--surface-container-low);
+  --color-bg-code: var(--surface-container); --color-border: var(--border);
+  --color-border-soft: var(--surface-container-high); --color-text-muted: var(--muted-foreground);
+  --color-text-secondary: var(--secondary-foreground); --color-text-strong: var(--foreground);
+  --color-success: var(--success); --color-warning: var(--warning);
+  --color-error: var(--error); --color-info: var(--info);
+  --color-bg-quote: var(--surface-container-low);
+  --color-bg-tip: rgba(13, 148, 136, 0.08);
+  --color-bg-info: rgba(37, 99, 235, 0.08);
+  --color-bg-warning: rgba(217, 119, 6, 0.08);
+  --color-bg-danger: rgba(220, 38, 38, 0.08);
+  --color-bg-table-header: var(--surface-container);
+  --color-bg-table-row-alt: var(--surface-container-low);
+
+  /* typography */
+  --font-display: 'Noto Serif SC', serif;
+  --font-heading: 'Noto Serif SC', serif;
+  --font-body: 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-size-display: 56px;
+  --font-size-h1: 40px;
+  --font-size-h2: 32px;
+  --font-size-h3: 24px;
+  --font-size-h4: 20px;
+  --font-size-body: 16px;
+  --font-size-lead: 18px;
+  --font-size-caption: 12px;
+  --font-size-eyebrow: 11px;
+  --font-size-mono: 14px;
+  --font-weight-display: 700;
+  --font-weight-h1: 700;
+  --font-weight-h2: 600;
+  --font-weight-h3: 600;
+  --font-weight-h4: 600;
+  --font-weight-body: 400;
+  --font-weight-lead: 400;
+  --font-weight-caption: 400;
+  --font-weight-eyebrow: 600;
+  --font-weight-mono: 400;
+  --line-height-display: 1.2;
+  --line-height-h1: 1.25;
+  --line-height-h2: 1.3;
+  --line-height-h3: 1.35;
+  --line-height-h4: 1.4;
+  --line-height-body: 1.75;
+  --line-height-lead: 1.7;
+  --line-height-caption: 1.5;
+  --line-height-eyebrow: 1.4;
+  --line-height-mono: 1.6;
+  --line-height-tight: 1.4;
+
+  /* spacing */
+  --space-1: 4px; --space-2: 8px;
+  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px;
+  --space-7: 32px; --space-8: 40px;
+  --space-9: 48px; --space-10: 64px;
+  --space-11: 80px; --space-12: 96px;
+
+  /* sizing */
+  --size-icon-sm: 16px;
+  --size-icon-md: 20px;
+  --size-icon-lg: 24px;
+  --size-button-sm: 32px;
+  --size-button-md: 40px;
+  --size-input-height: 44px;
+  --size-button-lg: 48px;
+  --size-sidebar-width: var(--layout-sidebar-width); /* Derived */
+
+  /* layout */
+  --layout-sidebar-width: 280px;
+  --layout-max-content-width: 768px;
+  --layout-max-wide-width: 1200px;
+
+  /* radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  /* shadow */
+  --shadow-1: 0 1px 2px rgba(10, 14, 20, 0.04), 0 0 1px rgba(10, 14, 20, 0.02); /* Card */
+  --shadow-2: 0 2px 8px rgba(10, 14, 20, 0.05); /* Card Hover */
+  --shadow-3: 0 8px 24px -4px rgba(10, 14, 20, 0.08); /* Float */
+  --shadow-4: 0 16px 40px -8px rgba(10, 14, 20, 0.12); /* Modal */
+  --shadow-5: 0 24px 56px -12px rgba(10, 14, 20, 0.16); /* Overlay */
+
+  /* motion */
+  --duration-fast: 150ms; --duration-normal: 250ms;
+  --duration-slow: 350ms; --easing-default: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 暗色机制别名（2026-08 对齐）：产品用 [data-theme="dark"] 属性（防闪烁脚本设置），
+   本库原用 .dark class——两者都挂载，DL CSS 直接进产品页面也能生效 */
+.dark, [data-theme="dark"] {
+  --primary: var(--doclight-teal-400); --primary-foreground: #0a0e14;
+  --secondary: var(--doclight-slate-800); --secondary-foreground: #f8fafc;
+  --accent: var(--doclight-cyan-400); --accent-foreground: #0a0e14;
+  --background: #0a0e14; --foreground: #f8fafc;
+  --muted: var(--doclight-slate-800); --muted-foreground: var(--doclight-slate-400);
+  --border: var(--doclight-slate-700); --ring: var(--doclight-teal-400);
+  --surface: #0a0e14; --surface-dim: #07090d;
+  --surface-bright: #121820; --surface-container-lowest: #07090d;
+  --surface-container-low: #0e1218; --surface-container: #131922;
+  --surface-container-high: #19202a; --surface-container-highest: #1f2835;
+  --inverse-surface: #f8fafc; --inverse-on-surface: #0a0e14;
+  --interactive-hover: rgba(248, 250, 252, 0.08); --interactive-focus: rgba(248, 250, 252, 0.12);
+  --interactive-press: rgba(248, 250, 252, 0.16); --interactive-drag: rgba(248, 250, 252, 0.16);
+  --error: var(--doclight-red-400); --error-container: rgba(239, 68, 68, 0.15);
+  --on-error: #0a0e14; --on-error-container: #fecaca;
+  --success: var(--doclight-green-400); --warning: var(--doclight-amber-400);
+  --info: var(--doclight-blue-400);
+  --color-bg-quote: var(--surface-container-high);
+  --color-bg-tip: rgba(45, 212, 191, 0.12);
+  --color-bg-info: rgba(96, 165, 250, 0.12);
+  --color-bg-warning: rgba(251, 191, 36, 0.12);
+  --color-bg-danger: rgba(248, 113, 113, 0.12);
+  --color-bg-table-header: var(--surface-container-high);
+  --color-bg-table-row-alt: var(--surface-container);
+}
+
+.doclight-display { font-family: var(--font-display); font-size: 3.5rem; font-weight: var(--font-weight-display); line-height: var(--line-height-display); letter-spacing: -0.02em; }
+.doclight-h1 { font-family: var(--font-heading); font-size: 2.5rem; font-weight: var(--font-weight-h1); line-height: var(--line-height-h1); }
+.doclight-h2 { font-family: var(--font-heading); font-size: 2rem; font-weight: var(--font-weight-h2); line-height: var(--line-height-h2); }
+.doclight-h3 { font-family: var(--font-heading); font-size: 1.5rem; font-weight: var(--font-weight-h3); line-height: var(--line-height-h3); }
+.doclight-h4 { font-family: var(--font-heading); font-size: 1.25rem; font-weight: var(--font-weight-h4); line-height: var(--line-height-h4); }
+.doclight-body { font-family: var(--font-body); font-size: 1rem; font-weight: var(--font-weight-body); line-height: var(--line-height-body); }
+.doclight-lead { font-family: var(--font-body); font-size: 1.125rem; font-weight: var(--font-weight-lead); line-height: var(--line-height-lead); }
+.doclight-caption { font-family: var(--font-body); font-size: 0.75rem; font-weight: var(--font-weight-caption); line-height: var(--line-height-caption); }
+.doclight-eyebrow { font-family: var(--font-body); font-size: 0.6875rem; font-weight: var(--font-weight-eyebrow); line-height: var(--line-height-eyebrow); letter-spacing: 0.08em; text-transform: uppercase; }
+.doclight-mono { font-family: var(--font-mono); font-size: 0.875rem; font-weight: var(--font-weight-mono); line-height: var(--line-height-mono); }

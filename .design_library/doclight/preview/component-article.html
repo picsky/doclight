@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Article 正文排版</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:var(--space-3);background:var(--color-bg);font-family:var(--font-body);color:var(--color-text)}
+  .row{width:100%;margin-bottom:var(--space-4)}
+  /* @component-css-start */
+  .article{max-width:680px;margin:0 auto;padding:var(--space-6);color:var(--color-text);font-family:var(--font-body);font-size:var(--font-size-body);line-height:var(--line-height-body)}
+  .article :is(h1,h2,h3){font-family:var(--font-heading);color:var(--color-text-strong)}
+  .article h1{font-size:var(--font-size-h1);font-weight:var(--font-weight-h1);line-height:var(--line-height-h1);margin:0 0 var(--space-5)}
+  .article h2{font-size:var(--font-size-h2);font-weight:var(--font-weight-h2);line-height:var(--line-height-h2);margin:var(--space-7) 0 var(--space-3)}
+  .article h3{font-size:var(--font-size-h3);font-weight:var(--font-weight-h3);line-height:var(--line-height-h3);margin:var(--space-6) 0 var(--space-3)}
+  .article .anchor{opacity:0;margin-left:var(--space-2);color:var(--color-text-muted);text-decoration:none}
+  .article :is(h1,h2,h3):hover .anchor{opacity:1}
+  .article :is(p,ul,ol,blockquote,figure){margin:0 0 var(--space-4)}
+  .article :is(del,blockquote,figcaption,.footnote,li:has(input:checked) span){color:var(--color-text-muted)}
+  .article code{font-family:var(--font-mono);font-size:0.875em;background:var(--color-bg-code);border-radius:var(--radius-sm);padding:0.15em 0.35em}
+  .article a{color:var(--color-primary)}
+  .article a:hover{filter:brightness(.9);background:var(--interactive-hover)}
+  .article li{margin-bottom:var(--space-2)}
+  .article ul:has(input[type=checkbox]){list-style:none;padding-left:0}
+  .article li:has(input[type=checkbox]){display:flex;align-items:center;gap:var(--space-2)}
+  .article blockquote{padding:var(--space-3) var(--space-4);background:var(--color-bg-quote);border-left:3px solid var(--color-primary)}
+  .article hr{border:0;border-top:1px solid var(--color-border-soft)}
+  .article img{max-width:100%;height:auto;min-height:160px;background:var(--color-bg-soft);border-radius:var(--radius-md);box-shadow:var(--shadow-1);display:block}
+  .article figcaption{font-size:var(--font-size-caption);margin-top:var(--space-2)}
+  .article.compact{padding:var(--space-4)}
+  .article.compact h1{font-size:var(--font-size-h2);margin-bottom:var(--space-3)}
+  .article.compact h2{font-size:var(--font-size-h3);margin:var(--space-5) 0 var(--space-2)}
+  .article.compact h3{font-size:var(--font-size-h4);margin:var(--space-4) 0 var(--space-2)}
+  /* @component-css-end */
+</style>
+</head>
+<body>
+<div class=row><article class=article><h1 id=q>快速开始 <a class=anchor href=#q>#</a></h1><p>DocLight 是 <strong>Markdown 文档站引擎</strong>，零构建、AI 原生友好。</p><h2 id=i>安装 <a class=anchor href=#i>#</a></h2><ol><li>准备 Node.js 18+</li><li>安装 CLI<ul><li><code>npm i doclight</code></li><li><code>doclight dev</code></li></ul></li><li>在 <em>docs</em> 目录写 Markdown</li></ol><h3 id=t>任务 <a class=anchor href=#t>#</a></h3><ul><li><label><input type=checkbox disabled checked> <span>安装 CLI</span></label></li><li><label><input type=checkbox disabled> <span>配置域名</span></label></li></ul><blockquote><p>预览态让作者在发布前检查效果。</p></blockquote><hr><h2 id=r>排版 <a class=anchor href=#r>#</a></h2><p><del>旧版需要手动部署</del>，现在用 <a href=#f id=fr><sup class=footnote>1</sup></a> 脚注与 <code>code</code> 标记即可。</p><figure><img src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt=预览><figcaption>图 1：预览</figcaption></figure></article></div><div class=row><article class="article compact"><h1 id=c>紧凑模式 <a class=anchor href=#c>#</a></h1><p>压缩标题与段落间距，适合 <a href=#>窄容器</a>。</p></article></div>
+</body>
+</html>

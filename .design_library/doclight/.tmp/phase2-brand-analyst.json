@@ -1,0 +1,11 @@
+{
+  "productType": "SaaS",
+  "confidence": "high",
+  "personality": ["content-first", "restrained", "technical", "luminous", "cjk-optimized"],
+  "language": "zh",
+  "visualTone": "Luminous light paper background (#fdfdfc) with teal accent; dark mode deep blue-black (#0a0e14) with subtle glow and glass layers; minimal shadows, precise typography, generous whitespace, Chinese reading rhythm.",
+  "kitType": "documentation",
+  "colorNamingPrefix": "doclight",
+  "uiCopySamples": ["快速开始", "API 参考", "安装指南", "主题生态", "搜索文档"],
+  "density": "normal"
+}

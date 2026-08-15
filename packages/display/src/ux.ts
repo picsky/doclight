@@ -46,16 +46,31 @@ export function progressPercent(scrollTop: number, scrollHeight: number, clientH
   return total > 0 ? Math.min(100, Math.max(0, (scrollTop / total) * 100)) : 0;
 }
 
-/** 阅读进度（设计对齐演示页 #progress）+ 顶栏滚动态（.scrolled） */
+/** 阅读进度（设计对齐演示页 #progress）+ 顶栏滚动态（.scrolled）+ 签名时刻（DP-002 候选原型） */
 function initProgressAndTopbar(): void {
   const bar = document.querySelector<HTMLElement>("#progress");
   const topbar = document.querySelector<HTMLElement>("#topbar");
 
+  // DP-002 签名时刻候选：读完（100%）时进度条右端光点脉冲一次——「读完的确认感」，
+  // 只出现一次、≤300ms、reduced-motion 下降级（宪法 §3.4）
+  let completed = false;
   const update = () => {
     const doc = document.documentElement;
     const pct = progressPercent(doc.scrollTop, doc.scrollHeight, doc.clientHeight);
     if (bar) bar.style.width = `${pct}%`;
     topbar?.classList.toggle("scrolled", window.scrollY > 8);
+    if (bar && pct >= 100 && !completed) {
+      completed = true;
+      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      if (!reduced) {
+        bar.classList.remove("complete");
+        void bar.offsetWidth;
+        bar.classList.add("complete");
+      }
+    } else if (bar && pct < 100) {
+      completed = false;
+      bar.classList.remove("complete");
+    }
   };
 
   window.addEventListener("scroll", update, { passive: true });

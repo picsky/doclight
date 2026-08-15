@@ -15,7 +15,7 @@ import { buildNavTree, render, analyzeDoc } from "@doclight/renderer";
 import { loadSite, McpServer, mcpHttpHandler } from "@doclight/mcp-server";
 import { buildSite } from "./build.ts";
 import { buildCapabilityManifest } from "./capabilities.ts";
-import { buildSearchData, collectNavTitles, countWords, displayBundlePath, firstH1Text, mimeFor, nodeModulesBase, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
+import { buildSearchData, collectNavTitles, countWords, displayBundlePath, firstH1Text, mimeFor, nodeModulesBase, render404Page, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
 import { BuildPluginPipeline } from "./plugins.ts";
 import type { PluginDef, RenderContext } from "../../core/src/plugin.ts";
 
@@ -379,6 +379,27 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
       res.writeHead(200, { "Content-Type": mimeFor(staticPath) });
       res.end(data);
     } catch {
+      // DP-002 品牌层空态：文档类路径（无扩展名/.md/.html）返回设计过的 404 页面；
+      // 资源类路径保持 text/plain（机器端点诚实降级）
+      const docLike = !/\.[a-z0-9]{1,8}$/i.test(rel) || /\.(md|html?)$/i.test(rel);
+      if (docLike) {
+        try {
+          const page = render404Page({
+            siteTitle,
+            navHtml,
+            form: "dev",
+            nav: navTree,
+            summaries: searchIndexCache.summaries,
+            themeCss: options.themeCss,
+            chrome: options.chrome,
+          });
+          res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(page);
+          return;
+        } catch {
+          /* 404 页渲染失败降级为纯文本 */
+        }
+      }
       send404(res, `未找到：${urlPath}`);
     }
   }

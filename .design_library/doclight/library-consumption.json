@@ -1,0 +1,29 @@
+{
+  "library": "doclight",
+  "brandName": "DocLight",
+  "kitType": "documentation",
+  "language": "zh",
+  "description": "Recommended downstream read order for agents consuming the DocLight Design Library.",
+  "readOrder": [
+    { "file": "SKILL.md", "purpose": "Agent skill manifest: brand essentials, quick map, component index." },
+    { "file": "README.md", "purpose": "Rich brand narrative: content fundamentals, visual foundations, caveats." },
+    { "file": "css.json", "purpose": "Structured token understanding source for color, type, spacing, radius, shadow." },
+    { "file": "colors_and_type.css", "purpose": "Runtime CSS variables; link in HTML, do not read for token semantics when css.json exists." },
+    { "file": "components.css", "purpose": "Aggregated component CSS auto-extracted from preview pages." },
+    { "file": "components/index.json", "purpose": "Component index with cross-component patterns and priority hints." },
+    { "file": "components/article.json", "purpose": "Article component contract: typography, density, reading lane constraints." },
+    { "file": "components/blockquote.json", "purpose": "Blockquote component contract: accent border, muted text." },
+    { "file": "components/table.json", "purpose": "Table component contract: horizontal rules, tabular nums, minimal/card style." },
+    { "file": "components/code-block.json", "purpose": "Code block component contract: language label, copy button, mono type." },
+    { "file": "components/container.json", "purpose": "Container/callout component contract: tip/info/warning/danger variants." },
+    { "file": "components/navigation.json", "purpose": "Navigation component contract: topbar, sidebar, TOC." },
+    { "file": "preview/component-article.html", "purpose": "Visual reference for article/prose rendering." },
+    { "file": "preview/component-blockquote.html", "purpose": "Visual reference for blockquote rendering." },
+    { "file": "preview/component-table.html", "purpose": "Visual reference for table rendering." },
+    { "file": "preview/component-code-block.html", "purpose": "Visual reference for code block rendering." },
+    { "file": "preview/component-container.html", "purpose": "Visual reference for container/callout rendering." },
+    { "file": "preview/component-navigation.html", "purpose": "Visual reference for navigation rendering." },
+    { "file": "library-consumption.json", "purpose": "This file." }
+  ],
+  "componentResolution": "For each component, read preview/component-{slug}.html first for DOM/CSS fidelity; use components/{slug}.json for intent, variants and states; use components/_evidence/{slug}.json only as fallback evidence when preview is missing or insufficient."
+}

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Container 提示容器 — DocLight</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  /* Page scaffold — NOT extracted */
+  body { margin: 0; padding: var(--space-3); background: var(--color-bg); font-family: var(--font-body); color: var(--color-text); }
+  .specimen { display: flex; flex-direction: column; gap: var(--space-3); }
+  .story { display: flex; align-items: flex-start; gap: var(--space-3); }
+  .story-label { width: 92px; flex-shrink: 0; padding-top: var(--space-4); font-family: var(--font-body); font-size: var(--font-size-caption); font-weight: var(--font-weight-eyebrow); line-height: var(--line-height-caption); color: var(--color-text-muted); letter-spacing: 0.04em; }
+  /* @component-css-start */
+  /* Component definitions — extracted to components.css by deterministic script */
+  .container {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-4) var(--space-5);
+    border-left: 3px solid var(--color-primary);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-tip);
+    color: var(--color-text);
+    box-sizing: border-box;
+  }
+  .container-tip { border-left-color: var(--color-primary); background: var(--color-bg-tip); }
+  .container-info { border-left-color: var(--color-info); background: var(--color-bg-info); }
+  .container-warning { border-left-color: var(--color-warning); background: var(--color-bg-warning); }
+  .container-danger { border-left-color: var(--color-error); background: var(--color-bg-danger); }
+  .container-icon {
+    flex-shrink: 0;
+    width: var(--size-icon-md);
+    height: var(--size-icon-md);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-body);
+    line-height: 1;
+    color: var(--color-primary);
+  }
+  .container-tip .container-icon { color: var(--color-primary); }
+  .container-info .container-icon { color: var(--color-info); }
+  .container-warning .container-icon { color: var(--color-warning); }
+  .container-danger .container-icon { color: var(--color-error); }
+  .container-main { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+  .container-title { font-family: var(--font-body); font-size: var(--font-size-body); font-weight: var(--font-weight-h4); line-height: var(--line-height-h4); color: var(--color-text-strong); }
+  .container-body { font-family: var(--font-body); font-size: var(--font-size-body); font-weight: var(--font-weight-body); line-height: var(--line-height-body); color: var(--color-text); }
+  /* @component-css-end */
+</style>
+</head>
+<body>
+<div class="specimen">
+  <div class="story">
+    <span class="story-label">提示</span>
+    <div class="container container-tip" data-evidence-sample="tip">
+      <span class="container-icon" aria-label="提示">✓</span>
+      <div class="container-main">
+        <div class="container-title">提示</div>
+        <div class="container-body">此功能在最新版本中可用，建议优先使用。</div>
+      </div>
+    </div>
+  </div>
+  <div class="story">
+    <span class="story-label">信息</span>
+    <div class="container container-info" data-evidence-sample="info">
+      <span class="container-icon" aria-label="信息">ℹ</span>
+      <div class="container-main">
+        <div class="container-title">信息</div>
+        <div class="container-body">你可以通过命令行参数覆盖默认配置，详情请查阅参考文档。</div>
+      </div>
+    </div>
+  </div>
+  <div class="story">
+    <span class="story-label">警告</span>
+    <div class="container container-warning" data-evidence-sample="warning">
+      <span class="container-icon" aria-label="警告">⚠</span>
+      <div class="container-main">
+        <div class="container-title">警告</div>
+        <div class="container-body">修改后将影响所有关联文档，请谨慎操作。</div>
+      </div>
+    </div>
+  </div>
+  <div class="story">
+    <span class="story-label">危险</span>
+    <div class="container container-danger" data-evidence-sample="danger">
+      <span class="container-icon" aria-label="危险">✕</span>
+      <div class="container-main">
+        <div class="container-title">危险</div>
+        <div class="container-body">删除操作不可撤销，相关数据将被永久清除。</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -42,6 +42,7 @@ import {
   isRootIndex,
   normalizeBase,
   ogCardSvg,
+  render404Page,
   renderNav,
   renderPage,
   walkMd,
@@ -378,6 +379,26 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
   if (!rootHome && mdFiles.length > 0) {
     writeDoc(mdFiles[0]!, "index.html");
     pages++;
+  }
+
+  // DP-002 品牌层空态：404.html（静态托管 404 约定——GitHub Pages/Netlify 自动使用；
+  // 复用完整壳层 + 「页面未找到」空态，与 dev server 动态 404 同结构）
+  try {
+    writeFileSync(
+      join(outDir, "404.html"),
+      render404Page({
+        siteTitle,
+        navHtml,
+        form: "ssg",
+        base,
+        nav: navTree,
+        summaries: searchData.summaries,
+        themeCss: theme.css,
+        chrome: options.chrome,
+      })
+    );
+  } catch {
+    /* 404 页生成失败不阻断构建（核心产物已齐） */
   }
 
   // SEO：OG 分享卡片图（SVG + PNG 双格式）+ sitemap + robots（siteUrl 提供时）

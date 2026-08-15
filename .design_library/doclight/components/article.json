@@ -1,0 +1,119 @@
+{
+  "schemaVersion": "2",
+  "name": "Article 正文排版",
+  "category": "content",
+  "sourceKind": "from-scratch",
+  "confidence": "high",
+  "semanticTypeCandidates": [
+    "article",
+    "prose",
+    "reading"
+  ],
+  "variantDimensions": [
+    {
+      "name": "theme",
+      "values": [
+        "light",
+        "dark"
+      ],
+      "defaultValue": "light"
+    },
+    {
+      "name": "density",
+      "values": [
+        "normal",
+        "compact"
+      ],
+      "defaultValue": "normal"
+    }
+  ],
+  "representativeVariants": [
+    {
+      "name": "默认长文",
+      "whySelected": "覆盖完整 Markdown 长文：标题锚点、段落、列表、任务列表、行内格式、代码、引用、图片、分隔线",
+      "traits": {
+        "fontSize": "var(--font-size-body)",
+        "lineHeight": "var(--line-height-body)",
+        "maxWidth": "680px",
+        "color": "var(--color-text)",
+        "headingColor": "var(--color-text-strong)"
+      },
+      "childrenDigest": [
+        "h1",
+        "h2",
+        "h3",
+        "p",
+        "ul",
+        "ol",
+        "li[type='checkbox']",
+        "strong",
+        "em",
+        "del",
+        "code",
+        "a",
+        "blockquote",
+        "hr",
+        "figure",
+        "figcaption",
+        "sup"
+      ]
+    }
+  ],
+  "anatomy": [
+    {
+      "name": "heading",
+      "purpose": "章节锚点与信息分层"
+    },
+    {
+      "name": "paragraph",
+      "purpose": "正文阅读主体"
+    },
+    {
+      "name": "list",
+      "purpose": "步骤或枚举"
+    },
+    {
+      "name": "link",
+      "purpose": "内部/外部跳转"
+    }
+  ],
+  "structurePatterns": [
+    "single-column reading rhythm",
+    "anchor ids for TOC",
+    "max-width constraint"
+  ],
+  "usageHints": {
+    "priorityHint": "high",
+    "whenToUse": "所有文档页面主体内容区",
+    "whenNotToUse": "不要用于营销卡片或仪表盘面板"
+  },
+  "doNotInvent": [
+    "非文档组件如轮播、Hero"
+  ],
+  "unknowns": [],
+  "keyInsightSeed": "16px × 1.75 行高，680px 行宽，中文阅读甜点区",
+  "renderPlan": {
+    "samples": [
+      "default"
+    ]
+  },
+  "visualSpecs": {
+    "primary": {
+      "fontFamily": "var(--font-sans)",
+      "fontSize": "var(--font-size-body)",
+      "lineHeight": "var(--line-height-relaxed)",
+      "color": "var(--color-text)",
+      "maxWidth": "680px",
+      "padding": "var(--space-8)"
+    },
+    "states": {}
+  },
+  "sourceSignals": {
+    "uiCopySamples": [
+      "快速开始",
+      "API 参考",
+      "安装指南"
+    ]
+  },
+  "slug": "article"
+}

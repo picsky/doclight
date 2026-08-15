@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Code Block 代码块</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  /* Page scaffold — NOT extracted */
+  body { margin: 0; padding: var(--space-3); background: var(--color-bg); font-family: var(--font-body); color: var(--color-text); }
+  .row { display: flex; gap: var(--space-3); align-items: flex-start; margin-bottom: var(--space-3); flex-wrap: wrap; }
+  .label { flex-shrink: 0; width: 92px; padding-top: var(--space-2); font-family: var(--font-body); font-size: var(--font-size-eyebrow); font-weight: var(--font-weight-eyebrow); line-height: var(--line-height-eyebrow); letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-muted); }
+  .divider { width: 100%; border: none; border-top: 1px solid var(--color-border); margin: var(--space-4) 0; }
+  /* @component-css-start */
+  .code-block { width: 100%; min-width: 0; background: var(--color-bg-code); color: var(--color-text); border: 1px solid var(--color-border-soft); border-radius: var(--radius-md); box-shadow: var(--shadow-1); overflow: hidden; font-family: var(--font-mono); font-size: var(--font-size-mono); line-height: var(--line-height-mono); }
+  .code-block .header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-2) var(--space-5); border-bottom: 1px solid var(--color-border-soft); }
+  .code-block .lang { flex-shrink: 0; font-family: var(--font-body); font-size: var(--font-size-caption); font-weight: var(--font-weight-eyebrow); line-height: var(--line-height-caption); letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-text-muted); }
+  .code-block .copy-btn { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; min-width: 56px; height: 28px; padding: 0 var(--space-2); border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); font-family: var(--font-body); font-size: var(--font-size-caption); line-height: 1; white-space: nowrap; cursor: pointer; transition: background var(--duration-fast), color var(--duration-fast), border-color var(--duration-fast); }
+  .code-block .copy-btn:hover { background: var(--interactive-hover); color: var(--color-text); }
+  .code-block .copy-btn.copied { color: var(--color-success); }
+  .code-block .body { display: flex; align-items: stretch; }
+  .code-block .line-numbers { margin: 0; padding: var(--space-4) var(--space-3) var(--space-4) var(--space-4); list-style: none; counter-reset: line; text-align: right; color: var(--color-text-muted); font-family: var(--font-mono); font-size: var(--font-size-mono); line-height: var(--line-height-mono); user-select: none; }
+  .code-block .line-numbers li { counter-increment: line; }
+  .code-block .line-numbers li::before { content: counter(line); }
+  .code-block pre { flex: 1 1 auto; min-width: 0; margin: 0; padding: var(--space-4) var(--space-5); overflow: auto; }
+  .code-block code { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; white-space: pre; }
+  /* @component-css-end */
+</style>
+</head>
+<body>
+<div class="row"><span class="label">浅色</span>
+  <div class="code-block" data-evidence-sample="default">
+    <div class="header"><span class="lang">bash</span><button type="button" class="copy-btn">复制</button></div>
+    <div class="body">
+      <ol class="line-numbers" aria-hidden="true"><li></li><li></li><li></li><li></li></ol>
+      <pre><code>doclight dev
+doclight build --outDir dist
+# 启动本地预览服务器
+echo "Ready at http://localhost:3000"</code></pre>
+    </div>
+  </div>
+</div>
+<div class="row"><span class="label"></span>
+  <div class="code-block" data-evidence-sample="default">
+    <div class="header"><span class="lang">typescript</span><button type="button" class="copy-btn">复制</button></div>
+    <div class="body">
+      <ol class="line-numbers" aria-hidden="true"><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li></ol>
+      <pre><code>import { defineConfig } from 'doclight';
+import { resolve } from 'node:path';
+
+export default defineConfig({
+  title: 'DocLight',
+  outDir: resolve('./dist'),
+  basePath: '/docs',
+});</code></pre>
+    </div>
+  </div>
+</div>
+<hr class="divider">
+<div class="row"><span class="label">深色</span>
+  <div class="code-block dark" data-evidence-sample="default">
+    <div class="header"><span class="lang">json</span><button type="button" class="copy-btn">复制</button></div>
+    <div class="body">
+      <ol class="line-numbers" aria-hidden="true"><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li></ol>
+      <pre><code>{
+  "name": "doclight",
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "doclight dev",
+    "build": "doclight build"
+  }
+}</code></pre>
+    </div>
+  </div>
+</div>
+<script>
+document.querySelectorAll('.copy-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const code = btn.closest('.code-block').querySelector('code').innerText;
+    await navigator.clipboard.writeText(code);
+    const prev = btn.textContent;
+    btn.textContent = '已复制';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = prev; btn.classList.remove('copied'); }, 1500);
+  });
+});
+</script>
+</body>
+</html>

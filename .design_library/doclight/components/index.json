@@ -1,0 +1,64 @@
+{
+  "components": [
+    {
+      "slug": "article",
+      "name": "Article 正文排版",
+      "category": "content",
+      "sourceKind": "from-scratch",
+      "confidence": "high",
+      "variantCount": 2,
+      "priorityHint": "high",
+      "keyInsightSeed": "16px × 1.75 行高，680px 行宽，中文阅读甜点区"
+    },
+    {
+      "slug": "blockquote",
+      "name": "Blockquote 引用块",
+      "category": "content",
+      "sourceKind": "from-scratch",
+      "confidence": "high",
+      "variantCount": 1,
+      "priorityHint": "medium",
+      "keyInsightSeed": "左侧 3px 主色竖线 + 弱化文字，不抢正文节奏"
+    },
+    {
+      "slug": "table",
+      "name": "Table 表格",
+      "category": "content",
+      "sourceKind": "from-scratch",
+      "confidence": "high",
+      "variantCount": 2,
+      "priorityHint": "high",
+      "keyInsightSeed": "横向分隔线、表头深一级、数字 tabular-nums 对齐"
+    },
+    {
+      "slug": "code-block",
+      "name": "Code Block 代码块",
+      "category": "content",
+      "sourceKind": "from-scratch",
+      "confidence": "high",
+      "variantCount": 1,
+      "priorityHint": "high",
+      "keyInsightSeed": "语言标签 + 复制按钮 hover 浮现，深色玻璃 / 浅灰底双主题"
+    },
+    {
+      "slug": "container",
+      "name": "Container 提示容器",
+      "category": "content",
+      "sourceKind": "from-scratch",
+      "confidence": "high",
+      "variantCount": 2,
+      "priorityHint": "high",
+      "keyInsightSeed": "左侧语义色竖条 + 图标，四种状态清晰可辨"
+    },
+    {
+      "slug": "navigation",
+      "name": "Navigation 导航",
+      "category": "navigation",
+      "sourceKind": "from-scratch",
+      "confidence": "high",
+      "variantCount": 2,
+      "priorityHint": "high",
+      "keyInsightSeed": "顶栏毛玻璃 + 侧边栏当前项 teal 竖线 + TOC 导轨"
+    }
+  ]
+}

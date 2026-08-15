@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DocLight 快速开始 · 文档 UI Kit</title>
+  <link rel="stylesheet" href="../../colors_and_type.css">
+  <link rel="stylesheet" href="../../components.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+
+    :root {
+      --uikit-sidebar-w: 220px;
+      --layout-topbar-height: 64px;
+    }
+
+    .theme-root {
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse at 0% 0%, var(--surface-container-low) 0%, transparent 45%),
+        radial-gradient(ellipse at 100% 100%, var(--surface-container) 0%, transparent 35%),
+        var(--background);
+      color: var(--foreground);
+      font-family: var(--font-body);
+      font-size: var(--font-size-body);
+      line-height: var(--line-height-body);
+    }
+
+    /* Topbar / Toolbar */
+    .uikit-topbar {
+      height: var(--layout-topbar-height);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+      padding: 0 var(--space-6);
+      background: color-mix(in srgb, var(--background) 92%, transparent);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+    }
+    .uikit-topbar__brand {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      font-family: var(--font-heading);
+      font-size: var(--font-size-h4);
+      font-weight: var(--font-weight-h4);
+      color: var(--color-text-strong);
+      text-decoration: none;
+      min-width: 0;
+    }
+    .uikit-topbar__logo {
+      width: 32px;
+      height: 32px;
+      background: var(--color-primary);
+      border-radius: var(--radius-md);
+      display: grid;
+      place-items: center;
+      color: var(--primary-foreground);
+      font-family: var(--font-mono);
+      font-size: var(--font-size-mono);
+      font-weight: var(--font-weight-mono);
+      flex-shrink: 0;
+    }
+    .uikit-topbar__nav {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+      min-width: 0;
+    }
+    .uikit-topbar__link {
+      padding: var(--space-2) var(--space-3);
+      color: var(--color-text-secondary);
+      text-decoration: none;
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-body);
+      transition: background var(--duration-fast) var(--easing-default), color var(--duration-fast) var(--easing-default);
+    }
+    .uikit-topbar__link:hover {
+      background: var(--interactive-hover);
+      color: var(--color-text);
+    }
+    .uikit-topbar__actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      min-width: 0;
+    }
+    .uikit-topbar__search {
+      height: var(--size-input-height);
+      padding: 0 var(--space-4);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-bg-soft);
+      color: var(--color-text);
+      font-family: var(--font-body);
+      font-size: var(--font-size-body);
+      width: 200px;
+    }
+    .uikit-topbar__search::placeholder {
+      color: var(--color-text-muted);
+    }
+    .uikit-topbar__icon-btn {
+      width: var(--size-button-sm);
+      height: var(--size-button-sm);
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-bg-soft);
+      color: var(--color-text);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background var(--duration-fast) var(--easing-default), color var(--duration-fast) var(--easing-default);
+    }
+    .uikit-topbar__icon-btn:hover {
+      background: var(--interactive-hover);
+      color: var(--color-text-strong);
+    }
+    .uikit-topbar__menu { display: none; }
+    .uikit-topbar__theme .icon-moon { display: none; }
+    html.dark .uikit-topbar__theme .icon-sun { display: none; }
+    html.dark .uikit-topbar__theme .icon-moon { display: block; }
+
+    /* Shell */
+    .uikit-shell {
+      width: 100%;
+      max-width: 1184px;
+      margin: 0 auto;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: var(--uikit-sidebar-w, 220px) minmax(0, 1fr);
+      gap: var(--space-4);
+      padding: var(--space-4) var(--space-6);
+    }
+
+    /* Sidebar */
+    .uikit-sidebar {
+      padding-top: var(--space-4);
+      min-width: 0;
+      overflow: hidden;
+      max-width: 100%;
+    }
+    .uikit-sidebar__group {
+      margin-bottom: var(--space-6);
+    }
+    .uikit-sidebar__label {
+      font-size: var(--font-size-caption);
+      font-weight: var(--font-weight-eyebrow);
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin: 0 0 var(--space-3) 0;
+    }
+    .uikit-sidebar__list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .uikit-sidebar__item {
+      margin-bottom: var(--space-1);
+    }
+    .uikit-sidebar__link {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-3);
+      color: var(--color-text-secondary);
+      text-decoration: none;
+      border-radius: var(--radius-md);
+      transition: background var(--duration-fast) var(--easing-default), color var(--duration-fast) var(--easing-default);
+    }
+    .uikit-sidebar__link:hover {
+      background: var(--interactive-hover);
+      color: var(--color-text);
+    }
+    .uikit-sidebar__link--active {
+      color: var(--color-primary);
+      background: var(--color-bg-soft);
+      box-shadow: inset 3px 0 0 0 var(--color-primary);
+    }
+    .uikit-sidebar__icon {
+      width: var(--size-icon-sm);
+      height: var(--size-icon-sm);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .uikit-sidebar__icon img {
+      width: 16px;
+      height: 16px;
+      display: block;
+    }
+    .uikit-sidebar__text {
+      min-width: 0;
+    }
+
+    /* TOC */
+    .uikit-toc {
+      padding-top: var(--space-4);
+      padding-bottom: var(--space-4);
+      min-width: 0;
+    }
+    .uikit-toc__label {
+      font-size: var(--font-size-caption);
+      font-weight: var(--font-weight-eyebrow);
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin: 0 0 var(--space-3) 0;
+    }
+    .uikit-toc__list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      border-left: 1px solid var(--color-border);
+    }
+    .uikit-toc__item {
+      margin: 0;
+    }
+    .uikit-toc__link {
+      display: block;
+      padding: var(--space-1) var(--space-3);
+      color: var(--color-text-secondary);
+      text-decoration: none;
+      font-size: var(--font-size-caption);
+      line-height: var(--line-height-caption);
+      border-left: 2px solid transparent;
+      margin-left: -1px;
+      transition: color var(--duration-fast) var(--easing-default), border-color var(--duration-fast) var(--easing-default);
+    }
+    .uikit-toc__link:hover {
+      color: var(--color-text);
+    }
+    .uikit-toc__link--active {
+      color: var(--color-primary);
+      border-left-color: var(--color-primary);
+    }
+    .uikit-toc__link--level-3 {
+      padding-left: var(--space-5);
+    }
+
+    /* Main */
+    .uikit-main {
+      padding-top: var(--space-4);
+      padding-bottom: var(--space-12);
+      min-width: 0;
+    }
+
+    /* Article */
+    .doclight-article {
+      max-width: var(--layout-max-content-width);
+      margin: 0 auto;
+      color: var(--color-text);
+      font-family: var(--font-body);
+      font-size: var(--font-size-body);
+      line-height: var(--line-height-body);
+    }
+    .doclight-article :is(h1, h2, h3) {
+      font-family: var(--font-heading);
+      color: var(--color-text-strong);
+    }
+    .doclight-article h1 {
+      font-size: var(--font-size-h1);
+      font-weight: var(--font-weight-h1);
+      line-height: var(--line-height-h1);
+      margin: 0 0 var(--space-5);
+    }
+    .doclight-article h2 {
+      font-size: var(--font-size-h2);
+      font-weight: var(--font-weight-h2);
+      line-height: var(--line-height-h2);
+      margin: var(--space-7) 0 var(--space-3);
+      padding-bottom: var(--space-2);
+      border-bottom: 1px solid var(--color-border-soft);
+    }
+    .doclight-article h3 {
+      font-size: var(--font-size-h3);
+      font-weight: var(--font-weight-h3);
+      line-height: var(--line-height-h3);
+      margin: var(--space-6) 0 var(--space-3);
+    }
+    .doclight-article .anchor {
+      opacity: 0;
+      margin-left: var(--space-2);
+      color: var(--color-text-muted);
+      text-decoration: none;
+      font-weight: var(--font-weight-body);
+      transition: opacity var(--duration-fast) var(--easing-default);
+    }
+    .doclight-article :is(h1, h2, h3):hover .anchor {
+      opacity: 1;
+    }
+    .doclight-article :is(p, ul, ol, blockquote, figure) {
+      margin: 0 0 var(--space-4);
+    }
+    .doclight-article :is(del, blockquote, figcaption, .footnote, li:has(input:checked) span) {
+      color: var(--color-text-muted);
+    }
+    .doclight-article strong { color: var(--color-text-strong); }
+    .doclight-article code {
+      font-family: var(--font-mono);
+      font-size: 0.875em;
+      background: var(--color-bg-code);
+      border-radius: var(--radius-sm);
+      padding: 0.15em 0.35em;
+      color: var(--color-text-strong);
+    }
+    .doclight-article a {
+      color: var(--color-primary);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      transition: background var(--duration-fast) var(--easing-default);
+    }
+    .doclight-article a:hover {
+      filter: brightness(0.95);
+      background: var(--interactive-hover);
+    }
+    .doclight-article li {
+      margin-bottom: var(--space-2);
+    }
+    .doclight-article ul:has(input[type=checkbox]) {
+      list-style: none;
+      padding-left: 0;
+    }
+    .doclight-article li:has(input[type=checkbox]) {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    .doclight-article input[type=checkbox] {
+      accent-color: var(--color-primary);
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+    .doclight-article blockquote {
+      margin: var(--space-5) 0;
+      padding: var(--space-4);
+      background: var(--color-bg-quote);
+      border-left: 4px solid var(--color-primary);
+      border-radius: var(--radius-md);
+      color: var(--color-text-secondary);
+      font-style: normal;
+    }
+    .doclight-article blockquote p { margin: 0; }
+    .doclight-article blockquote cite {
+      display: block;
+      margin-top: var(--space-3);
+      font-size: var(--font-size-caption);
+      color: var(--color-text-muted);
+      font-style: normal;
+    }
+    .doclight-article hr {
+      border: 0;
+      border-top: 1px solid var(--color-border-soft);
+      margin: var(--space-6) 0;
+    }
+    .doclight-article img {
+      max-width: 100%;
+      height: auto;
+      min-height: 160px;
+      background: var(--color-bg-soft);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-1);
+      display: block;
+    }
+    .doclight-article figcaption {
+      font-size: var(--font-size-caption);
+      margin-top: var(--space-2);
+      text-align: center;
+    }
+    .article-figure {
+      width: 100%;
+      height: auto;
+      min-height: 160px;
+      background: var(--color-bg-soft);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-1);
+      display: block;
+    }
+    .article-figure__bg { fill: var(--color-bg-soft); }
+    .article-figure__text { fill: var(--color-text-muted); }
+
+    /* Table */
+    .uikit-table-wrap,
+    .table-wrapper {
+      max-width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background-color: var(--color-bg);
+      background-image:
+        linear-gradient(to left, var(--color-bg) 0%, transparent 100%),
+        linear-gradient(to left, var(--interactive-hover) 0%, transparent 100%);
+      background-position: right top, right top;
+      background-repeat: no-repeat;
+      background-size: 24px 100%, 24px 100%;
+      background-attachment: local, scroll;
+      margin: var(--space-5) 0;
+    }
+    .doclight-table {
+      width: 100%;
+      min-width: 520px;
+      border-collapse: collapse;
+      font-size: var(--font-size-body);
+      color: var(--color-text);
+    }
+    .doclight-table thead th {
+      text-align: left;
+      font-weight: var(--font-weight-h4);
+      color: var(--color-text-strong);
+      background: var(--color-bg-table-header);
+      padding: var(--space-2) var(--space-3);
+      border-bottom: 1px solid var(--color-border);
+      white-space: nowrap;
+    }
+    .doclight-table tbody tr {
+      border-bottom: 1px solid var(--color-border-soft);
+      transition: background-color var(--duration-fast);
+    }
+    .doclight-table tbody tr:hover,
+    .doclight-table.striped tbody tr:nth-child(even):hover {
+      background: var(--interactive-hover);
+    }
+    .doclight-table.striped tbody tr:nth-child(even) {
+      background: var(--color-bg-table-row-alt);
+    }
+    .doclight-table td {
+      padding: var(--space-2) var(--space-3);
+    }
+    .doclight-table th.numeric,
+    .doclight-table td.numeric {
+      font-variant-numeric: tabular-nums;
+      font-family: var(--font-mono);
+      text-align: right;
+    }
+
+    /* Code block */
+    .code-block {
+      width: 100%;
+      min-width: 0;
+      background: var(--color-bg-code);
+      color: var(--color-text);
+      border: 1px solid var(--color-border-soft);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-1);
+      overflow: hidden;
+      font-family: var(--font-mono);
+      font-size: var(--font-size-mono);
+      line-height: var(--line-height-mono);
+      margin: var(--space-5) 0;
+    }
+    .code-block .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-5);
+      border-bottom: 1px solid var(--color-border-soft);
+    }
+    .code-block .lang {
+      flex-shrink: 0;
+      font-family: var(--font-body);
+      font-size: var(--font-size-caption);
+      font-weight: var(--font-weight-eyebrow);
+      line-height: var(--line-height-caption);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--color-text-muted);
+    }
+    .code-block .copy-btn {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 56px;
+      height: 28px;
+      padding: 0 var(--space-2);
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--color-text-muted);
+      font-family: var(--font-body);
+      font-size: var(--font-size-caption);
+      line-height: 1;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: background var(--duration-fast), color var(--duration-fast), border-color var(--duration-fast);
+    }
+    .code-block .copy-btn:hover {
+      background: var(--interactive-hover);
+      color: var(--color-text);
+    }
+    .code-block .copy-btn.copied {
+      color: var(--color-success);
+    }
+    .code-block .body {
+      display: flex;
+      align-items: stretch;
+    }
+    .code-block .line-numbers {
+      margin: 0;
+      padding: var(--space-4) var(--space-3) var(--space-4) var(--space-4);
+      list-style: none;
+      counter-reset: line;
+      text-align: right;
+      color: var(--color-text-muted);
+      font-family: var(--font-mono);
+      font-size: var(--font-size-mono);
+      line-height: var(--line-height-mono);
+      user-select: none;
+    }
+    .code-block .line-numbers li { counter-increment: line; margin: 0; }
+    .code-block .line-numbers li::before { content: counter(line); }
+    .code-block pre {
+      flex: 1 1 auto;
+      min-width: 0;
+      margin: 0;
+      padding: var(--space-4) var(--space-5);
+      overflow: auto;
+    }
+    .code-block code {
+      font-family: inherit;
+      font-size: inherit;
+      line-height: inherit;
+      color: inherit;
+      white-space: pre;
+      background: transparent;
+      padding: 0;
+    }
+
+    /* Container */
+    .container {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      width: 100%;
+      padding: var(--space-4) var(--space-5);
+      border-left: 3px solid var(--color-primary);
+      border-radius: var(--radius-md);
+      background: var(--color-bg-tip);
+      color: var(--color-text);
+      box-sizing: border-box;
+      margin: var(--space-5) 0;
+    }
+    .container-tip { border-left-color: var(--color-primary); background: var(--color-bg-tip); }
+    .container-info { border-left-color: var(--color-info); background: var(--color-bg-info); }
+    .container-warning { border-left-color: var(--color-warning); background: var(--color-bg-warning); }
+    .container-danger { border-left-color: var(--color-error); background: var(--color-bg-danger); }
+    .container-icon {
+      flex-shrink: 0;
+      width: var(--size-icon-md);
+      height: var(--size-icon-md);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-primary);
+    }
+    .container-icon img {
+      width: 16px;
+      height: 16px;
+      display: block;
+    }
+    .container-tip .container-icon { color: var(--color-primary); }
+    .container-info .container-icon { color: var(--color-info); }
+    .container-warning .container-icon { color: var(--color-warning); }
+    .container-danger .container-icon { color: var(--color-error); }
+    .container-main { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+    .container-title { font-family: var(--font-body); font-size: var(--font-size-body); font-weight: var(--font-weight-h4); line-height: var(--line-height-h4); color: var(--color-text-strong); }
+    .container-body { font-family: var(--font-body); font-size: var(--font-size-body); font-weight: var(--font-weight-body); line-height: var(--line-height-body); color: var(--color-text); }
+    .container-body p { margin: 0; }
+
+    /* UIKit layout guards (required by validator) */
+    .uikit-shell,
+    .uikit-sidebar,
+    .uikit-main,
+    .uikit-toolbar {
+      min-width: 0;
+    }
+    .uikit-sidebar {
+      overflow: hidden;
+      max-width: 100%;
+    }
+    [data-component] {
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+    }
+    .uikit-truncate {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .uikit-nowrap {
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .uikit-responsive-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-4);
+    }
+    .uikit-table-wrap {
+      max-width: 100%;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+    }
+    .uikit-action-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      max-width: 160px;
+      overflow: hidden;
+    }
+    .uikit-action {
+      min-width: 0;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 900px) {
+      .uikit-shell {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .uikit-responsive-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .uikit-sidebar {
+        display: none;
+      }
+      .uikit-sidebar--open {
+        display: block;
+        order: -1;
+      }
+      .uikit-topbar__nav,
+      .uikit-topbar__search {
+        display: none;
+      }
+      .uikit-topbar__menu {
+        display: grid;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .uikit-toolbar,
+      .uikit-topbar {
+        flex-direction: column;
+        align-items: stretch;
+        height: auto;
+        padding: var(--space-3) var(--space-4);
+        gap: var(--space-3);
+      }
+      .uikit-topbar__brand,
+      .uikit-topbar__nav,
+      .uikit-topbar__actions {
+        justify-content: center;
+      }
+      .uikit-topbar__search {
+        width: 100%;
+      }
+      .uikit-responsive-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .uikit-table-wrap,
+      .table-wrapper {
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+      }
+      .doclight-article h1 {
+        font-size: var(--font-size-h2);
+      }
+      .doclight-article h2 {
+        font-size: var(--font-size-h3);
+      }
+      .doclight-article h3 {
+        font-size: var(--font-size-h4);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .uikit-topbar__brand span:last-child {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="theme-root">
+    <header class="uikit-topbar uikit-toolbar" data-component="navigation">
+      <a class="uikit-topbar__brand" href="#">
+        <span class="uikit-topbar__logo">DL</span>
+        <span class="uikit-truncate">DocLight</span>
+      </a>
+      <nav class="uikit-topbar__nav">
+        <a class="uikit-topbar__link uikit-nowrap" href="#">文档</a>
+        <a class="uikit-topbar__link uikit-nowrap" href="#">API</a>
+        <a class="uikit-topbar__link uikit-nowrap" href="#">主题</a>
+      </nav>
+      <div class="uikit-topbar__actions">
+        <input class="uikit-topbar__search uikit-truncate" type="search" placeholder="搜索文档" aria-label="搜索文档">
+        <button class="uikit-topbar__icon-btn uikit-topbar__menu" id="menu-toggle" type="button" aria-label="打开菜单">
+          <img src="https://cdn.jsdelivr.net/npm/lucide-static@1.8.0/icons/menu.svg" width="16" height="16" alt="">
+        </button>
+        <button class="uikit-topbar__icon-btn uikit-topbar__theme" id="theme-toggle" type="button" aria-label="切换主题">
+          <img class="icon-sun" src="https://cdn.jsdelivr.net/npm/lucide-static@1.8.0/icons/sun.svg" width="16" height="16" alt="">
+          <img class="icon-moon" src="https://cdn.jsdelivr.net/npm/lucide-static@1.8.0/icons/moon.svg" width="16" height="16" alt="">
+        </button>
+      </div>
+    </header>
+
+    <div class="uikit-shell" data-layout-guard="uikit-v1">
+      <aside class="uikit-sidebar" id="sidebar" data-component="navigation">
+        <div class="uikit-sidebar__group">
+          <p class="uikit-sidebar__label">指南</p>
+          <ul class="uikit-sidebar__list">
+            <li class="uikit-sidebar__item">
+              <a class="uikit-sidebar__link uikit-sidebar__link--active" href="#">
+                <span class="uikit-sidebar__icon"><img src="https://cdn.jsdelivr.net/npm/lucide-static@1.8.0/icons/home.svg" width="16" height="16" alt=""></span>
+                <span class="uikit-sidebar__text uikit-truncate">快速开始</span>
+              </a>
+            </li>
+            <li class="uikit-sidebar__item">
+              <a class="uikit-sidebar__link" href="#">
+                <span class="uikit-sidebar__icon"><img src="https://cdn.jsdelivr.net/npm/lucide-static@1.8.0/icons/settings.svg" width="16" height="16" alt=""></span>
+                <span class="uikit-sidebar__text uikit-truncate">安装指南</span>
+              </a>
+            </li>
+            <li class="uikit-sidebar__item">
+              <a class="uikit-sidebar__link" href="#">
+                <span class="uikit-sidebar__icon"><img src="https://cdn.jsdelivr.net/npm/lucide-static@1.8.0/icons/file-text.svg" width="16" height="16" alt=""></span>
+                <span class="uikit-sidebar__text uikit-truncate">目录结构</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+        <div class="uikit-sidebar__group">
+          <p class="uikit-sidebar__label">参考</p>
+          <ul class="uikit-sidebar__list">
+            <li class="uikit-sidebar__item">
+              <a class="uikit-sidebar__link" href="#">
+                <span class="uikit-sidebar__icon"><img src="https://cdn.jsdelivr.net/npm/lucide-static@1.8.0/icons/settings.svg" width="16" height="16" alt=""></span>
+                <span class="uikit-sidebar__text uikit-truncate">API 参考</span>
+              </a>
+            </li>
+            <li class="uikit-sidebar__item">
+              <a class="uikit-sidebar__link" href="#">
+                <span class="uikit-sidebar__icon"><img src="https://cdn.jsdelivr.net/npm/lucide-static@1.8.0/icons/sun.svg" width="16" height="16" alt=""></span>
+                <span class="uikit-sidebar__text uikit-truncate">主题生态</span>
+              </a>
+            </li>
+            <li class="uikit-sidebar__item">
+              <a class="uikit-sidebar__link" href="#">
+                <span class="uikit-sidebar__icon"><img src="https://cdn.jsdelivr.net/npm/lucide-static@1.8.0/icons/file-text.svg" width="16" height="16" alt=""></span>
+                <span class="uikit-sidebar__text uikit-truncate">Frontmatter</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </aside>
+
+      <main class="uikit-main">
+        <nav class="uikit-toc" data-component="toc">
+          <p class="uikit-toc__label">目录</p>
+          <ul class="uikit-toc__list">
+            <li class="uikit-toc__item"><a class="uikit-toc__link uikit-truncate" href="#quick-start">DocLight 快速开始</a></li>
+            <li class="uikit-toc__item"><a class="uikit-toc__link uikit-truncate" href="#install">安装 DocLight</a></li>
+            <li class="uikit-toc__item"><a class="uikit-toc__link uikit-truncate" href="#create-doc">创建第一篇文档</a></li>
+            <li class="uikit-toc__item"><a class="uikit-toc__link uikit-toc__link--level-3 uikit-truncate" href="#project-structure">目录结构</a></li>
+            <li class="uikit-toc__item"><a class="uikit-toc__link uikit-truncate" href="#config">配置站点</a></li>
+            <li class="uikit-toc__item"><a class="uikit-toc__link uikit-truncate" href="#publish">发布工作流</a></li>
+            <li class="uikit-toc__item"><a class="uikit-toc__link uikit-truncate" href="#syntax">常用语法速查</a></li>
+            <li class="uikit-toc__item"><a class="uikit-toc__link uikit-truncate" href="#next">下一步</a></li>
+          </ul>
+        </nav>
+
+        <article class="doclight-article" data-component="article">
+          <h1 id="quick-start">DocLight 快速开始 <a class="anchor" href="#quick-start">#</a></h1>
+          <p><strong>DocLight</strong> 是一个把 <em>Markdown 变成作品</em>的开源文档站引擎。它零构建、AI 原生友好，专注于中文技术文档的阅读与导航体验。只需掌握标准 Markdown 与少量 frontmatter，即可在几分钟内发布一套精致的文档站点。</p>
+          <p>在阅读本文之前，请确保你已安装 <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js 18+</a>，并了解基本的命令行操作。如果你是第一次使用，建议按顺序完成下面的 <del>旧版手动部署</del> 新流程。</p>
+
+          <h2 id="install">安装 DocLight <a class="anchor" href="#install">#</a></h2>
+          <p>打开终端，执行以下命令初始化项目：</p>
+          <ol>
+            <li>使用 <code>npm create doclight@latest</code> 创建项目脚手架。</li>
+            <li>进入项目目录并安装依赖：<code>npm install</code>。</li>
+            <li>运行 <code>doclight dev</code> 启动本地预览服务。</li>
+            <li>在浏览器中访问 <code>http://localhost:3000</code> 查看效果。</li>
+          </ol>
+
+          <div class="code-block" data-component="code-block">
+            <div class="header"><span class="lang">bash</span><button type="button" class="copy-btn">复制</button></div>
+            <div class="body">
+              <ol class="line-numbers" aria-hidden="true"><li></li><li></li><li></li><li></li></ol>
+              <pre><code>npm create doclight@latest my-docs
+cd my-docs
+npm install
+npm run dev</code></pre>
+            </div>
+          </div>
+
+          <h2 id="create-doc">创建第一篇文档 <a class="anchor" href="#create-doc">#</a></h2>
+          <p>所有文档都存放在 <code>docs/</code> 目录下。新建一个 <code>.md</code> 文件，即可开始写作。DocLight 支持标准 Markdown、GFM 扩展以及自定义容器。</p>
+          <ul>
+            <li><code>docs/</code> — 文档源文件</li>
+            <li><code>public/</code> — 静态资源，如图片、字体、图标</li>
+            <li><code>doclight.config.js</code> — 站点级配置</li>
+            <li><code>package.json</code> — 项目依赖与脚本</li>
+          </ul>
+
+          <h3 id="project-structure">目录结构 <a class="anchor" href="#project-structure">#</a></h3>
+          <p>一个典型的 DocLight 项目如下所示：</p>
+          <div class="code-block" data-component="code-block">
+            <div class="header"><span class="lang">text</span><button type="button" class="copy-btn">复制</button></div>
+            <div class="body">
+              <ol class="line-numbers" aria-hidden="true"><li></li><li></li><li></li><li></li><li></li><li></li><li></li></ol>
+              <pre><code>my-docs/
+├── docs/
+│   ├── index.md
+│   └── guide/
+│       └── quick-start.md
+├── public/
+├── doclight.config.js
+└── package.json</code></pre>
+            </div>
+          </div>
+
+          <p>完成文件创建后，你可以在浏览器中实时预览。如果一切正常，勾选下面的任务清单：</p>
+          <ul>
+            <li><label><input type="checkbox" disabled checked> <span>安装 CLI 并启动 dev server</span></label></li>
+            <li><label><input type="checkbox" disabled checked> <span>创建第一篇 Markdown 文档</span></label></li>
+            <li><label><input type="checkbox" disabled> <span>配置站点标题与导航</span></label></li>
+            <li><label><input type="checkbox" disabled> <span>执行构建并发布</span></label></li>
+          </ul>
+
+          <blockquote class="blockquote" data-component="blockquote">
+            <p>好的文档不是把信息堆在一起，而是让读者在需要时恰好找到答案。DocLight 的排版系统正是为这种"恰好"而设计。</p>
+            <cite>— DocLight 设计原则</cite>
+          </blockquote>
+
+          <h2 id="config">配置站点 <a class="anchor" href="#config">#</a></h2>
+          <p>通过 <code>doclight.config.js</code> 可以修改站点标题、基础路径、输出目录等。下面是一份常见配置示例：</p>
+
+          <div class="code-block" data-component="code-block">
+            <div class="header"><span class="lang">javascript</span><button type="button" class="copy-btn">复制</button></div>
+            <div class="body">
+              <ol class="line-numbers" aria-hidden="true"><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li></ol>
+              <pre><code>import { defineConfig } from 'doclight';
+import { resolve } from 'node:path';
+
+export default defineConfig({
+  title: 'DocLight',
+  description: '把 Markdown 变成作品',
+  outDir: resolve('./dist'),
+  basePath: '/docs',
+});</code></pre>
+            </div>
+          </div>
+
+          <p>每篇文档的 frontmatter 支持多个字段，用于控制标题、描述、分类、标签等。常用字段如下表：</p>
+
+          <div class="uikit-table-wrap">
+            <table class="doclight-table striped" data-component="table">
+              <thead>
+                <tr>
+                  <th>字段</th>
+                  <th>类型</th>
+                  <th>默认值</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>title</code></td>
+                  <td>string</td>
+                  <td>—</td>
+                  <td>文档标题，用于导航与 SEO</td>
+                </tr>
+                <tr>
+                  <td><code>description</code></td>
+                  <td>string</td>
+                  <td>—</td>
+                  <td>一句话描述，影响搜索结果摘要</td>
+                </tr>
+                <tr>
+                  <td><code>date</code></td>
+                  <td>string</td>
+                  <td>—</td>
+                  <td>发布日期，影响 sitemap 排序</td>
+                </tr>
+                <tr>
+                  <td><code>tags</code></td>
+                  <td>string[]</td>
+                  <td><code>[]</code></td>
+                  <td>标签列表，用于检索过滤</td>
+                </tr>
+                <tr>
+                  <td><code>priority</code></td>
+                  <td>enum</td>
+                  <td><code>medium</code></td>
+                  <td><code>high</code> / <code>medium</code> / <code>low</code>，影响 llms.txt 分级</td>
+                </tr>
+                <tr>
+                  <td><code>category</code></td>
+                  <td>string</td>
+                  <td>—</td>
+                  <td>文档分类，用于目录分组</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2 id="publish">发布工作流 <a class="anchor" href="#publish">#</a></h2>
+          <p>DocLight 的发布链遵循「写入先进预览态，发布前必须经人确认」的原则：</p>
+
+          <div class="container container-tip" data-component="container">
+            <span class="container-icon" aria-label="提示">
+              <img src="https://cdn.jsdelivr.net/npm/lucide-static@1.8.0/icons/check.svg" width="16" height="16" alt="">
+            </span>
+            <div class="container-main">
+              <div class="container-title">提示</div>
+              <div class="container-body"><p>本地开发时使用 <code>doclight dev</code>，所有修改会实时热更新，无需手动刷新浏览器。</p></div>
+            </div>
+          </div>
+
+          <div class="container container-info" data-component="container">
+            <span class="container-icon" aria-label="信息">
+              <img src="https://cdn.jsdelivr.net/npm/lucide-static@1.8.0/icons/info.svg" width="16" height="16" alt="">
+            </span>
+            <div class="container-main">
+              <div class="container-title">信息</div>
+              <div class="container-body"><p><code>doclight build</code> 会生成 SSG 静态产物，包含 <code>llms.txt</code>、<code>docs.json</code>、<code>search-index.json</code> 等。</p></div>
+            </div>
+          </div>
+
+          <div class="container container-warning" data-component="container">
+            <span class="container-icon" aria-label="警告">
+              <img src="https://cdn.jsdelivr.net/npm/lucide-static@1.8.0/icons/alert-triangle.svg" width="16" height="16" alt="">
+            </span>
+            <div class="container-main">
+              <div class="container-title">警告</div>
+              <div class="container-body"><p><code>doclight publish</code> 会直接修改线上产物，请在构建产物经预览确认后再执行发布。</p></div>
+            </div>
+          </div>
+
+          <div class="container container-danger" data-component="container">
+            <span class="container-icon" aria-label="危险">
+              <img src="https://cdn.jsdelivr.net/npm/lucide-static@1.8.0/icons/x-circle.svg" width="16" height="16" alt="">
+            </span>
+            <div class="container-main">
+              <div class="container-title">危险</div>
+              <div class="container-body"><p>删除已发布文档会导致相关 URL 失效，搜索引擎缓存也可能需要一段时间才能刷新。</p></div>
+            </div>
+          </div>
+
+          <blockquote>
+            <p>文档是思考的终点，也是协作的起点。把 Markdown 变成作品，是一件值得反复打磨的小事。</p>
+            <cite>—— DocLight 设计原则</cite>
+          </blockquote>
+
+          <hr>
+
+          <h2 id="syntax">常用语法速查 <a class="anchor" href="#syntax">#</a></h2>
+          <p>DocLight 支持标准 Markdown 与 GFM 扩展，包括 <strong>粗体</strong>、<em>斜体</em>、<del>删除线</del>、<code>行内代码</code> 与 <a href="#quick-start">锚点链接</a>。</p>
+
+          <figure>
+            <svg class="article-figure" width="720" height="240" viewBox="0 0 720 240" role="img" aria-label="DocLight 预览示意图">
+              <rect width="720" height="240" class="article-figure__bg"/>
+              <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="var(--font-body)" font-size="18" class="article-figure__text">DocLight 预览示意图</text>
+            </svg>
+            <figcaption>图 1：DocLight 本地预览界面</figcaption>
+          </figure>
+
+          <p>更多高级用法请参考 <a href="#">组件库文档</a> 与 <a href="#">API 参考</a>。</p>
+
+          <h2 id="next">下一步 <a class="anchor" href="#next">#</a></h2>
+          <p>现在你已经了解了 DocLight 的基本用法。建议你继续阅读：</p>
+          <ul>
+            <li><a href="#">Frontmatter 完整参考</a></li>
+            <li><a href="#">自定义主题与 CSS 变量</a></li>
+            <li><a href="#">部署到 GitHub Pages</a></li>
+          </ul>
+        </article>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const themeToggle = document.getElementById('theme-toggle');
+      const menuToggle = document.getElementById('menu-toggle');
+      const sidebar = document.getElementById('sidebar');
+
+      themeToggle.addEventListener('click', function () {
+        document.documentElement.classList.toggle('dark');
+      });
+
+      menuToggle.addEventListener('click', function () {
+        sidebar.classList.toggle('uikit-sidebar--open');
+      });
+
+      document.querySelectorAll('.copy-btn').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          const code = btn.closest('.code-block').querySelector('code').innerText;
+          try {
+            await navigator.clipboard.writeText(code);
+            const prev = btn.textContent;
+            btn.textContent = '已复制';
+            btn.classList.add('copied');
+            setTimeout(function () {
+              btn.textContent = prev;
+              btn.classList.remove('copied');
+            }, 1500);
+          } catch (err) {
+            // ignore
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

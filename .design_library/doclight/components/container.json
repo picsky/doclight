@@ -1,0 +1,138 @@
+{
+  "schemaVersion": "2",
+  "name": "Container 提示容器",
+  "category": "content",
+  "sourceKind": "from-scratch",
+  "confidence": "high",
+  "semanticTypeCandidates": [
+    "container",
+    "callout",
+    "alert"
+  ],
+  "variantDimensions": [
+    {
+      "name": "theme",
+      "values": [
+        "light",
+        "dark"
+      ],
+      "defaultValue": "light"
+    },
+    {
+      "name": "type",
+      "values": [
+        "tip",
+        "info",
+        "warning",
+        "danger"
+      ],
+      "defaultValue": "tip"
+    }
+  ],
+  "representativeVariants": [
+    {
+      "name": "tip",
+      "whySelected": "文档最常用的提示类型",
+      "traits": {
+        "borderLeft": "4px solid var(--color-primary)",
+        "background": "var(--color-bg-tip)",
+        "icon": "tick"
+      },
+      "childrenDigest": [
+        "title",
+        "content"
+      ]
+    },
+    {
+      "name": "info",
+      "whySelected": "补充信息说明",
+      "traits": {
+        "borderLeft": "4px solid var(--color-info)",
+        "background": "var(--color-bg-info)",
+        "icon": "info"
+      },
+      "childrenDigest": [
+        "title",
+        "content"
+      ]
+    },
+    {
+      "name": "warning",
+      "whySelected": "需要引起注意的警告信息",
+      "traits": {
+        "borderLeft": "4px solid var(--color-warning)",
+        "background": "var(--color-bg-warning)",
+        "icon": "warning"
+      },
+      "childrenDigest": [
+        "title",
+        "content"
+      ]
+    },
+    {
+      "name": "danger",
+      "whySelected": "可能导致错误的危险操作提示",
+      "traits": {
+        "borderLeft": "4px solid var(--color-error)",
+        "background": "var(--color-bg-danger)",
+        "icon": "cross"
+      },
+      "childrenDigest": [
+        "title",
+        "content"
+      ]
+    }
+  ],
+  "anatomy": [
+    {
+      "name": "icon",
+      "purpose": "语义图标"
+    },
+    {
+      "name": "title",
+      "purpose": "容器标题"
+    },
+    {
+      "name": "content",
+      "purpose": "提示正文"
+    }
+  ],
+  "structurePatterns": [
+    "left semantic bar",
+    "soft background",
+    "icon + title + body"
+  ],
+  "usageHints": {
+    "priorityHint": "high",
+    "whenToUse": "tip/info/warning/danger 提示"
+  },
+  "doNotInvent": [
+    "关闭按钮、展开收起"
+  ],
+  "unknowns": [],
+  "keyInsightSeed": "左侧语义色竖条 + 图标，四种状态清晰可辨",
+  "renderPlan": {
+    "samples": [
+      "tip",
+      "warning"
+    ]
+  },
+  "visualSpecs": {
+    "primary": {
+      "background": "var(--color-bg-soft)",
+      "borderRadius": "var(--radius)",
+      "padding": "var(--space-4) var(--space-5)",
+      "borderLeft": "4px solid var(--color-primary)",
+      "color": "var(--color-text)"
+    },
+    "states": {}
+  },
+  "sourceSignals": {
+    "uiCopySamples": [
+      "提示",
+      "注意",
+      "警告"
+    ]
+  },
+  "slug": "container"
+}

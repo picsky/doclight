@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Navigation 导航 - DocLight</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+/* Page scaffold — NOT extracted */
+body { margin: 0; padding: var(--space-3); background: var(--color-bg); font-family: var(--font-body); color: var(--color-text); }
+.row { display: flex; gap: var(--space-3); align-items: flex-start; margin-bottom: var(--space-3); flex-wrap: wrap; }
+.label { flex-shrink: 0; width: 92px; font-size: var(--font-size-caption); font-weight: var(--font-weight-eyebrow); line-height: var(--line-height-caption); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; padding-top: 2px; }
+.story { flex: 1; min-width: 0; }
+/* @component-css-start */
+/* Component definitions — extracted to components.css by deterministic script */
+.nav-stage { display: flex; flex-direction: column; width: 100%; height: 320px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-bright); }
+.topbar { display: flex; align-items: center; height: 64px; padding: 0 var(--space-4); gap: var(--space-4); border-bottom: 1px solid var(--color-border); background: var(--color-bg-soft); flex-shrink: 0; box-shadow: var(--shadow-1); }
+.brand { font-family: var(--font-heading); font-size: var(--font-size-h4); font-weight: var(--font-weight-h4); color: var(--color-text-strong); white-space: nowrap; }
+.search { display: inline-flex; align-items: center; gap: var(--space-2); margin-left: auto; height: var(--size-input-height); padding: 0 var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--surface-bright); color: var(--color-text-muted); font-size: var(--font-size-body); white-space: nowrap; cursor: pointer; transition: background var(--duration-fast); }
+.search:hover { background: var(--interactive-hover); }
+.body { display: flex; flex: 1; min-height: 0; }
+.sidebar { width: var(--size-sidebar-width); border-right: 1px solid var(--color-border); background: var(--color-bg-soft); overflow-y: auto; padding: var(--space-3) 0; flex-shrink: 0; }
+.nav-group { padding: var(--space-2) 0; }
+.nav-group + .nav-group { border-top: 1px solid var(--color-border-soft); }
+.nav-link { display: flex; align-items: center; padding: var(--space-2) var(--space-4); font-size: var(--font-size-body); font-weight: var(--font-weight-body); line-height: var(--line-height-body); color: var(--color-text); text-decoration: none; white-space: nowrap; position: relative; transition: background var(--duration-fast); }
+.nav-link:hover { background: var(--interactive-hover); }
+.nav-link.active { color: var(--color-primary); }
+.nav-link.active::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--color-primary); }
+.main { flex: 1; min-width: 0; padding: var(--space-4); overflow-y: auto; }
+.toc { width: 168px; border-left: 1px solid var(--color-border); padding: var(--space-3) var(--space-4); flex-shrink: 0; }
+.toc-link { display: block; padding: var(--space-1) 0; font-size: var(--font-size-caption); line-height: var(--line-height-caption); color: var(--color-text-muted); text-decoration: none; white-space: nowrap; border-left: 2px solid transparent; padding-left: var(--space-3); transition: background var(--duration-fast); }
+.toc-link:hover { background: var(--interactive-hover); }
+.toc-link.active { color: var(--color-primary); border-left-color: var(--color-primary); }
+/* @component-css-end */
+</style>
+</head>
+<body>
+<div class="row">
+<span class="label">桌面三栏</span>
+<div class="story">
+<div class="nav-stage" data-evidence-sample="桌面三栏">
+  <header class="topbar">
+    <span class="brand">DocLight</span>
+    <span class="search" role="button" tabindex="0"><img src="https://cdn.jsdelivr.net/npm/lucide-static@1.8.0/icons/search.svg" width="16" height="16" alt="">搜索文档</span>
+  </header>
+  <div class="body">
+    <nav class="sidebar" aria-label="文档导航">
+      <div class="nav-group">
+        <a class="nav-link active" href="#" aria-current="page">文档</a>
+        <a class="nav-link" href="#">API</a>
+      </div>
+      <div class="nav-group">
+        <a class="nav-link" href="#">主题</a>
+      </div>
+    </nav>
+    <main class="main"></main>
+    <nav class="toc" aria-label="页面大纲">
+      <a class="toc-link" href="#">文档</a>
+      <a class="toc-link active" href="#" aria-current="location">API</a>
+      <a class="toc-link" href="#">主题</a>
+    </nav>
+  </div>
+</div>
+</div>
+</div>
+</body>
+</html>

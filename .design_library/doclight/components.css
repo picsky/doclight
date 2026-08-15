@@ -1,0 +1,177 @@
+/* ═══════════════════════════════════════════════════════════════
+   components.css — Design System Component Definitions
+   Auto-extracted from preview/component-*.html
+   DO NOT EDIT MANUALLY — regenerate via extract-components-css.mjs
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Article ───────────────────────────────────────────────── */
+/* @anatomy
+   <div class=row><article class=article><h1 id=q>快速开始 <a class=anchor href=#q>#</a></h1><p>DocLight 是 <strong>Markdown 文档站引擎</strong>，零构建、AI 原生友好。</p><h2 id=i>安装 <a class=anchor href=#i>#</a></h2><ol><li>准备 Node.js 18+</li><li>安装 CLI<ul><li><code>npm i doclight</code></li><li><code>doclight dev</code></li></ul>
+*/
+.article{max-width:680px;margin:0 auto;padding:var(--space-6);color:var(--color-text);font-family:var(--font-body);font-size:var(--font-size-body);line-height:var(--line-height-body)}
+  .article :is(h1,h2,h3){font-family:var(--font-heading);color:var(--color-text-strong)}
+  .article h1{font-size:var(--font-size-h1);font-weight:var(--font-weight-h1);line-height:var(--line-height-h1);margin:0 0 var(--space-5)}
+  .article h2{font-size:var(--font-size-h2);font-weight:var(--font-weight-h2);line-height:var(--line-height-h2);margin:var(--space-7) 0 var(--space-3)}
+  .article h3{font-size:var(--font-size-h3);font-weight:var(--font-weight-h3);line-height:var(--line-height-h3);margin:var(--space-6) 0 var(--space-3)}
+  .article .anchor{opacity:0;margin-left:var(--space-2);color:var(--color-text-muted);text-decoration:none}
+  .article :is(h1,h2,h3):hover .anchor{opacity:1}
+  .article :is(p,ul,ol,blockquote,figure){margin:0 0 var(--space-4)}
+  .article :is(del,blockquote,figcaption,.footnote,li:has(input:checked) span){color:var(--color-text-muted)}
+  .article code{font-family:var(--font-mono);font-size:0.875em;background:var(--color-bg-code);border-radius:var(--radius-sm);padding:0.15em 0.35em}
+  .article a{color:var(--color-primary)}
+  .article a:hover{filter:brightness(.9);background:var(--interactive-hover)}
+  .article li{margin-bottom:var(--space-2)}
+  .article ul:has(input[type=checkbox]){list-style:none;padding-left:0}
+  .article li:has(input[type=checkbox]){display:flex;align-items:center;gap:var(--space-2)}
+  .article blockquote{padding:var(--space-3) var(--space-4);background:var(--color-bg-quote);border-left:3px solid var(--color-primary)}
+  .article hr{border:0;border-top:1px solid var(--color-border-soft)}
+  .article img{max-width:100%;height:auto;min-height:160px;background:var(--color-bg-soft);border-radius:var(--radius-md);box-shadow:var(--shadow-1);display:block}
+  .article figcaption{font-size:var(--font-size-caption);margin-top:var(--space-2)}
+  .article.compact{padding:var(--space-4)}
+  .article.compact h1{font-size:var(--font-size-h2);margin-bottom:var(--space-3)}
+  .article.compact h2{font-size:var(--font-size-h3);margin:var(--space-5) 0 var(--space-2)}
+  .article.compact h3{font-size:var(--font-size-h4);margin:var(--space-4) 0 var(--space-2)}
+
+/* ── Blockquote ────────────────────────────────────────────── */
+/* @anatomy
+   <blockquote class="blockquote" data-evidence-sample="default"> <p>把 Markdown 变成作品，是一件值得反复打磨的小事。</p> </blockquote>
+*/
+/* Component definitions — extracted to components.css by deterministic script */
+  .blockquote {
+    margin: 0;
+    padding: var(--space-4);
+    background: var(--color-bg-quote);
+    border-left: 4px solid var(--color-primary);
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-body);
+    font-style: normal;
+    line-height: var(--line-height-body);
+  }
+  .blockquote p { margin: 0; }
+
+  .blockquote--cite {
+    display: block;
+    margin-top: var(--space-3);
+    padding-left: var(--space-4);
+    font-size: var(--font-size-caption);
+    color: var(--color-text-muted);
+    line-height: var(--line-height-caption);
+  }
+
+  .blockquote--large {
+    font-size: var(--font-size-lead);
+    line-height: var(--line-height-lead);
+  }
+
+/* ── Code Block ────────────────────────────────────────────── */
+/* @anatomy
+   <span class="label">浅色</span> <div class="code-block" data-evidence-sample="default"> <div class="header"><span class="lang">bash</span><button type="button" class="copy-btn">复制</button>
+*/
+.code-block { width: 100%; min-width: 0; background: var(--color-bg-code); color: var(--color-text); border: 1px solid var(--color-border-soft); border-radius: var(--radius-md); box-shadow: var(--shadow-1); overflow: hidden; font-family: var(--font-mono); font-size: var(--font-size-mono); line-height: var(--line-height-mono); }
+  .code-block .header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-2) var(--space-5); border-bottom: 1px solid var(--color-border-soft); }
+  .code-block .lang { flex-shrink: 0; font-family: var(--font-body); font-size: var(--font-size-caption); font-weight: var(--font-weight-eyebrow); line-height: var(--line-height-caption); letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-text-muted); }
+  .code-block .copy-btn { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; min-width: 56px; height: 28px; padding: 0 var(--space-2); border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted); font-family: var(--font-body); font-size: var(--font-size-caption); line-height: 1; white-space: nowrap; cursor: pointer; transition: background var(--duration-fast), color var(--duration-fast), border-color var(--duration-fast); }
+  .code-block .copy-btn:hover { background: var(--interactive-hover); color: var(--color-text); }
+  .code-block .copy-btn.copied { color: var(--color-success); }
+  .code-block .body { display: flex; align-items: stretch; }
+  .code-block .line-numbers { margin: 0; padding: var(--space-4) var(--space-3) var(--space-4) var(--space-4); list-style: none; counter-reset: line; text-align: right; color: var(--color-text-muted); font-family: var(--font-mono); font-size: var(--font-size-mono); line-height: var(--line-height-mono); user-select: none; }
+  .code-block .line-numbers li { counter-increment: line; }
+  .code-block .line-numbers li::before { content: counter(line); }
+  .code-block pre { flex: 1 1 auto; min-width: 0; margin: 0; padding: var(--space-4) var(--space-5); overflow: auto; }
+  .code-block code { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; white-space: pre; }
+
+/* ── Container ─────────────────────────────────────────────── */
+/* @anatomy
+   <div class="specimen"> <div class="story"> <span class="story-label">提示</span> <div class="container container-tip" data-evidence-sample="tip"> <span class="container-icon" aria-label="提示">✓</span> <div class="container-main"> <div class="container-title">提示</div>
+*/
+/* Component definitions — extracted to components.css by deterministic script */
+  .container {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-4) var(--space-5);
+    border-left: 3px solid var(--color-primary);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-tip);
+    color: var(--color-text);
+    box-sizing: border-box;
+  }
+  .container-tip { border-left-color: var(--color-primary); background: var(--color-bg-tip); }
+  .container-info { border-left-color: var(--color-info); background: var(--color-bg-info); }
+  .container-warning { border-left-color: var(--color-warning); background: var(--color-bg-warning); }
+  .container-danger { border-left-color: var(--color-error); background: var(--color-bg-danger); }
+  .container-icon {
+    flex-shrink: 0;
+    width: var(--size-icon-md);
+    height: var(--size-icon-md);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-body);
+    line-height: 1;
+    color: var(--color-primary);
+  }
+  .container-tip .container-icon { color: var(--color-primary); }
+  .container-info .container-icon { color: var(--color-info); }
+  .container-warning .container-icon { color: var(--color-warning); }
+  .container-danger .container-icon { color: var(--color-error); }
+  .container-main { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+  .container-title { font-family: var(--font-body); font-size: var(--font-size-body); font-weight: var(--font-weight-h4); line-height: var(--line-height-h4); color: var(--color-text-strong); }
+  .container-body { font-family: var(--font-body); font-size: var(--font-size-body); font-weight: var(--font-weight-body); line-height: var(--line-height-body); color: var(--color-text); }
+
+/* ── Navigation ────────────────────────────────────────────── */
+/* @anatomy
+   <span class="label">桌面三栏</span> <div class="story"> <div class="nav-stage" data-evidence-sample="桌面三栏"> <header class="topbar"> <span class="brand">DocLight</span> <span class="search" role="button" tabindex="0"><img src="https://cdn.jsdelivr.net/npm/lucide-static@1.8.0/icons/search.svg" width="16" height="16" alt="">搜索文档</span> </header> <div class="body"> <nav class="sidebar" aria-label="文档导航...
+*/
+/* Component definitions — extracted to components.css by deterministic script */
+.nav-stage { display: flex; flex-direction: column; width: 100%; height: 320px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-bright); }
+.topbar { display: flex; align-items: center; height: 64px; padding: 0 var(--space-4); gap: var(--space-4); border-bottom: 1px solid var(--color-border); background: var(--color-bg-soft); flex-shrink: 0; box-shadow: var(--shadow-1); }
+.brand { font-family: var(--font-heading); font-size: var(--font-size-h4); font-weight: var(--font-weight-h4); color: var(--color-text-strong); white-space: nowrap; }
+.search { display: inline-flex; align-items: center; gap: var(--space-2); margin-left: auto; height: var(--size-input-height); padding: 0 var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--surface-bright); color: var(--color-text-muted); font-size: var(--font-size-body); white-space: nowrap; cursor: pointer; transition: background var(--duration-fast); }
+.search:hover { background: var(--interactive-hover); }
+.body { display: flex; flex: 1; min-height: 0; }
+.sidebar { width: var(--size-sidebar-width); border-right: 1px solid var(--color-border); background: var(--color-bg-soft); overflow-y: auto; padding: var(--space-3) 0; flex-shrink: 0; }
+.nav-group { padding: var(--space-2) 0; }
+.nav-group + .nav-group { border-top: 1px solid var(--color-border-soft); }
+.nav-link { display: flex; align-items: center; padding: var(--space-2) var(--space-4); font-size: var(--font-size-body); font-weight: var(--font-weight-body); line-height: var(--line-height-body); color: var(--color-text); text-decoration: none; white-space: nowrap; position: relative; transition: background var(--duration-fast); }
+.nav-link:hover { background: var(--interactive-hover); }
+.nav-link.active { color: var(--color-primary); }
+.nav-link.active::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--color-primary); }
+.main { flex: 1; min-width: 0; padding: var(--space-4); overflow-y: auto; }
+.toc { width: 168px; border-left: 1px solid var(--color-border); padding: var(--space-3) var(--space-4); flex-shrink: 0; }
+.toc-link { display: block; padding: var(--space-1) 0; font-size: var(--font-size-caption); line-height: var(--line-height-caption); color: var(--color-text-muted); text-decoration: none; white-space: nowrap; border-left: 2px solid transparent; padding-left: var(--space-3); transition: background var(--duration-fast); }
+.toc-link:hover { background: var(--interactive-hover); }
+.toc-link.active { color: var(--color-primary); border-left-color: var(--color-primary); }
+
+/* ── Table ─────────────────────────────────────────────────── */
+/* @anatomy
+   <span class="label">默认表格</span> <div class="table-wrapper"> <table class="doclight-table" data-evidence-sample="default"> <thead> <tr><th>参数</th><th>类型</th><th class="numeric">默认值</th><th>说明</th></tr> </thead> <tbody> <tr><td>maxWidth</td><td>number</td><td class="numeric">768</td><td>最大内容宽度</td></tr> <tr><td>sidebarWidth</td><td>number</td><td class="numeric">280</td><td>侧边栏宽度</td></tr> <tr><t...
+*/
+.table-wrapper {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg);
+    background-image:
+      linear-gradient(to left, var(--color-bg) 0%, transparent 100%),
+      linear-gradient(to left, var(--interactive-hover) 0%, transparent 100%);
+    background-position: right top, right top;
+    background-repeat: no-repeat;
+    background-size: 24px 100%, 24px 100%;
+    background-attachment: local, scroll;
+  }
+  .doclight-table { width: 100%; min-width: 520px; border-collapse: collapse; font-size: var(--font-size-body); color: var(--color-text); }
+  .doclight-table thead th { text-align: left; font-weight: var(--font-weight-h4); color: var(--color-text-strong); background: var(--color-bg-table-header); padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--color-border); white-space: nowrap; }
+  .doclight-table tbody tr { border-bottom: 1px solid var(--color-border-soft); transition: background-color var(--duration-fast); }
+  .doclight-table tbody tr:hover,
+  .doclight-table.striped tbody tr:nth-child(even):hover { background: var(--interactive-hover); }
+  .doclight-table.striped tbody tr:nth-child(even) { background: var(--color-bg-table-row-alt); }
+  .doclight-table td { padding: var(--space-2) var(--space-3); }
+  .doclight-table th.numeric,
+  .doclight-table td.numeric { font-variant-numeric: tabular-nums; font-family: var(--font-mono); text-align: right; }
+  .doclight-table.compact th,
+  .doclight-table.compact td { padding: var(--space-1) var(--space-2); }

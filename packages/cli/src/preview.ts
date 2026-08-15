@@ -87,6 +87,18 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         send404(res, `读取失败：${urlPath}`);
       }
     } else {
+      // DP-002 品牌层空态：产物含 404.html（build 生成）时返回设计过的 404 页面
+      const notFound = join(root, "404.html");
+      const nfStat = tryStat(notFound);
+      if (nfStat?.isFile()) {
+        try {
+          res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(readFileSync(notFound));
+          return;
+        } catch {
+          /* 读取失败降级纯文本 */
+        }
+      }
       send404(res, `未找到：${urlPath}`);
     }
   });

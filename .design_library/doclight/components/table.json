@@ -1,0 +1,103 @@
+{
+  "schemaVersion": "2",
+  "name": "Table 表格",
+  "category": "content",
+  "sourceKind": "from-scratch",
+  "confidence": "high",
+  "semanticTypeCandidates": [
+    "table",
+    "data-table",
+    "markdown-table"
+  ],
+  "variantDimensions": [
+    {
+      "name": "theme",
+      "values": [
+        "light",
+        "dark"
+      ],
+      "defaultValue": "light"
+    },
+    {
+      "name": "style",
+      "values": [
+        "minimal",
+        "card"
+      ],
+      "defaultValue": "minimal"
+    }
+  ],
+  "representativeVariants": [
+    {
+      "name": "极简表格",
+      "whySelected": "默认文档表格，横向分隔线、表头背景、斑马纹、数字等宽右对齐",
+      "traits": {
+        "border": "1px solid var(--color-border-soft)",
+        "headerBackground": "var(--color-bg-table-header)",
+        "rowAltBackground": "var(--color-bg-table-row-alt)",
+        "fontVariantNumeric": "tabular-nums",
+        "hoverBackground": "var(--interactive-hover)"
+      },
+      "childrenDigest": [
+        "thead",
+        "tbody",
+        "tr",
+        "th",
+        "td",
+        ".numeric"
+      ]
+    }
+  ],
+  "anatomy": [
+    {
+      "name": "header",
+      "purpose": "列标题"
+    },
+    {
+      "name": "row",
+      "purpose": "数据行"
+    },
+    {
+      "name": "cell",
+      "purpose": "单元格"
+    }
+  ],
+  "structurePatterns": [
+    "horizontal rules only",
+    "overflow scroll",
+    "tabular nums"
+  ],
+  "usageHints": {
+    "priorityHint": "high",
+    "whenToUse": "参数表、对比表、数据说明"
+  },
+  "doNotInvent": [
+    "排序按钮、分页、行选择器"
+  ],
+  "unknowns": [],
+  "keyInsightSeed": "横向分隔线、表头深一级、数字 tabular-nums 对齐",
+  "renderPlan": {
+    "samples": [
+      "default"
+    ]
+  },
+  "visualSpecs": {
+    "primary": {
+      "width": "100%",
+      "borderCollapse": "collapse",
+      "fontSize": "var(--font-size-body)",
+      "color": "var(--color-text)",
+      "borderBottom": "1px solid var(--color-border)"
+    },
+    "states": {}
+  },
+  "sourceSignals": {
+    "uiCopySamples": [
+      "参数",
+      "类型",
+      "默认值",
+      "说明"
+    ]
+  },
+  "slug": "table"
+}
