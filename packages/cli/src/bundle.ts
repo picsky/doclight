@@ -18,7 +18,7 @@ import { loadConfig } from "./config.ts";
 import { buildCapabilityManifest } from "./capabilities.ts";
 import { resolveThemePackage } from "./themes.ts";
 import { BuildPluginPipeline } from "./plugins.ts";
-import { articleBodyHtml, buildSearchData, collectNavTitles, collectNavUpdated, countWords, displayBundlePath, firstH1Text, nodeModulesBase, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
+import { articleBodyHtml, buildSearchData, collectNavTitles, countWords, displayBundlePath, firstH1Text, nodeModulesBase, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
 import type { PluginDef, RenderContext } from "../../core/src/plugin.ts";
 
 export interface BundleOptions {
@@ -110,7 +110,7 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
   // 导航用 frontmatter 标题（2026-08 前端审查 P1-2：此前显示文件名主干）
   const navTree = buildNavTree(mdFiles, collectNavTitles(docsDir, mdFiles));
   // hash 路由：导航链接 #/xxx（file:// 无法 pushState）
-  const navHtml = renderNav(navTree, ".html", "", true, collectNavUpdated(docsDir, mdFiles)); // DP-003：最近更新徽标
+  const navHtml = renderNav(navTree, ".html", "", true);
 
   // PLUG-009：构建管线（bundle 形态补齐——beforeRender → render → afterRender，插槽注入壳层）
   const pipeline = new BuildPluginPipeline(options.buildPlugins ?? []);

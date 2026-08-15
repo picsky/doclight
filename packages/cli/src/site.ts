@@ -60,32 +60,6 @@ export function collectNavTitles(docsDir: string, files: string[]): Record<strin
   return titles;
 }
 
-/**
- * DP-003：收集每篇文档的更新时间（rel 路径 → ISO 字符串）——
- * 规则与页面 meta 一致：frontmatter.date/updated 优先，缺省文件 mtime。
- * 供侧边栏「最近更新」徽标（renderNav updatedAts）使用，三形态同一数据源。
- */
-export function collectNavUpdated(docsDir: string, files: string[]): Record<string, string> {
-  const updated: Record<string, string> = {};
-  for (const rel of files) {
-    try {
-      const { frontmatter } = parseFrontmatter(readFileSync(join(docsDir, rel), "utf8"));
-      const raw = frontmatter.date ?? frontmatter.updated;
-      if (typeof raw === "string") {
-        const t = Date.parse(raw);
-        if (!Number.isNaN(t)) {
-          updated[rel] = new Date(t).toISOString();
-          continue;
-        }
-      }
-      updated[rel] = statSync(join(docsDir, rel)).mtime.toISOString();
-    } catch {
-      /* 不可读文件跳过（无徽标） */
-    }
-  }
-  return updated;
-}
-
 /** REND-002 内置扩展 vendor 文件清单（Prism / KaTeX + KaTeX 字体）。
  *  PLUG-012（Mermaid 迁移）：mermaid.min.js 已不在内置清单——由
  *  @doclight/plugin-mermaid 的 vendor 声明按需提供（见 plugins.ts collectVendorFiles）。 */
@@ -291,31 +265,12 @@ export function topGroups(nodes: NavNode[]): Array<{ title: string; firstPath?: 
  * 渲染导航树为侧边栏结构（设计对齐：side-group / side-title / side-item / side-sub；
  * 顶层一律 <li> 包裹保证 ul 合法语义）。
  * 服务端直出，SEO 友好（03 §3.1.3）；当前页激活态由展示层按 data-path 归一（三形态一致）。
- * DP-003：updatedAts（rel 路径 → ISO）提供时，最近 14 天更新的文档加「最近更新」徽标
- * （class 承载：side-recent + 点状子元素，纯 CSS 标记）。
  * @param hash bundle 形态（05 §5.3.4）：href 前缀 "#"（file:// 不能 pushState，用 hash 路由）
  */
-export function renderNav(
-  nodes: NavNode[],
-  linkSuffix = "",
-  base = "",
-  hash = false,
-  updatedAts?: Record<string, string>
-): string {
+export function renderNav(nodes: NavNode[], linkSuffix = "", base = "", hash = false): string {
   const hrefFor = (p: string) => (hash ? `#${navHref(p, linkSuffix, base)}` : navHref(p, linkSuffix, base));
-  const RECENT_MS = 14 * 24 * 3600 * 1000; // 最近 14 天
-  const isRecent = (p: string): boolean => {
-    const iso = updatedAts?.[p];
-    if (!iso) return false;
-    const t = Date.parse(iso);
-    return !Number.isNaN(t) && Date.now() - t < RECENT_MS;
-  };
-  const fileItem = (n: { path: string; title: string }): string => {
-    const recent = isRecent(n.path)
-      ? `<span class="side-recent" aria-label="最近更新"></span>`
-      : "";
-    return `<a class="side-item${recent ? " has-recent" : ""}" href="${hrefFor(n.path)}" data-path="${escapeHtml(n.path)}">${escapeHtml(n.title)}${recent}</a>`;
-  };
+  const fileItem = (n: { path: string; title: string }): string =>
+    `<a class="side-item" href="${hrefFor(n.path)}" data-path="${escapeHtml(n.path)}">${escapeHtml(n.title)}</a>`;
   const item = (n: NavNode): string => {
     if (n.type === "file") return fileItem(n);
     // 分组：side-title（含 index 时首页条目内联为组内首个 side-item）
@@ -1362,12 +1317,6 @@ export const DEFAULT_THEME_CSS = `  :root {
   /* ---------- DP-003 阅读状态感 ---------- */
   /* 阅读完成度（meta 行尾部一行文字，非仪表盘） */
   .read-status { font-variant-numeric: tabular-nums; }
-  /* 侧边栏「最近更新」徽标：accent 圆点（纯 CSS 标记，安静驻留） */
-  .side-item.has-recent { padding-right: 22px; }
-  .side-recent {
-    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
-    width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex: none;
-  }
 
   /* ---------- DP-002 空态（404 / 未找到）：品牌化的失败时刻 ---------- */
   .notfound { padding: 48px 0 64px; max-width: var(--content-max); }
