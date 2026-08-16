@@ -1092,6 +1092,15 @@ export const DEFAULT_THEME_CSS = `  :root {
   article img { max-width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--line); }
   /* DP-004 图文关系：暗色模式下图片降亮度 + 描边（白底截图不刺眼；纯 CSS token 值） */
   [data-theme="dark"] article img { filter: brightness(.92) contrast(1.03); }
+  /* 图片加载失败占位（JS 增强：display 层替换 <img> 为 .doclight-img-error；
+     无 JS 降级 = 浏览器默认破图——最小可接受状态，不加依赖） */
+  .doclight-img-error {
+    display: block; padding: 16px; margin: 16px 0;
+    border: 1px dashed var(--line); border-radius: var(--radius-sm);
+    background: var(--accent-soft); color: var(--text-2);
+    font-size: 13px; line-height: 1.6; text-align: center;
+  }
+  .doclight-img-error-hint { display: inline; }
   article del { color: var(--text-3); }
   /* 任务列表（GFM）：去掉默认标记，checkbox 用强调色 */
   article ul:has(> li > input[type="checkbox"]), article ol:has(> li > input[type="checkbox"]) { list-style: none; padding-left: 0.4em; }
@@ -1107,11 +1116,12 @@ export const DEFAULT_THEME_CSS = `  :root {
     background: var(--accent-soft);
     font-size: 14px; line-height: 1.7;
   }
-  .doclight-container > :not(.icon) { min-width: 0; flex: 1; }
+  .doclight-container-body { min-width: 0; flex: 1; }
   .doclight-container .icon { flex: none; margin-top: 2px; color: var(--accent-ink); display: inline-flex; }
   .doclight-container p { margin: 0; font-size: 14px; color: var(--text-2); }
   .doclight-container > :first-child { margin-top: 0; }
-  .doclight-container > :last-child { margin-bottom: 0; }
+  .doclight-container-body > :first-child { margin-top: 0; }
+  .doclight-container-body > :last-child { margin-bottom: 0; }
   .doclight-container strong { color: var(--text); }
   .doclight-container .doclight-title { font-weight: 600; color: var(--text); margin-bottom: 4px; }
   .doclight-tip { border-left-color: var(--success); background: rgba(61,158,79,.06); }

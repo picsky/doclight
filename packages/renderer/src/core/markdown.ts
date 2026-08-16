@@ -53,7 +53,15 @@ export function renderMarkdown(md: string, options: MarkdownOptions = {}): strin
       return `<a href="${hrefOut}">${text}</a>`;
     },
     image({ href, text }: Tokens.Image) {
-      const src = resolveRelative(currentPath, href);
+      // 图片 src 用「页面目录相对」而非站内根相对（2026-08 修复）：<img> 由浏览器
+      // 按页面 URL 解析，嵌套目录页面若用站内根相对（论文解读/figures/x.png 无前导
+      // 斜杠）会被解析成 /论文解读/论文解读/figures/x.png → 404。页面相对路径
+      // （../论文解读/figures/x.png）天然兼容 dev/SSG/bundle --base（相对路径随基址平移）。
+      const resolved = resolveRelative(currentPath, href); // 站内根相对：论文解读/figures/x.png
+      const dir = currentPath.includes("/") ? currentPath.slice(0, currentPath.lastIndexOf("/") + 1) : "";
+      const depth = dir ? dir.split("/").filter(Boolean).length : 0;
+      // 仅内部相对路径补上溯前缀；外部链接/锚点/绝对路径原样（resolveRelative 已保持）
+      const src = depth > 0 && !isExternal(resolved) && !resolved.startsWith("/") ? "../".repeat(depth) + resolved : resolved;
       return `<img src="${src}" alt="${text}" loading="lazy" />`;
     },
     code({ text, lang }: Tokens.Code) {

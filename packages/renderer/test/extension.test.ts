@@ -203,6 +203,30 @@ describe("REND-002 自定义容器（:::tip/warning/danger/info）", () => {
     expect(html).not.toContain("<script>");
     expect(html).toContain("doclight-tip");
   });
+
+  it("同行标题（:::tip 标题）渲染为 .doclight-title（标题在上、内容在下）", () => {
+    const { html } = render(":::tip 为什么值得读\n正文内容\n:::");
+    expect(html).toContain('<div class="doclight-container doclight-tip">');
+    expect(html).toContain('<div class="doclight-container-body">');
+    // 标题在 body 内、内容在标题之后（纵向堆叠而非并排）
+    const titlePos = html.indexOf('<p class="doclight-title">为什么值得读</p>');
+    const bodyPos = html.indexOf('<div class="doclight-container-body">');
+    expect(titlePos).toBeGreaterThan(bodyPos);
+    expect(html.indexOf("正文内容")).toBeGreaterThan(titlePos);
+    expect(html).toContain("正文内容");
+  });
+
+  it("同行标题含 HTML 被转义（防标签逃逸）", () => {
+    const { html } = render(":::info <b>标题</b> & 更多\n正文\n:::");
+    expect(html).toContain("&lt;b&gt;标题&lt;/b&gt; &amp; 更多");
+    expect(html).not.toContain("<b>标题</b>");
+  });
+
+  it("无标题形态保持原行为（:::tip 换行内容）", () => {
+    const { html } = render(":::warning\n内容\n:::");
+    expect(html).toContain("doclight-warning");
+    expect(html).not.toContain("doclight-title");
+  });
 });
 
 describe("REND-002 KaTeX 公式标记", () => {

@@ -5,12 +5,23 @@
  * 内层内容用 this.lexer.blockTokens 手动解析（marked 的 childTokens 仅用于
  * walkTokens 遍历、不会自动 tokenize 内层——spike 实测，见 .spike/marked-container2.mjs）。
  *
+ * 语法（2026-08 修复，对齐 tabs「:::tab <名>」同行命名惯例）：
+ *   :::tip            ← 无标题（内容从下一行开始）
+ *   :::tip 为什么值得读  ← 同行标题（可选，渲染为 .doclight-title）
+ *
  * 渲染产物（class 标记 + 单色图标 span + 内层已 sanitize）：
- *   <div class="doclight-container doclight-tip"><span class="icon">[svg]</span><p>…</p></div>
+ *   <div class="doclight-container"><span class="icon">[svg]</span>
+ *     <div class="doclight-container-body"><p class="doclight-title">…</p><p>…</p></div></div>
+ * body 容器 = 纵向列（标题在上、内容在下）；无标题时仅内容，结构一致。
  * 设计对齐（宪法 §4.4）：左侧 2.5px 语义色竖线 + 极浅同色系底色 + 单色线性图标——
  * 不加彩色徽章（图标颜色 = 强调色，语义由竖线承载）；纯 CSS 标记，无 JS 依赖，降级即普通 div。
  */
 import type { TokenizerAndRendererExtension, Tokens } from "marked";
+
+/** HTML 文本转义（同行标题为原始文本注入，防标签逃逸） */
+function escapeHtml(v: string): string {
+  return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
 
 /** 白名单容器类型 */
 const KINDS = ["tip", "warning", "danger", "info"] as const;
@@ -33,15 +44,18 @@ export const containerExtension: TokenizerAndRendererExtension = {
     return src.indexOf(":::");
   },
   tokenizer(src: string) {
-    const rule = new RegExp(`^:::(${KIND_RE})\\s*\\n([\\s\\S]*?)\\n:::\\s*`);
+    // 同行标题可选：:::tip / :::tip 标题；[ \t]*\r?\n 兼容 CRLF 与尾部空白
+    const rule = new RegExp(`^:::(${KIND_RE})(?:[ \\t]+([^\\n]*?))?[ \\t]*\\r?\\n([\\s\\S]*?)\\n:::\\s*`);
     const match = rule.exec(src);
     if (!match) return undefined;
     const kind = match[1]! as ContainerKind;
-    const text = match[2]!;
+    const title = match[2]?.trim() || "";
+    const text = match[3]!;
     const token = {
       type: "doclightContainer",
       raw: match[0],
       kind,
+      title,
       text,
       tokens: [] as Tokens.Generic[],
     };
@@ -53,6 +67,9 @@ export const containerExtension: TokenizerAndRendererExtension = {
     // token.tokens 由 tokenizer 显式赋值（blockTokens 产物）
     const inner = this.parser.parse(token.tokens!);
     const kind = (token as Tokens.Generic & { kind?: ContainerKind }).kind ?? "info";
-    return `<div class="doclight-container doclight-${kind}"><span class="icon">${ICONS[kind]}</span>${inner}</div>`;
+    const title = (token as Tokens.Generic & { title?: string }).title ?? "";
+    const titleHtml = title ? `<p class="doclight-title">${escapeHtml(title)}</p>` : "";
+    // body = 纵向列（标题在上、内容在下），与图标 flex 行并列；doclight-<kind> 承载语义色
+    return `<div class="doclight-container doclight-${kind}"><span class="icon">${ICONS[kind]}</span><div class="doclight-container-body">${titleHtml}${inner}</div></div>`;
   },
 };

@@ -1,5 +1,0 @@
-{
-  "title": "DocLight 渲染能力展示",
-  "description": "DocLight 全部 Markdown 渲染能力的可交互演示站：基础语法、GFM、代码高亮、自定义容器、Tabs、Steps、KaTeX、Mermaid 图表。",
-  "plugins": [{ "name": "mermaid" }]
-}

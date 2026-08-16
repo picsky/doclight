@@ -80,10 +80,10 @@ tags: [入门, 安装]
     expect(dev.html).toContain('<a href="guide/other.md">');
     expect(ssg.html).toContain('<a href="guide/other.html">');
     expect(ssg.html).not.toContain("other.md");
-    // 锚点 / 外部链接 / 图片不受影响
+    // 锚点 / 外部链接不受影响；图片为页面目录相对（嵌套页面 404 修复，2026-08）
     expect(ssg.html).toContain('href="#topic"');
     expect(ssg.html).toContain('href="https://a.com"');
-    expect(ssg.html).toContain('<img src="img/x.png"');
+    expect(ssg.html).toContain('<img src="../img/x.png"');
     // 非 .md 链接（如 pdf）不误伤
     const pdf = render("[手册](manual.pdf)", { currentPath: "guide/quickstart.md", linkSuffix: ".html" });
     expect(pdf.html).toContain('href="guide/manual.pdf"');
@@ -94,10 +94,25 @@ tags: [入门, 安装]
     expect(html).toContain('<a href="https://example.com" target="_blank" rel="noopener">');
   });
 
-  it("图片相对路径修正 + 懒加载", () => {
+  it("图片相对路径修正 + 懒加载（页面目录相对，嵌套页面不 404）", () => {
+    // 嵌套目录页面：../img/logo.png 相对页面目录解析到站内 img/logo.png
     const { html } = render("![logo](../img/logo.png)", { currentPath: "guide/quickstart.md" });
-    // DOMPurify 重序列化为 HTML 格式（非 XHTML 自我闭合）
-    expect(html).toContain('<img src="img/logo.png" alt="logo" loading="lazy">');
+    expect(html).toContain('<img src="../img/logo.png" alt="logo" loading="lazy">');
+
+    // 二级嵌套：figures/x.png 相对 论文解读/00.md 应上溯两层（src 经 URL 解析器
+    // 百分号编码，浏览器请求时自动解码，语义等价——解码后比对）
+    const deep = render("![图](figures/x.png)", { currentPath: "论文解读/00-论文速览.md" });
+    const deepSrc = /<img src="([^"]+)" alt="图" loading="lazy">/.exec(deep.html)?.[1];
+    expect(deepSrc).toBeDefined();
+    expect(decodeURIComponent(deepSrc!)).toBe("../论文解读/figures/x.png");
+
+    // 根页面：无需上溯
+    const root = render("![图](img/a.png)", { currentPath: "README.md" });
+    expect(root.html).toContain('<img src="img/a.png"');
+
+    // 外部图片不修正
+    const ext = render("![图](https://example.com/a.png)", { currentPath: "guide/quickstart.md" });
+    expect(ext.html).toContain('src="https://example.com/a.png"');
   });
 
   it("代码块带语言类名（REND-002 标记：doclight-code + language-*）", () => {
