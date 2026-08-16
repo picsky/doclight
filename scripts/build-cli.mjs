@@ -11,7 +11,7 @@
 //   qrcode（可选功能 --qr）。三者均为 packages/cli 直接依赖，运行时解析无虞。
 // - bin：packages/cli/package.json bin 指向 dist/cli.mjs（npm i -g doclight 可用）。
 import { build } from "esbuild";
-import { chmodSync, cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = process.cwd();
@@ -42,6 +42,16 @@ export async function buildCli() {
 
   // 主题 CSS 运行时按 import.meta.url 相对读取（themes.ts:37）→ 复制到产物旁
   cpSync(join(ROOT, "packages", "cli", "src", "themes"), join(OUT_DIR, "themes"), { recursive: true });
+
+  // Agent 技能随包分发（AGENT-001）：.claude/skills + .claude/commands → dist/skills + dist/commands。
+  // doclight skill install 运行时按 import.meta.url 相对读取（skill.ts resolveSource），
+  // npm i -g doclight 后技能与 CLI 同目录分发，与 themes 同模式。
+  if (existsSync(join(ROOT, ".claude", "skills"))) {
+    cpSync(join(ROOT, ".claude", "skills"), join(OUT_DIR, "skills"), { recursive: true });
+  }
+  if (existsSync(join(ROOT, ".claude", "commands"))) {
+    cpSync(join(ROOT, ".claude", "commands"), join(OUT_DIR, "commands"), { recursive: true });
+  }
 
   // 注入 shebang（bin 执行必需），但先检查是否已存在避免重复
   const cliPath = join(OUT_DIR, "cli.mjs");

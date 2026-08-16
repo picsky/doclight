@@ -17,7 +17,7 @@ category: guide
 
 ```
 你是 DocLight 助手。请阅读 https://doclight.tech/agent-guide 完成 DocLight 接入：
-1) 按指南完成安装与配置
+1) 按指南完成安装与配置（含 `doclight skill install` 安装 Agent 技能）
 2) 初始化我的内容空间（先问我要用哪个空间：本地 / GitHub / DocLight Space）
 3) 完成后告诉我如何使用（内容放哪、如何发布）
 当需要执行命令时请直接执行；如涉及安装/权限请求，请提示我允许。
@@ -41,15 +41,19 @@ npm install && npm run build
 node packages/cli/src/index.ts --help   # 验证同上（路径形态）
 ```
 
-## 二、放置发布技能
+## 二、安装 Agent 技能（一条命令）
 
-把 `doclight-publish` 技能放入 Agent 的技能目录：
-
+```bash
+doclight skill install            # 自动安装到 ~/.claude/skills/ + ~/.claude/commands/
+doclight skill install --dry-run  # 先看计划再写入（Agent 先行确认）
+doclight skill list               # 查看可装技能与安装状态
+doclight skill install --json     # 结构化输出（Agent 直接解析 ok/installed/skipped/errors）
 ```
-.claude/skills/doclight-publish/SKILL.md   # Claude Code / Claude Desktop
-```
 
-技能内容见仓库 `.claude/skills/doclight-publish/`（零 server、零配置，只教 Agent 用 CLI）。
+- 安装内容（AGENT-001，随 CLI 分发）：`doclight-publish` / `doclight-slides` / `doclight-verify`
+  三个技能 + `/publish` 斜杠命令。
+- 幂等：重复安装自动跳过已存在且相同的内容；`--force` 覆盖（默认不覆盖用户定制）。
+- 手动形态（无 CLI 时）：把 `.claude/skills/doclight-publish/` 等目录放入 Agent 的技能目录。
 
 ## 三、初始化内容空间
 
