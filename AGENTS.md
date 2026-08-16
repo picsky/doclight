@@ -50,3 +50,14 @@
 1. 读 /capabilities.json 确认支持的语法（不要用本站不支持的语法）
 2. 在 docs/ 下写 .md（frontmatter 按上表；正文用支持语法）
 3. `doclight dev` 预览 → 人确认 → `doclight build` → `doclight publish`
+
+<!-- ============ 以下为本仓库（doclight 开发仓库）专属区，非 CAP-001 生成器输出 ============ -->
+
+## 本仓库开发指南（dogfood 追加，2026-08 review 阶段1）
+
+本文件上方内容 = `doclight init` 生成的站点写作约定（生成器：`packages/cli/src/agents.ts`）。
+**开发本仓库的 Agent** 请继续读：
+
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — 架构地图 / 验证命令 / Agent 工作流 / 红线 / 交接模板
+- [docs/agent-handoffs/CURRENT-STATUS.md](./docs/agent-handoffs/CURRENT-STATUS.md) — 项目当前状态唯一权威
+- 设计文档索引：[docs/tech-design/00-README.md](./docs/tech-design/00-README.md)；设计宪法：`docs/design-new/DESIGN.md`

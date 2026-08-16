@@ -1,6 +1,8 @@
 # CI（10 §4.4 闭环层）：push/PR 触发，任一步失败即停止并产出结构化反馈
-# Phase 0 启用阶段：build → lint → typecheck → test → size → contract
-# Phase 1 追加：e2e（展示层真实浏览器，chromium/firefox/webkit）；visual/isomorphic/perf 待启（10 §2.1）
+# 2026-08 review 阶段1：双平台矩阵——项目在 Windows 上开发，此前仅 ubuntu 验证，
+# 路径分隔符/盘符行为零交叉验证（build.mjs 的 file:// 拼接缺陷即现存证据）。
+#   verify-linux：全量（8 check，三浏览器 e2e）
+#   verify-windows：lint/typecheck/test/build/smoke + chromium e2e（Windows runner 慢，收敛范围）
 name: CI
 
 on:
@@ -9,7 +11,7 @@ on:
   pull_request:
 
 jobs:
-  verify:
+  verify-linux:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -30,12 +32,55 @@ jobs:
       - name: 安装 Playwright 浏览器（e2e 门禁：chromium/firefox/webkit）
         run: npx playwright install --with-deps chromium firefox webkit
 
-      - name: 全量验证（build → lint → typecheck → test → size → contract → e2e）
+      - name: 全量验证（build → lint → typecheck → test(+coverage) → size → contract → e2e）
         run: npm run verify
 
       - name: 上传结构化报告（反馈层产物，Agent 可消费）
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: verify-reports
+          name: verify-reports-linux
+          path: artifacts/reports/
+
+  verify-windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装依赖（锁文件一致）
+        run: pnpm install --frozen-lockfile
+
+      - name: 安装 Playwright 浏览器（Windows e2e 仅 chromium，收敛时长）
+        run: npx playwright install --with-deps chromium
+
+      - name: 构建（esbuild bundler：display + renderer + cli 自包含单文件）
+        run: node scripts/build.mjs
+
+      - name: lint + typecheck + test（含覆盖率门禁）+ size + contract
+        run: |
+          node scripts/run-check.mjs lint
+          node scripts/run-check.mjs typecheck
+          node scripts/run-check.mjs test
+          node scripts/run-check.mjs size
+          node scripts/run-check.mjs contract
+
+      - name: e2e（chromium）
+        run: npx playwright test -c playwright.config.ts --project=chromium
+
+      - name: smoke（产物冒烟，防「源码修好产物没重建」）
+        run: node scripts/checks/smoke.mjs
+
+      - name: 上传结构化报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-reports-windows
           path: artifacts/reports/

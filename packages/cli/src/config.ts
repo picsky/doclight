@@ -2,10 +2,11 @@
  * doclight.json 配置加载（02 §2.5 + 契约 contracts/doclight.schema.json）
  *
  * 零配置约定（02 §2.5.1）：无 doclight.json 也能跑，缺省取约定值。
- * 支持的键：
- * - 契约内（schema 已收录）：title / description / docsDir / theme / plugins
- * - Phase 3 新增（schema 扩展待批准，见交接文档）：base / siteUrl / outputDir
- *   —— 本模块「宽松读取」这些键，不改动契约文件（AGENT.md 红线：schema 修改需显式批准）。
+ * 支持的键 = contracts/doclight.schema.json 顶层 properties（契约已全部收录，
+ * 含 base / siteUrl / outputDir / version / github / footer / build / plugins）。
+ * 契约闭环（2026-08 review 阶段1）：
+ * - KNOWN_TOP_LEVEL_KEYS 为唯一键全集（未知键 console.warn，拼错立即暴露）
+ * - scripts/checks/contract.mjs 双向比对 schema properties ↔ 本常量，防漂移
  *
  * 优先级：CLI 选项 > 配置文件 > 约定默认。
  * 配置损坏时静默忽略（走约定默认），不阻断命令。
@@ -33,16 +34,39 @@ export interface DoclightConfig {
   footer?: { links?: Array<{ label: string; href: string }>; status?: string };
 }
 
-const KNOWN_KEYS = ["title", "description", "docsDir", "theme", "base", "siteUrl", "outputDir", "version", "github"] as const;
+/** doclight.json 顶层合法键全集（唯一事实来源：与 contracts/doclight.schema.json
+ *  properties 双向锁定，contract check 校验；新增键必须同时改两处）。 */
+export const KNOWN_TOP_LEVEL_KEYS = [
+  "title",
+  "description",
+  "docsDir",
+  "theme",
+  "base",
+  "siteUrl",
+  "outputDir",
+  "version",
+  "github",
+  "footer",
+  "plugins",
+  "build",
+] as const;
 
-/** 加载配置文件：按候选路径顺序，首个存在且可解析者胜；全部失败返回空配置 */
+/** 值为字符串的顶层键（loadConfig 逐键读取用） */
+const STRING_KEYS = ["title", "description", "docsDir", "theme", "base", "siteUrl", "outputDir", "version", "github"] as const;
+
+/** 加载配置文件：按候选路径顺序，首个存在且可解析者胜；全部失败返回空配置。
+ *  未知顶层键 → console.warn（拼错键立即暴露，不静默吞掉）。 */
 export function loadConfig(candidates: string[]): DoclightConfig {
   for (const file of candidates) {
     if (!existsSync(file)) continue;
     try {
       const raw = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
+      const unknown = Object.keys(raw).filter((k) => !(KNOWN_TOP_LEVEL_KEYS as readonly string[]).includes(k));
+      for (const k of unknown) {
+        console.warn(`[doclight] 配置键 "${k}" 未识别（${file}）——合法键见 contracts/doclight.schema.json（拼错会静默失效，请检查拼写）`);
+      }
       const cfg: DoclightConfig = {};
-      for (const key of KNOWN_KEYS) {
+      for (const key of STRING_KEYS) {
         const v = raw[key];
         if (typeof v === "string" && v) cfg[key] = v;
       }

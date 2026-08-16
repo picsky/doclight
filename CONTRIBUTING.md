@@ -29,18 +29,39 @@ docs/agent-handoffs/  Agent 交接文档
 
 ```bash
 pnpm install        # 装依赖（pnpm 10；Node ≥ 22.18——仓库内直接消费 TS 源码，依赖 Node 原生类型剥离）
-npm run verify      # 一条命令：build → lint → typecheck → test → size → contract → visual → e2e
+npm run verify      # 一条命令：build → lint → typecheck → test(+覆盖率门禁) → size → contract → visual → e2e → smoke → review
 npm run verify:lint     # ESLint 零 error
-npm run verify:test     # Vitest 全绿
-npm run verify:size     # 体积预算门禁（展示层 < 25KB gzip）
-npm run verify:visual   # 像素级视觉回归（26 组截图基线 diff；首次/改视觉用 verify:visual:update 生成基线后人工锁定）
-npm run review          # 评审 Agent（structured findings）
+npm run verify:test     # Vitest 全绿（含 coverage thresholds：lines 70 / branches 75 / functions 75，只升不降）
+npm run verify:size     # 体积预算门禁（展示层 < 25KB gzip / Node 内核 < 30KB）
+npm run verify:visual   # 像素级视觉回归（基线 diff；首次/改视觉用 verify:visual:update 生成基线后人工锁定）
+npm run review          # 评审门禁（聚合 8 check 报告——Blocker 不消不合并；2026-08 阶段1 起为真门禁）
 npm run spec:check      # 需求 ID 可追溯检查
+doclight skill install  # Agent 技能自动安装（装到 ~/.claude/skills + commands，随 CLI 分发）
 ```
 
 - 所有 check 双格式输出：终端摘要 + `artifacts/reports/<check>.json`（机器可读）
-- **开工前必须跑 `npm run verify`，确认从全绿基线出发**（AGENT.md 第 4 步）
+- **开工前必须跑 `npm run verify`，确认从全绿基线出发**（当前状态见 `docs/agent-handoffs/CURRENT-STATUS.md`）
 - 涉及视觉的改动：**必须**过 `verify:visual`（基线 diff）并附截图证据（12 §3）
+
+## 2.5 Agent 工作流（每次必走，原 AGENT.md 融入）
+
+```
+1. 读 AGENTS.md（入口）+ docs/agent-handoffs/CURRENT-STATUS.md（当前状态）
+2. 读相关设计文档（docs/tech-design/，索引见 00-README）→ 遵循既有设计，不另起炉灶
+3. 读相关规格（specs/）→ 定位需求 ID 与 DoD
+4. 跑基线验证（npm run verify）→ 确认从全绿起点出发
+5. 实现 → 写测试 → 自验证 → 提交
+6. 读反馈（CI 失败 / review findings）→ 修复 → 直至全绿
+```
+
+- **人机边界**：Agent 全自动执行常规任务；以下必须**人批准**——新增依赖、破坏性变更、
+  受保护文件修改（`packages/renderer/src/core/`、`contracts/`、视觉基线、schema）、
+  视觉基线锁定、发布。Agent 提供完整证据与方案，人做最终决策。
+- **阶段完成必交接**：更新 `docs/agent-handoffs/CURRENT-STATUS.md`（阶段/已完成/下一步）+
+  写交接文档 `<phase>-complete.md`（模板：任务 ID / 当前状态 / 已完成（文件+测试）/
+  遗留问题 / 验证状态 / 上下文链接 / 下一步建议），与代码一并提交；未交接 = 未完成（15 §6.2）。
+- **失败熔断**：任务卡住/反复失败时停止尝试，输出当前状态与卡点上报人类维护者，
+  不要默默卡住；发现既有设计缺陷不擅自改设计，写 ADR 提案或 issue 附证据。
 
 ## 3. 常见失败模式与处理
 

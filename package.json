@@ -23,7 +23,7 @@
     "spec:check": "node scripts/run-check.mjs spec",
     "build": "node scripts/build.mjs",
     "build:display": "node scripts/build-display.mjs",
-    "review": "node scripts/review.mjs"
+    "review": "node scripts/run-check.mjs review"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
