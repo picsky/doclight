@@ -33,6 +33,7 @@
 
 > **MCP 写入端鉴权**：`doclight dev --mcp` 启动时自动生成 Bearer token（打印到终端，写入 `.doclight/mcp-token`）。
 > Agent 调用 `write_doc` / `update_doc` / `delete_doc` 需携带 `Authorization: Bearer <token>`；未携带会被 401 拒绝。
+> POST /mcp 请求体上限 2MB（超限 413）——超大文档请分段写入。
 
 ## Agent 接口（构建产物）
 

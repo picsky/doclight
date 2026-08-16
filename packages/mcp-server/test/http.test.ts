@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { rmSync } from "node:fs";
 import { loadSite } from "../src/site.ts";
 import { McpServer } from "../src/protocol.ts";
+import { request } from "node:http";
 import { startHttpServer, type HttpServerHandle } from "../src/http.ts";
 import { makeFixtureSite } from "./helpers.ts";
 
@@ -196,6 +197,93 @@ describe("MCP HTTP 安全（CORS + Bearer token 写鉴权）", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 7, method: "tools/list" }),
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it("Bearer scheme 大小写不敏感（bearer <token> 放行写工具）", async () => {
+    const res = await fetch(`${authHandle.url}mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: ORIGIN, Authorization: `bearer ${TOKEN}` },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 10, method: "tools/call", params: { name: "write_doc", arguments: { path: "case-test.md", content: "# ok" } } }),
+    });
+    expect(res.status).toBe(200);
+  });
+});
+
+/* ---- 安全（2026-08 review P0）：Host 白名单（DNS rebinding 防御）+ 请求体上限 ---- */
+describe("MCP HTTP 安全 P0（Host 校验 + body 上限）", () => {
+  let p0Handle: HttpServerHandle;
+
+  // fetch 禁止设置 Host 头（forbidden header），用 node:http 原生请求
+  function rawRequest(opts: { host?: string; method: string; path: string; headers?: Record<string, string>; body?: string }): Promise<{ status: number; text: string }> {
+    return new Promise((resolve, reject) => {
+      const req = request(
+        {
+          host: "127.0.0.1",
+          port: p0Handle.port,
+          method: opts.method,
+          path: opts.path,
+          headers: { ...(opts.headers ?? {}), ...(opts.host !== undefined ? { Host: opts.host } : {}) },
+        },
+        (res) => {
+          let text = "";
+          res.on("data", (c: Buffer) => (text += c.toString("utf8")));
+          res.on("end", () => resolve({ status: res.statusCode ?? 0, text }));
+        },
+      );
+      req.on("error", reject);
+      if (opts.body !== undefined) req.write(opts.body);
+      req.end();
+    });
+  }
+
+  beforeAll(async () => {
+    p0Handle = await startHttpServer(
+      loadSite(siteDir, { writeDir: siteDir }),
+      new McpServer(loadSite(siteDir, { writeDir: siteDir })),
+      { port: 0 },
+    );
+  });
+  afterAll(async () => {
+    await p0Handle.close();
+  });
+
+  it("loopback 监听：Host 为外部域名（DNS rebinding 形态）→ 403", async () => {
+    const res = await rawRequest({ host: "evil.example.com", method: "GET", path: "/health" });
+    expect(res.status).toBe(403);
+    expect(res.text).toContain("Host not allowed");
+  });
+
+  it("loopback 监听：Host 为 127.0.0.1:<port> → 放行", async () => {
+    const res = await rawRequest({ host: `127.0.0.1:${p0Handle.port}`, method: "GET", path: "/health" });
+    expect(res.status).toBe(200);
+  });
+
+  it("loopback 监听：Host 为 localhost:<port> / [::1]:<port> → 放行", async () => {
+    expect((await rawRequest({ host: `localhost:${p0Handle.port}`, method: "GET", path: "/health" })).status).toBe(200);
+    expect((await rawRequest({ host: `[::1]:${p0Handle.port}`, method: "GET", path: "/health" })).status).toBe(200);
+  });
+
+  it("POST /mcp 请求体超 2MB → 413（响应完整送达）", async () => {
+    const big = "x".repeat(3 * 1024 * 1024); // 3MB，超上限
+    const res = await rawRequest({
+      method: "POST",
+      path: "/mcp",
+      headers: { "Content-Type": "application/json", "Content-Length": String(big.length) },
+      body: big,
+    });
+    expect(res.status).toBe(413);
+    const body = JSON.parse(res.text) as { error: { code: number } };
+    expect(body.error.code).toBe(-32000);
+  });
+
+  it("POST /mcp 正常体积请求不受影响（2MB 上限下 tools/list）", async () => {
+    const res = await rawRequest({
+      method: "POST",
+      path: "/mcp",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
     });
     expect(res.status).toBe(200);
   });

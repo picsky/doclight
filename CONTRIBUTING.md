@@ -28,7 +28,7 @@ docs/agent-handoffs/  Agent 交接文档
 ## 2. 验证命令（开工前先跑基线）
 
 ```bash
-pnpm install        # 装依赖（pnpm 10）
+pnpm install        # 装依赖（pnpm 10；Node ≥ 22.18——仓库内直接消费 TS 源码，依赖 Node 原生类型剥离）
 npm run verify      # 一条命令：build → lint → typecheck → test → size → contract → visual → e2e
 npm run verify:lint     # ESLint 零 error
 npm run verify:test     # Vitest 全绿

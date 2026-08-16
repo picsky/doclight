@@ -46,15 +46,6 @@ export function headingPlainText(raw: string): string {
     .replace(/[`*_~]/g, "") // 行内代码/强调标记
     .trim();
 }
-
-/** HTML 转义（转义 & < > " '，与 marked 默认 code escape 一致） */
-export function escapeHtml(s: string): string {
-  const map: Record<string, string> = {
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  };
-  return s.replace(/[&<>"']/g, (ch) => map[ch]!);
-}
+// escapeHtml 已收敛至 @doclight/core utils（P0-5）——renderer 内部各处直接从
+// core/src/utils.ts 导入；本文件不再 re-export（拼接构建器下 re-export 会与
+// 拼接进来的定义形成重复导出）。

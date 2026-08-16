@@ -18,10 +18,8 @@
  */
 import type { TokenizerAndRendererExtension, Tokens } from "marked";
 
-/** HTML 文本转义（同行标题为原始文本注入，防标签逃逸） */
-function escapeHtml(v: string): string {
-  return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
+/** HTML 文本转义（P0-5 收敛：权威实现在 @doclight/core utils，经 core/link.ts 复出导入） */
+import { escapeHtml } from "../../../core/src/utils.ts"; // P0-5 收敛：权威来源
 
 /** 白名单容器类型 */
 const KINDS = ["tip", "warning", "danger", "info"] as const;

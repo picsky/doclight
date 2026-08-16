@@ -18,6 +18,7 @@
  * 配置缺失 endpoint → 插件禁用（返回 null 由加载器跳过）。
  */
 import type { PluginDef } from "../../../core/src/plugin.ts";
+import { escapeHtml } from "../../../core/src/utils.ts"; // P0-5 收敛：转义权威来源
 
 export interface AiChatConfig {
   endpoint?: string;
@@ -91,7 +92,3 @@ export function createAiChatPlugin(config?: Record<string, unknown>): PluginDef 
   };
 }
 
-/** HTML 文本转义（配置文本注入模板） */
-function escapeHtml(v: string): string {
-  return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}

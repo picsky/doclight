@@ -25,6 +25,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { render } from "@doclight/renderer";
+import { escapeHtml } from "../../core/src/utils.ts"; // P0-5 收敛：转义权威来源
 
 /* ================= 解析 ================= */
 
@@ -335,12 +336,7 @@ ${SHELL_JS}
 `;
 }
 
-/** HTML 文本转义（标题/备注注入模板，防标签逃逸） */
-function escapeHtml(v: string): string {
-  return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
-/** 属性转义（data-notes 注入） */
+/** 属性转义（data-notes 注入；五字符版已含 '，无需追加替换） */
 function escapeAttr(v: string): string {
-  return escapeHtml(v).replace(/'/g, "&#39;");
+  return escapeHtml(v);
 }

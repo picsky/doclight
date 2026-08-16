@@ -18,6 +18,7 @@
  * 纯逻辑（tokenize/buildIndex/search/highlight）可 Node 测试；DOM 集中在 initSearch。
  */
 import { bus } from "./event-bus.ts";
+import { escapeHtml } from "../../core/src/utils.ts"; // P0-5 收敛：转义权威来源
 
 export interface SearchDoc {
   path: string;
@@ -180,9 +181,6 @@ export function search(index: SearchIndex, query: string, limit = 10): SearchRes
     });
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!);
-}
 
 function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

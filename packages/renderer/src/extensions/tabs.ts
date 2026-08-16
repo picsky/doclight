@@ -22,6 +22,8 @@
  * 无 JS 时：首个面板可见（.active 服务端直出），其余降级隐藏（可接受——纯 CSS 标记）。
  */
 import type { TokenizerAndRendererExtension, Tokens } from "marked";
+/** HTML 转义（P0-5 收敛：权威实现在 @doclight/core，经 core/link.ts 复出导入） */
+import { escapeHtml } from "../../../core/src/utils.ts"; // P0-5 收敛：权威来源
 
 // 语法：:::tabs → 若干「:::tab <名>\n…\n:::」小节 → 收尾 :::（块收尾行可选——
 // 若用户省略最后小节的独立收尾，则块收尾行兼任）
@@ -80,9 +82,7 @@ export const tabsExtension: TokenizerAndRendererExtension = {
   },
 };
 
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
+/** 属性转义（P0-5 收敛：五字符版已含 "，无需追加替换） */
 function escapeAttr(s: string): string {
-  return escapeHtml(s).replace(/"/g, "&quot;");
+  return escapeHtml(s);
 }

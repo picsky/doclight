@@ -4,13 +4,14 @@
 // OSS-001 遗留落地（2026-08 前端审查 P0-3）：CLI 自包含单文件 packages/cli/dist/cli.mjs（esbuild）
 import { copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { buildDisplay } from "./build-display.mjs";
 import { buildRenderer } from "./build-renderer.mjs";
 import { buildCli } from "./build-cli.mjs";
 
 export async function runBuild() {
-  const display = buildDisplay();
-  const renderer = buildRenderer();
+  const display = await buildDisplay();
+  const renderer = await buildRenderer();
   // 拷贝展示层 bundle 进 cli 包（site.ts displayBundlePath 优先于此定位）
   const cliDist = join(process.cwd(), "packages", "cli", "dist");
   mkdirSync(cliDist, { recursive: true });
@@ -22,7 +23,9 @@ export async function runBuild() {
 }
 
 // 直接运行：node scripts/build.mjs
-if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+// pathToFileURL：Windows 下 process.argv[1] 是反斜杠路径，裸拼 file:// 与
+// import.meta.url（file:///C:/...）形态不匹配（2026-08 review P0 修复）
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     const manifest = await runBuild();
     console.log(

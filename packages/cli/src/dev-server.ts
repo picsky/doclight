@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { randomBytes } from "node:crypto";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { buildNavTree, render, analyzeDoc, parseFrontmatter } from "@doclight/renderer";
-import { loadSite, McpServer, mcpHttpHandler } from "@doclight/mcp-server";
+import { loadSite, McpServer, mcpHttpHandler, hostHeaderAllowed, isLoopbackListenHost } from "@doclight/mcp-server";
 import { buildSite } from "./build.ts";
 import { buildCapabilityManifest } from "./capabilities.ts";
 import { buildSearchData, collectNavTitles, countWords, displayBundlePath, firstH1Text, mimeFor, nodeModulesBase, planSyntheticIndexPages, render404Page, renderNav, renderPage, syntheticIndexMarkdown, syntheticIndexTitle, VENDOR_FILES, walkMd } from "./site.ts";
@@ -290,18 +290,21 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
 
   // MCP 插件模式（MCP-005）：懒构建快照到临时目录，文件变更置脏后下次 MCP 请求重建。
   // 首次请求才 build（不拖慢 dev 启动）；与页面热重载解耦（MCP 面向 Agent 查询，容忍秒级滞后）。
+  // P0-4 性能修复：site + McpServer 实例缓存复用，仅 mcpDirty 时重建——
+  // 旧实现每个请求都重新 loadSite（重读临时目录全部 JSON），dirty 时任意请求触发全量 build。
   let mcpSiteDir: string | null = null;
   let mcpDirty = true;
-  function getMcpSite(): ReturnType<typeof loadSite> {
+  let mcpRuntime: { site: ReturnType<typeof loadSite>; mcpServer: McpServer } | null = null;
+  function getMcpRuntime(): { site: ReturnType<typeof loadSite>; mcpServer: McpServer } {
     if (!mcpSiteDir) mcpSiteDir = mkdtempSync(join(tmpdir(), "doclight-mcp-dev-"));
-    if (mcpDirty) {
+    if (mcpDirty || !mcpRuntime) {
       rmSync(mcpSiteDir, { recursive: true, force: true });
       buildSite({ dir: docsDir, outDir: mcpSiteDir, title: siteTitle });
+      const site = loadSite(mcpSiteDir, { writeDir: docsDir });
+      mcpRuntime = { site, mcpServer: new McpServer(site) };
       mcpDirty = false;
     }
-    // MCP-006：dev --mcp 写入端指向内容源 docs/——Agent 写入 → 本函数触发的 watcher
-    // onFsChange 置脏 → 下次 MCP 请求增量重建（写入触发增量重渲染联动，WORK-001）
-    return loadSite(mcpSiteDir, { writeDir: docsDir });
+    return mcpRuntime!;
   }
 
   /** 文件变更：增量失效缓存（Phase 4.4 性能修复）
@@ -353,7 +356,14 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
   });
 
   async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const urlPath = req.url ?? "/";
+    // P0-3：loopback 监听时校验 Host 头（DNS rebinding 防御：rebind 域名请求被 403）
+    if (isLoopbackListenHost(host) && !hostHeaderAllowed(req)) {
+      res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("Forbidden (Host not allowed)");
+      return;
+    }
+    // P0-6：入口处统一剥离查询串/片段（?v= 缓存穿透不破坏端点匹配与静态资源服务）
+    const urlPath = (req.url ?? "/").split("?")[0]!.split("#")[0]!;
 
     // SSE 热重载端点
     if (urlPath === "/__doclight/events") {
@@ -415,16 +425,17 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
       return;
     }
 
-    // MCP 插件模式（MCP-005）：/mcp + /.well-known/mcp + /health 交给 MCP handler（capabilitiesAtRoot=false 不抢站点首页）
-    if (options.mcp) {
-      const site = getMcpSite();
+    // MCP 插件模式（MCP-005）：仅 MCP 路径进入（P0-4：普通文档/静态请求
+    // 不触发快照构建与 loadSite）；capabilitiesAtRoot=false 不抢站点首页
+    if (options.mcp && (urlPath === "/mcp" || urlPath === "/.well-known/mcp" || urlPath === "/health")) {
+      const { site, mcpServer } = getMcpRuntime();
       // CORS 收紧：Origin 白名单限定本机 host:port（127.0.0.1/localhost 各一种，按实际监听端口）
       const addr = server.address();
       const listenPort = typeof addr === "object" && addr ? addr.port : (options.port ?? 0);
       const allowedOrigins = listenPort
         ? [`http://127.0.0.1:${listenPort}`, `http://localhost:${listenPort}`]
         : [];
-      if (await mcpHttpHandler(site, new McpServer(site), {
+      if (await mcpHttpHandler(site, mcpServer, {
         capabilitiesAtRoot: false,
         authToken: resolvedMcpToken ?? undefined,
         allowedOrigins,
@@ -576,6 +587,11 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
     console.log(`[doclight-mcp] 写入端已启用（Bearer token 鉴权${tokenLoc}）`);
     console.log(`  Authorization: Bearer ${resolvedMcpToken}`);
     console.log(`  curl -X POST ${baseUrl} -H "Authorization: Bearer ${resolvedMcpToken}" ...`);
+  }
+
+  // P0-3：非 loopback 监听提示（此时跳过 Host 头校验，服务对局域网/公网可见）
+  if (!isLoopbackListenHost(host)) {
+    console.warn(`[doclight] 监听 ${host}（非 loopback）：已跳过 Host 头校验，服务对网络可见，请确认环境可信`);
   }
 
   return {

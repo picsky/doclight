@@ -33,3 +33,6 @@ export type {
   PluginConfig,
 } from "./plugin.ts";
 export { SLOT_NAMES } from "./plugin.ts";
+
+// 共享纯工具（2026-08 review P0-5：escapeHtml 单一权威来源，各包统一从此导入）
+export { escapeHtml } from "./utils.ts";
