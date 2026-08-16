@@ -52,11 +52,6 @@ function indexRank(path: string): number {
   return 0;
 }
 
-/** 是否为目录置顶页（README.md / index.md） */
-function isIndexFile(path: string): boolean {
-  return indexRank(path) > 0;
-}
-
 /** 前导数字；无则 null（数字前缀优先规则用） */
 function leadingNumber(name: string): number | null {
   const m = /^(\d+)/.exec(name);
@@ -79,7 +74,7 @@ function compareTitles(a: string, b: string): number {
 interface NodeAcc {
   name: string; // 段名（文件名或目录名），用于排序
   file?: { path: string; title: string };
-  group?: { path: string; children: Map<string, NodeAcc>; index?: string };
+  group?: { path: string; children: Map<string, NodeAcc> };
 }
 
 /** 文件在前、目录在后；同类内按 compareTitles */
@@ -117,7 +112,6 @@ export function buildNavTree(files: string[], titles?: Record<string, string>): 
           existing = { name: seg, group: { path: dirPath, children: new Map() } };
           level.set(seg, existing);
         }
-        if (isIndexFile(file) && !existing.group!.index) existing.group!.index = file; // 目录下置顶页（首个）
         prefix = dirPath;
         level = existing.group!.children;
       }
@@ -127,12 +121,17 @@ export function buildNavTree(files: string[], titles?: Record<string, string>): 
   const toNode = (acc: NodeAcc): NavNode => {
     if (acc.file) return { type: "file", path: acc.file.path, title: acc.file.title };
     const group = acc.group!;
+    const items = sortAccs([...group.children.values()]);
+    // index 指针：排序后（README/index 置顶）首个置顶文件。2026-08 由遍历时逐级
+    // 设置改为 toNode 计算——嵌套目录的 README 不再污染父组 index（此前实测 bug：
+    // 语法/测试/README.md 误设 语法.index，侧边栏出现重复/错位条目）
+    const index = items.find((c) => c.file && indexRank(c.file.path) > 0)?.file?.path;
     return {
       type: "group",
       title: acc.name,
       path: group.path,
-      index: group.index,
-      items: sortAccs([...group.children.values()]).map(toNode),
+      index,
+      items: items.map(toNode),
     };
   };
 

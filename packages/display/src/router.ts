@@ -23,6 +23,35 @@ export function isInternalLink(href: string | null | undefined, base: string): b
   }
 }
 
+/** 纯函数：路径归一（剥前导斜杠 / 剥 .md、.html 后缀 / 剥尾斜杠；空 → "/"） */
+export function normNavPath(p: string): string {
+  return p.replace(/^\/+/, "").replace(/\.(md|html)$/, "").replace(/\/$/, "") || "/";
+}
+
+/**
+ * 纯函数：URL → 归一化导航目标路径（可 Node 测试）。
+ * 2026-08 中文路径激活态修复：URL.pathname / location.hash 是**百分号编码**形态
+ * （/%E8%AF%AD%E6%B3%95/...），而导航项 data-path 是**解码**形态（语法/...）——必须先
+ * decodeURIComponent 再归一，否则中文目录激活态永不命中（语法/ 中文改名后潜伏的 bug）。
+ * 流程：解析（bundle hash 路由取 hash 段）→ 解码 → 剥 DOCLIGHT_BASE 前缀 → 归一。
+ */
+export function navTargetPath(url: string, resolveBase: string, appBase: string): string {
+  let p: string;
+  try {
+    const parsed = new URL(url, resolveBase);
+    p = parsed.hash.startsWith("#/") ? parsed.hash.slice(1) : parsed.pathname;
+  } catch {
+    return "/";
+  }
+  try {
+    p = decodeURIComponent(p);
+  } catch {
+    /* 个别异常编码（裸 % 等）保留原样 */
+  }
+  if (appBase && p.startsWith(appBase)) p = p.slice(appBase.length);
+  return normNavPath(p);
+}
+
 /** 路由上下文（钩子参数） */
 export interface RouteContext {
   /** 来源路径（首次加载为 null） */
@@ -71,24 +100,15 @@ function extractPageParts(html: string): { article: string | null; title: string
  */
 export function highlightActive(url: string, navSelector = "aside.sidebar", topnavSelector = ".topnav"): void {
   const base = ((window as unknown as Record<string, unknown>)["DOCLIGHT_BASE"] as string | undefined) ?? "";
-  const path = (() => {
-    try {
-      const parsed = new URL(url, location.href);
-      const p = parsed.hash.startsWith("#/") ? parsed.hash.slice(1) : parsed.pathname;
-      return base && p.startsWith(base) ? p.slice(base.length) : p;
-    } catch {
-      return "/";
-    }
-  })();
-  // .md / .html 后缀都归一（dev 用 .md URL、SSG 用 .html URL、bundle 用 .html hash，05 §5.3）
-  const norm = (p: string) => p.replace(/^\/+/, "").replace(/\.(md|html)$/, "").replace(/\/$/, "") || "/";
-  const target = norm(path);
+  // 2026-08 修复：navTargetPath 负责百分号解码（中文路径）+ base 剥离 + .md/.html 归一
+  // （dev 用 .md URL、SSG 用 .html URL、bundle 用 .html hash，05 §5.3）
+  const target = navTargetPath(url, location.href, base);
   // 根级置顶页（README/index.md）等价首页（site.ts navHref isRootIndex 同一规则）
   const isRootIndex = (p: string) => /^(README|index)\.(md|html)$/i.test(p.replace(/^\/+/, ""));
   let activeGroup: string | null = null;
   document.querySelectorAll<HTMLAnchorElement>(`${navSelector} a[data-path]`).forEach((a) => {
     const dp = a.getAttribute("data-path") ?? "";
-    const active = target === "/" ? isRootIndex(dp) : norm(dp) === target;
+    const active = target === "/" ? isRootIndex(dp) : normNavPath(dp) === target;
     a.classList.toggle("active", active);
     if (active) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 官方插件测试（PLUG-007，07 §7.6）
  *
  * 逐插件验证：插槽内容形态 / 配置校验 / onBuild 产物（rss / pwa）/ 降级行为。
@@ -201,6 +201,27 @@ describe("@doclight/plugin-mermaid（PLUG-012 从内置迁移为官方插件）"
     expect(slot).toContain("doclight-mermaid-error");
     expect(slot).toContain("securityLevel");
     expect(slot).toContain("onMount");
+  });
+
+  it("运行时脚本（2026-08 修复）：错误不残留 body——suppressErrorRendering 自清 + catch 兜底清理", () => {
+    const plugin = createMermaidPlugin()!;
+    const slot = plugin.slotContent!["content:after"] as string;
+    // suppressErrorRendering：失败时 mermaid 自清临时元素、不画错误大图
+    expect(slot).toContain("suppressErrorRendering: true");
+    // 不传隐藏容器（display:none 容器无尺寸 → mermaid rect width negative 渲染失败）
+    expect(slot).not.toContain("tmp.style.display = 'none'");
+    // catch 兜底清理 body 末尾 #d{id}（版本差异防残留）
+    expect(slot).toContain("var residual = document.getElementById('d' + id);");
+    expect(slot).toContain("if (residual && residual.parentNode) residual.parentNode.removeChild(residual);");
+  });
+
+  it("运行时脚本（2026-08 修复）：主题跟随——监听 doclight:themechange 重渲已渲染图表", () => {
+    const plugin = createMermaidPlugin()!;
+    const slot = plugin.slotContent!["content:after"] as string;
+    expect(slot).toContain("document.addEventListener('doclight:themechange', rerenderForTheme);");
+    expect(slot).toContain("registry.push({ node: node, src: src });");
+    // 主题重渲失败也能恢复源码 fallback（内容承载铁律）
+    expect(slot).toContain("pre.className = 'doclight-mermaid-src';");
   });
 
   it("加载器全链路：doclight.json plugins: [\"mermaid\"] → PluginDef（skipped 空）", () => {

@@ -35,7 +35,7 @@ describe("doclight bundle（CLI-002 单文件便携包，05 §5.3.4）", () => {
   it("输出单个自包含 doclight.html：内嵌数据块 + hash 导航 + 内联展示层", async () => {
     const out = tmpOut();
     const display = tmpDisplay();
-    const result = await bundleSite({ dir: docsDir, outDir: out, title: "测试站", displayBundle: display });
+    const result = await bundleSite({ dir: docsDir, outDir: out, title: "测试站", displayBundle: display, pluginConfigs: [] });
     expect(result.pages).toBe(4);
     expect(result.file.endsWith("doclight.html")).toBe(true);
     expect(existsSync(result.file)).toBe(true);
@@ -62,7 +62,7 @@ describe("doclight bundle（CLI-002 单文件便携包，05 §5.3.4）", () => {
   it("bundle 数据块可解析：pages/titles/searchIndex/nav 完整", async () => {
     const out = tmpOut();
     const display = tmpDisplay();
-    await bundleSite({ dir: docsDir, outDir: out, title: "测试站", displayBundle: display });
+    await bundleSite({ dir: docsDir, outDir: out, title: "测试站", displayBundle: display, pluginConfigs: [] });
     const html = readFileSync(join(out, "doclight.html"), "utf8");
     const m = /window\.__DOCLLIGHT_BUNDLE__ = (\{[\s\S]*?\});\n?<\/script>/.exec(html);
     expect(m).not.toBeNull();
@@ -82,7 +82,7 @@ describe("doclight bundle（CLI-002 单文件便携包，05 §5.3.4）", () => {
   it("--qr <url>：生成下载二维码（bundle-qr.png，C2，13 §3.2 分发四触点④）", async () => {
     const out = tmpOut();
     const display = tmpDisplay();
-    const result = await bundleSite({ dir: docsDir, outDir: out, title: "测试站", displayBundle: display, qrUrl: "https://doclight.tech" });
+    const result = await bundleSite({ dir: docsDir, outDir: out, title: "测试站", displayBundle: display, pluginConfigs: [], qrUrl: "https://doclight.tech" });
     expect(result.qrFile).toBe(join(out, "bundle-qr.png"));
     expect(existsSync(result.qrFile!)).toBe(true);
     // PNG 魔数
@@ -95,7 +95,7 @@ describe("doclight bundle（CLI-002 单文件便携包，05 §5.3.4）", () => {
     // 默认：不内联 vendor（保持体积小）
     const outPlain = tmpOut();
     const displayPlain = tmpDisplay();
-    await bundleSite({ dir: docsDir, outDir: outPlain, title: "测试站", displayBundle: displayPlain });
+    await bundleSite({ dir: docsDir, outDir: outPlain, title: "测试站", displayBundle: displayPlain, pluginConfigs: [] });
     const plain = readFileSync(join(outPlain, "doclight.html"), "utf8");
     expect(plain).not.toContain("data-doclight-vendor");
     rmSync(outPlain, { recursive: true, force: true });
@@ -104,7 +104,7 @@ describe("doclight bundle（CLI-002 单文件便携包，05 §5.3.4）", () => {
     // 启用 @doclight/plugin-mermaid 时才内联（默认不在内置清单）
     const out = tmpOut();
     const display = tmpDisplay();
-    const result = await bundleSite({ dir: docsDir, outDir: out, title: "测试站", displayBundle: display, inlineVendor: true });
+    const result = await bundleSite({ dir: docsDir, outDir: out, title: "测试站", displayBundle: display, pluginConfigs: [], inlineVendor: true });
     const html = readFileSync(result.file, "utf8");
     expect(html).toContain('data-doclight-vendor="prism.min.js"');
     expect(html).not.toContain('data-doclight-vendor="mermaid.min.js"');

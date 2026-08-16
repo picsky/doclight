@@ -42,9 +42,12 @@ import {
   isRootIndex,
   normalizeBase,
   ogCardSvg,
+  planSyntheticIndexPages,
   render404Page,
   renderNav,
   renderPage,
+  syntheticIndexMarkdown,
+  syntheticIndexTitle,
   walkMd,
   type SeoOptions,
 } from "./site.ts";
@@ -251,11 +254,21 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
 
   const mdFiles = walkMd(docsDir);
   // 导航用 frontmatter 标题（2026-08 前端审查 P1-2：此前显示文件名主干）
-  const navTree = buildNavTree(mdFiles, collectNavTitles(docsDir, mdFiles));
+  const titles = collectNavTitles(docsDir, mdFiles);
+  let navTree = buildNavTree(mdFiles, titles);
+  // 嵌套目录合成总览页（2026-08 嵌套分区设计 v2）：无 README/index 的嵌套目录 →
+  // 合成虚拟 index.md（标题=目录名，正文=子文档卡片列表）；有绑定走真实文件
+  const synthetic = planSyntheticIndexPages(navTree);
+  const mdFilesAll = synthetic.length ? [...mdFiles, ...synthetic] : mdFiles;
+  if (synthetic.length) {
+    const titlesAll = { ...titles };
+    for (const syn of synthetic) titlesAll[syn] = syntheticIndexTitle(syn);
+    navTree = buildNavTree(mdFilesAll, titlesAll);
+  }
   const navHtml = renderNav(navTree, ".html", base);
 
   // 搜索索引预构建（SRCH-001：SSG 形态运行时直接加载；version=内容哈希，展示层持久化校验用）
-  // nav 传入：搜索结果「节」标签（设计对齐演示页 ri-sec）
+  // nav 传入：搜索结果「节」标签（设计对齐演示页 ri-sec）；合成总览页不进搜索索引（无源文件）
   const searchData = buildSearchData(docsDir, mdFiles, { pathSuffix: ".html", nav: navTree });
   const searchVersion = searchData.version;
 
@@ -266,7 +279,10 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
 
   /** 渲染单篇文档并写入产物（PLUG-009：beforeRender → render → afterRender → slotContent） */
   function writeDoc(rel: string, outRel: string): void {
-    const source = readFileSync(join(docsDir, rel), "utf8");
+    // 合成总览页：磁盘无源文件，按形态生成卡片列表 Markdown（内联 HTML 链接已转最终 URL）
+    const source = syntheticSet.has(rel)
+      ? syntheticIndexMarkdown(navTree, rel, searchData.summaries, ".html")
+      : readFileSync(join(docsDir, rel), "utf8");
     const title = docTitle({}, rel); // 先取默认标题
     // PLUG-009：构建时钩子管线（ctx 带 base/siteUrl——PLUG-007 pwa 等插件 slot 函数需拼资产绝对路径）
     const ctx: RenderContext = { path: rel, title, frontmatter: {}, headings: [], isFirstRender: false, base, siteUrl: siteUrl || undefined };
@@ -371,8 +387,11 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
   const rootIndexFiles = mdFiles.filter((rel) => isRootIndex(rel));
   const rootHome = rootIndexFiles.find((rel) => /^README\.md$/i.test(rel)) ?? rootIndexFiles[0];
 
+  // 合成总览页集合（磁盘不存在的虚拟 index，渲染时用合成源）
+  const syntheticSet = new Set(synthetic);
+
   let pages = 0;
-  for (const rel of mdFiles) {
+  for (const rel of mdFilesAll) {
     // 冗余根级 index.md（非首页源且与首页同名 index.html）跳过，避免覆盖首页
     if (rel !== rootHome && isRootIndex(rel) && rel.replace(/\.md$/, "") === "index") continue;
     writeDoc(rel, rel === rootHome ? "index.html" : rel.replace(/\.md$/, ".html"));

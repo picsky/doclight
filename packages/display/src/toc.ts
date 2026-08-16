@@ -153,6 +153,10 @@ export function initToc(options: { articleSelector?: string } = {}): TocApi {
         if (link) {
           indicator.style.opacity = "1";
           indicator.style.transform = `translateY(${link.offsetTop + 2}px)`;
+          // 双滚动条修复（2026-08）：TOC 内层滚动条已隐藏（CSS scrollbar-width: none），
+          // 激活章节必须自行滚入可视区——block:"nearest" 只滚必需容器；
+          // TOC 钉住于视口内，页面不会因此联动滚动。
+          link.scrollIntoView({ block: "nearest" });
         }
       } else if (indicator) {
         indicator.style.opacity = "0";
@@ -215,6 +219,8 @@ export function initToc(options: { articleSelector?: string } = {}): TocApi {
         indicator.style.opacity = "1";
         indicator.style.transform = `translateY(${first.offsetTop + 2}px)`;
       }
+      // 双滚动条修复：路由切换后 TOC 容器保留上一页滚动位置，首项 scrollIntoView 归位到顶
+      first.scrollIntoView({ block: "nearest" });
     }
   }
 

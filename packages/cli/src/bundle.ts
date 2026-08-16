@@ -18,7 +18,7 @@ import { loadConfig } from "./config.ts";
 import { buildCapabilityManifest } from "./capabilities.ts";
 import { resolveThemePackage } from "./themes.ts";
 import { BuildPluginPipeline } from "./plugins.ts";
-import { articleBodyHtml, buildSearchData, collectNavTitles, countWords, displayBundlePath, firstH1Text, nodeModulesBase, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
+import { articleBodyHtml, buildSearchData, collectNavTitles, countWords, displayBundlePath, firstH1Text, nodeModulesBase, planSyntheticIndexPages, renderNav, renderPage, syntheticIndexMarkdown, syntheticIndexTitle, VENDOR_FILES, walkMd } from "./site.ts";
 import type { PluginDef, RenderContext } from "../../core/src/plugin.ts";
 
 export interface BundleOptions {
@@ -108,7 +108,18 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
 
   const mdFiles = walkMd(docsDir);
   // 导航用 frontmatter 标题（2026-08 前端审查 P1-2：此前显示文件名主干）
-  const navTree = buildNavTree(mdFiles, collectNavTitles(docsDir, mdFiles));
+  const navTitles = collectNavTitles(docsDir, mdFiles);
+  let navTree = buildNavTree(mdFiles, navTitles);
+  // 嵌套目录合成总览页（2026-08 嵌套分区设计 v2）：无 README/index 的嵌套目录 →
+  // 合成虚拟 index.md（标题=目录名，正文=子文档卡片列表）；有绑定走真实文件
+  const synthetic = planSyntheticIndexPages(navTree);
+  const mdFilesAll = synthetic.length ? [...mdFiles, ...synthetic] : mdFiles;
+  const syntheticSet = new Set(synthetic);
+  if (synthetic.length) {
+    const titlesAll = { ...navTitles };
+    for (const syn of synthetic) titlesAll[syn] = syntheticIndexTitle(syn);
+    navTree = buildNavTree(mdFilesAll, titlesAll);
+  }
   // hash 路由：导航链接 #/xxx（file:// 无法 pushState）
   const navHtml = renderNav(navTree, ".html", "", true);
 
@@ -132,9 +143,12 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
   const rootHome = rootIndexFiles.find((rel) => /^README\.md$/i.test(rel)) ?? rootIndexFiles[0];
 
   let count = 0;
-  for (const rel of mdFiles) {
+  for (const rel of mdFilesAll) {
     const outRel = rel === rootHome ? "index.html" : rel.replace(/\.md$/, ".html");
-    const source = readFileSync(join(docsDir, rel), "utf8");
+    // 合成总览页：磁盘无源文件，按形态（bundle = hash 路由）生成卡片列表 Markdown
+    const source = syntheticSet.has(rel)
+      ? syntheticIndexMarkdown(navTree, rel, searchData.summaries, ".html", true)
+      : readFileSync(join(docsDir, rel), "utf8");
     const fallbackTitle = rel.replace(/\.md$/, "").split("/").pop()!;
     const ctx: RenderContext = { path: rel, title: fallbackTitle, frontmatter: {}, headings: [], isFirstRender: false };
     const transformedMd = pipeline.runBeforeRender(source, ctx);

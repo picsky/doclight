@@ -21,7 +21,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { render, parseFrontmatter, type NavGroup, type NavNode } from "@doclight/renderer";
+import { render, parseFrontmatter, type NavFile, type NavGroup, type NavNode } from "@doclight/renderer";
 
 // vendor 依赖定位：从 cli 包自身解析（pnpm workspace 把依赖 symlink 进包级 node_modules，
 // process.cwd() 的根 node_modules 找不到——见 .spike/check-vendor.mjs 实测）
@@ -262,8 +262,11 @@ export function topGroups(nodes: NavNode[]): Array<{ title: string; firstPath?: 
 }
 
 /**
- * 渲染导航树为侧边栏结构（设计对齐：side-group / side-title / side-item / side-sub；
- * 顶层一律 <li> 包裹保证 ul 合法语义）。
+ * 渲染导航树为侧边栏结构（设计对齐演示页 design-new：side-group / side-title /
+ * side-item / side-sub）。层级模型 = 分组内顶层文件**平铺**为直接 side-item，
+ * 嵌套分组 = **入口条目平铺于当前层级** + side-sub **竖线容器**包裹子文档（递归）——
+ * 对齐演示页「组标题下平铺条目、子级才缩进 + 竖线」的层级观感（2026-08 v3 用户反馈：
+ * 入口须与 Tabs 与 Steps 同级、子级带竖线；v2 曾把入口包进 side-sub 导致与子文档同缩进）。
  * 服务端直出，SEO 友好（03 §3.1.3）；当前页激活态由展示层按 data-path 归一（三形态一致）。
  * @param hash bundle 形态（05 §5.3.4）：href 前缀 "#"（file:// 不能 pushState，用 hash 路由）
  */
@@ -271,15 +274,120 @@ export function renderNav(nodes: NavNode[], linkSuffix = "", base = "", hash = f
   const hrefFor = (p: string) => (hash ? `#${navHref(p, linkSuffix, base)}` : navHref(p, linkSuffix, base));
   const fileItem = (n: { path: string; title: string }): string =>
     `<a class="side-item" href="${hrefFor(n.path)}" data-path="${escapeHtml(n.path)}">${escapeHtml(n.title)}</a>`;
+  /** 组/子分区 index（README/index.md）入口：文本统一用组标题（目录名）——
+   *  2026-08 嵌套分区设计 v2（用户决策）：嵌套目录折叠为可点击入口条目，
+   *  点击进入总览页（无 README 时由 cli 层合成虚拟 index 页） */
+  const indexEntry = (g: { index?: string; title: string }): string =>
+    g.index ? fileItem({ path: g.index, title: g.title }) : "";
+  /** 分组内容：file 平铺为直接 side-item；嵌套 group → **入口条目平铺于当前层级**
+   *  （与兄弟文件同级，文本=目录名）+ side-sub **竖线容器**包裹子文档（递归，对齐演示页
+   *  design-new L879-882「重试与退避 + 竖线子级」模型；2026-08 v3 用户反馈：入口须与
+   *  平铺条目同级，子级带竖线）。index 文件已由 indexEntry 渲染，遍历时跳过防重复。 */
+  const groupBody = (items: NavNode[], index?: string): string =>
+    items
+      .filter((n) => !(n.type === "file" && index !== undefined && n.path === index))
+      .map((n) =>
+        n.type === "file"
+          ? fileItem(n)
+          : `${indexEntry(n)}<div class="side-sub">${groupBody(n.items, n.index)}</div>`
+      )
+      .join("");
   const item = (n: NavNode): string => {
     if (n.type === "file") return fileItem(n);
-    // 分组：side-title（含 index 时首页条目内联为组内首个 side-item）
-    const indexItem = n.index ? fileItem({ path: n.index, title: n.title }) : "";
-    const children = n.items.map(item).join("");
-    const sub = children ? `<div class="side-sub">${children}</div>` : "";
-    return `<div class="side-group">${indexItem}<div class="side-title">${escapeHtml(n.title)}</div>${sub}</div>`;
+    // 顶层组：标题置顶（演示页模型）+ index 入口 + 平铺条目 + 嵌套子分区
+    return `<div class="side-group"><div class="side-title">${escapeHtml(n.title)}</div>${indexEntry(n)}${groupBody(n.items, n.index)}</div>`;
   };
   return `<ul>${nodes.map((n) => `<li>${item(n)}</li>`).join("")}</ul>`;
+}
+
+/* ===== 嵌套目录合成总览页（2026-08 嵌套分区设计 v2，用户决策） =====
+ * 嵌套目录（组中组）折叠为可点击入口条目：无 README/index 绑定时，由本模块
+ * 合成虚拟 `目录/index.md`（标题=目录名），渲染为子文档卡片列表总览页；
+ * 有绑定时走真实文件（现有 index 机制）。三形态（dev/SSG/bundle）统一接线。
+ */
+
+/**
+ * 找出需合成总览页的嵌套目录（目录深度 >1 即嵌套、无 index 且有直接文档）。
+ * 输入：基于**原始 mdFiles** 构建的导航树（此时嵌套组尚无 index）。
+ * 输出：虚拟 index 页路径列表（磁盘不存在，如 "语法/测试/index.md"）。
+ * 顶层组（如 "语法/"）不合成——入口仅用于嵌套分区（2026-08 用户决策 v2）。
+ */
+export function planSyntheticIndexPages(nav: NavNode[]): string[] {
+  const out: string[] = [];
+  const walk = (nodes: NavNode[]): void => {
+    for (const n of nodes) {
+      if (n.type !== "group") continue;
+      const depth = n.path.split("/").filter(Boolean).length;
+      if (depth > 1 && !n.index && n.items.some((i) => i.type === "file")) {
+        out.push(`${n.path}index.md`);
+      }
+      walk(n.items);
+    }
+  };
+  walk(nav);
+  return out;
+}
+
+/** 虚拟 index 页的标题 = 其父目录名（用户决策：入口统一用目录名） */
+export function syntheticIndexTitle(indexPath: string): string {
+  const seg = indexPath.split("/");
+  return seg.length >= 2 ? seg[seg.length - 2]! : "目录";
+}
+
+/** 递归查找导航树中 index === indexPath 的组 */
+function findGroupByIndex(nodes: NavNode[], indexPath: string): NavGroup | undefined {
+  for (const n of nodes) {
+    if (n.type === "group") {
+      if (n.index === indexPath) return n;
+      const found = findGroupByIndex(n.items, indexPath);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * 生成嵌套目录总览页的合成 Markdown（标题=目录名；正文=子文档卡片列表）。
+ * 链接按形态直出最终 URL（dev ".md" / SSG ".html" / bundle "#/…html"），
+ * 内联 HTML 不经 marked 链接处理，故此处显式转换。
+ * @param summaries 文档摘要（path → summary，来自 search-data，不含合成页）
+ */
+export function syntheticIndexMarkdown(
+  nav: NavNode[],
+  indexPath: string,
+  summaries: Record<string, string>,
+  linkSuffix = "",
+  hash = false,
+  base = ""
+): string {
+  const group = findGroupByIndex(nav, indexPath);
+  const dirTitle = group?.title ?? syntheticIndexTitle(indexPath);
+  const hrefFor = (rel: string): string => {
+    const suffix = rel.endsWith(".md") ? linkSuffix : "";
+    const path = rel.slice(0, rel.length - (suffix ? 3 : 0)) + suffix;
+    return hash ? `#${base}${path}` : `./${path.split("/").pop()!}`;
+  };
+  const entries = (group?.items ?? []).filter((i): i is NavFile => i.type === "file" && i.path !== indexPath);
+  const subDirs = (group?.items ?? []).filter((i): i is NavGroup => i.type === "group");
+  const cards = [
+    ...subDirs.map((g) => {
+      const target = hash ? `#${base}${g.path}index${linkSuffix}` : `./${g.path.split("/").slice(-2)[0]}/index${linkSuffix}`;
+      return `<a class="dir-card" href="${target}"><span class="dir-title">${escapeHtml(g.title)}</span><span class="dir-desc">子目录 · ${escapeHtml(g.title)}</span></a>`;
+    }),
+    ...entries.map((f) => {
+      const desc = summaries[f.path] ? `<span class="dir-desc">${escapeHtml(summaries[f.path]!)}</span>` : "";
+      return `<a class="dir-card" href="${hrefFor(f.path)}"><span class="dir-title">${escapeHtml(f.title)}</span>${desc}</a>`;
+    }),
+  ].join("");
+  return [
+    "---",
+    `title: ${dirTitle}`,
+    `summary: 子目录「${dirTitle}」的文档总览（DocLight 自动生成）`,
+    "---",
+    "",
+    `<div class="dir-grid">${cards}</div>`,
+    "",
+  ].join("\n");
 }
 
 /**
@@ -746,7 +854,7 @@ export const DEFAULT_THEME_CSS = `  :root {
     background: var(--bg);
     color: var(--text);
     font-size: var(--font-size-base);
-    line-height: 1.75;
+    line-height: 1.68;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     transition: background .35s ease, color .35s ease;
@@ -852,43 +960,42 @@ export const DEFAULT_THEME_CSS = `  :root {
     position: sticky; top: var(--topbar-height); height: calc(100vh - var(--topbar-height));
     overflow-y: auto; padding: 28px 20px 48px 24px;
     border-right: 1px solid var(--line);
+    /* 双滚动条修复（2026-08）：侧栏保持钉住与滚动能力，但隐藏内层滚动条——
+       页面主滚动条是唯一可见滚动条；overscroll-behavior 切断滚动链（滚到侧栏尽头不带动页面） */
+    scrollbar-width: none; overscroll-behavior: contain;
   }
+  .sidebar::-webkit-scrollbar { display: none; }
   .sidebar ul { list-style: none; margin: 0; padding: 0; }
   .sidebar nav > ul > li { margin: 0; }
-  .side-group { margin-bottom: 24px; }
-  /* DP-005 分组折叠：side-title 可点击 + chevron 指示；折叠隐藏子项（index 首页条目除外） */
+  .side-group { margin-bottom: 26px; }
+  /* 分组标题 = 纯文字标签（2026-08 用户决策：对齐演示页，不可点击、无折叠交互）；
+     结构保留——router topnav 联动读取其文本（当前页所属分组 → 顶栏高亮） */
   .side-title {
-    font-size: 11px; font-weight: 600; letter-spacing: .08em;
+    font-size: 11px; font-weight: 700; letter-spacing: .08em;
     text-transform: uppercase; color: var(--text-3);
     padding: 0 10px; margin-bottom: 6px;
-    display: flex; align-items: center; gap: 6px;
-    cursor: pointer; user-select: none;
-    transition: color .15s;
   }
-  .side-title:hover { color: var(--text-2); }
-  .side-title::before {
-    content: ""; flex: none; width: 6px; height: 6px;
-    border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
-    transform: rotate(45deg) translateY(-1px);
-    transition: transform .18s var(--ease);
-  }
-  .side-group.collapsed .side-title::before { transform: rotate(-45deg); }
-  .side-group.collapsed .side-sub { display: none; }
-  .side-group.collapsed .side-title { margin-bottom: 4px; }
   .side-item {
     display: flex; align-items: center; gap: 8px;
     font-size: 13.5px; color: var(--text-2);
-    padding: 8px 10px; border-radius: 7px;
+    padding: 5.5px 10px; border-radius: var(--radius-sm);
     position: relative; transition: color .15s, background .15s;
   }
   .side-item:hover { color: var(--text); background: var(--surface); text-decoration: none; }
-  .side-item.active { color: var(--accent-ink); background: var(--accent-soft); font-weight: 500; }
+  .side-item.active { color: var(--accent-ink); font-weight: 500; } /* 演示页：无背景，仅绿字 + 左侧竖条 */
   .side-item.active::before {
     content: ""; position: absolute; left: -21px; top: 8px; bottom: 8px;
     width: 2px; border-radius: 2px; background: var(--accent);
   }
+  /* 子分区（嵌套组，2026-08 嵌套分区设计 v3）：嵌套目录 = 入口条目平铺于当前层级（与
+     兄弟文件同级）+ 本容器竖线包裹子文档（对齐演示页 side-sub：border-left 1px + 13px
+     缩进 + 12px 内衬；深层嵌套每级一条竖线，递归同构） */
   .side-sub { margin: 2px 0 2px 13px; padding-left: 12px; border-left: 1px solid var(--line); }
-  .side-sub .side-item { font-size: 13px; padding: 8px 10px; }
+  .side-sub .side-item { font-size: 13px; padding: 4.5px 10px; }
+  /* 根级文件（首页等）后跟分组：补 26px 组间距（演示页组间 margin-bottom 同值）。
+     仅当紧邻下一项为分组时生效（:has）——2026-08 修复：纯平铺列表（无分组站点，
+     如全局包构建的课程目录）此前每项都被加 26px 下边距，侧栏间距翻倍显得「超级大」 */
+  .sidebar > nav > ul > li > a.side-item:has(+ li > .side-group) { margin-bottom: 26px; }
 
   /* ---------- 正文 ---------- */
   .content {
@@ -1082,6 +1189,17 @@ export const DEFAULT_THEME_CSS = `  :root {
   .steps .step-title { font-weight: 600; font-size: 14.5px; margin-bottom: 4px; display: block; }
   .steps p { font-size: 14px; color: var(--text-2); margin: 0; }
 
+  /* ---------- 嵌套目录总览页卡片（2026-08 嵌套分区设计 v2：合成总览页 = 文档卡片列表） ---------- */
+  .dir-grid { display: grid; gap: 10px; margin: 16px 0 8px; }
+  .dir-card {
+    display: block; padding: 14px 16px;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    transition: border-color .18s, background .18s;
+  }
+  .dir-card:hover { border-color: var(--accent); background: var(--bg-subtle); text-decoration: none; }
+  .dir-title { display: block; font-size: 14px; font-weight: 600; color: var(--text); }
+  .dir-desc { display: block; margin-top: 4px; font-size: 12.5px; color: var(--text-2); line-height: 1.6; }
+
   /* ---------- 表格：发丝线（宪法 §4.3：只有横线，没有竖线） ---------- */
   .table-wrap { margin: 20px 0 26px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; overflow-x: auto; }
   /* DP-004：长表纵深（展示层给 >480px 的表加 .tall——纵向滚动 + sticky 表头；
@@ -1137,7 +1255,11 @@ export const DEFAULT_THEME_CSS = `  :root {
     position: sticky; top: var(--topbar-height); height: calc(100vh - var(--topbar-height));
     overflow-y: auto; padding: 40px 24px 48px 8px;
     border-left: 1px solid var(--line);
+    /* 双滚动条修复（2026-08）：目录保持钉住与滚动能力，但隐藏内层滚动条——
+       页面主滚动条是唯一可见滚动条；激活章节由展示层 scrollIntoView 保持可见 */
+    scrollbar-width: none; overscroll-behavior: contain;
   }
+  .toc::-webkit-scrollbar { display: none; }
   .toc-title {
     font-size: 11px; font-weight: 600; letter-spacing: .08em;
     text-transform: uppercase; color: var(--text-3); margin-bottom: 10px; padding-left: 12px;

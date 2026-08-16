@@ -49,6 +49,16 @@ describe("导航树（NAV-001）", () => {
     expect(files(guide.items)).toEqual(["guide/README.md", "guide/advanced.md", "guide/basic.md"]);
   });
 
+  it("嵌套目录的 README 只归其直接父目录（不污染父组 index）", () => {
+    const tree = buildNavTree(["语法/basic.md", "语法/测试/README.md", "语法/测试/00-a.md"]);
+    const syntax = tree.find((n) => n.type === "group" && n.title === "语法") as NavGroup;
+    // 父组 index 未被嵌套 README 污染（语法/ 目录下无置顶页）
+    expect(syntax.index).toBeUndefined();
+    const test = syntax.items.find((n) => n.type === "group" && n.title === "测试") as NavGroup;
+    expect(test.index).toBe("语法/测试/README.md"); // 嵌套组 index 正确
+    expect(files(test.items)).toEqual(["语法/测试/README.md", "语法/测试/00-a.md"]);
+  });
+
   it("嵌套目录", () => {
     const tree = buildNavTree(["a/top.md", "a/b/deep.md", "README.md"]);
     expect(flatten(tree)).toEqual(["README.md", "a/#", "a/top.md", "a/b/#", "a/b/deep.md"]);

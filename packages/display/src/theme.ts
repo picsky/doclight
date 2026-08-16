@@ -27,9 +27,15 @@ export function getStoredTheme(): ThemeSetting {
   return "auto";
 }
 
-/** 将主题应用到 <html data-theme> */
+/** 将主题应用到 <html data-theme>；同时派发 doclight:themechange（插件主题跟随通道，
+ *  mermaid 等按需渲染组件据此重渲——插件脚本非模块无法 import bus，DOM 自定义事件是全局通道） */
 export function applyTheme(theme: Theme): void {
   document.documentElement.setAttribute("data-theme", theme);
+  try {
+    document.dispatchEvent(new CustomEvent("doclight:themechange", { detail: { theme } }));
+  } catch {
+    /* 极端环境（无 CustomEvent）降级：仅应用主题 */
+  }
 }
 
 /** 初始化：应用已存/系统主题，绑定切换按钮（点击在亮/暗间显式切换并持久化；

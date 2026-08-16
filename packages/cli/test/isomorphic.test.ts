@@ -98,7 +98,7 @@ beforeAll(async () => {
   buildOut = mkdtempSync(join(tmpdir(), "doclight-iso-build-"));
   bundleOut = mkdtempSync(join(tmpdir(), "doclight-iso-bundle-"));
   buildSite({ dir: docsDir, outDir: buildOut });
-  await bundleSite({ dir: docsDir, outDir: bundleOut });
+  await bundleSite({ dir: docsDir, outDir: bundleOut, pluginConfigs: [] });
 });
 
 afterAll(() => {
