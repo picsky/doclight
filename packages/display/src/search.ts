@@ -32,6 +32,9 @@ export interface SearchIndex {
   docs: SearchDoc[];
   /** 检索词 → 文档ID → 加权命中次数 */
   postings: Map<string, Map<number, number>>;
+  /** 拉丁词前缀展开缓存（2026-08 审计）：每次按键对全词表 startsWith 扫描开销放大，
+   *  缓存展开结果，索引重建时整体清零。CJK bigram 不受影响。 */
+  prefixCache?: Map<string, string[]>;
 }
 
 export interface SearchResult {
@@ -39,6 +42,8 @@ export interface SearchResult {
   title: string;
   score: number;
   snippet: string;
+  /** 文档所属分组（渲染结果节标签用；search 时已查好，避免 renderResults 反查 index.docs） */
+  section?: string;
 }
 
 /** 纯函数：文本切词（拉丁按词；CJK 单字 + 二元组） */
@@ -61,7 +66,8 @@ function fieldWeight(field: "title" | "headings" | "path" | "text"): number {
   return field === "title" ? 4 : field === "headings" ? 2 : 1;
 }
 
-/** 纯函数：构建倒排索引（path 也入索引，便于按文件名/路径搜索） */
+/** 纯函数：构建倒排索引（path 也入索引，便于按文件名/路径搜索）。
+ *  初始化前缀展开缓存（prefixCache）：后续 search 调用复用，避免每次按键重新扫描词表。 */
 export function buildIndex(docs: SearchDoc[]): SearchIndex {
   const postings = new Map<string, Map<number, number>>();
   docs.forEach((doc, docId) => {
@@ -82,7 +88,7 @@ export function buildIndex(docs: SearchDoc[]): SearchIndex {
       }
     }
   });
-  return { docs, postings };
+  return { docs, postings, prefixCache: new Map() };
 }
 
 /** 生成命中摘要：取首个命中词附近窗口，无命中取开头 */
@@ -106,16 +112,22 @@ function makeSnippet(doc: SearchDoc, terms: string[], width = 60): string {
 /**
  * 拉丁词前缀展开（2026-08-14 修复：搜 "eng" 应命中 "engine"）。
  * 索引为完整词倒排（tokenize 按 [a-z0-9]+ 整词切分），查询词可能只是前缀——
- * 扫描倒排词表做 startsWith 匹配（文档站词表规模下 O(词表) 可接受，零索引体积增量）。
+ * 扫描倒排词表做 startsWith 匹配。
+ * 2026-08 性能审计后：展开结果按 term 缓存到 index.prefixCache，每次按键复用。
  * 长度 <2 不展开（"e" 前缀爆炸）；仅拉丁词（CJK bigram 不受影响）。
  */
 function expandLatinPrefix(index: SearchIndex, term: string): string[] {
   if (term.length < 2 || !/^[a-z0-9]+$/.test(term)) return [term];
+  const cache = index.prefixCache ?? (index.prefixCache = new Map());
+  const cached = cache.get(term);
+  if (cached) return cached;
   const out: string[] = [];
   for (const key of index.postings.keys()) {
     if (/^[a-z0-9]+$/.test(key) && key.startsWith(term)) out.push(key);
   }
-  return out.length > 0 ? out : [term];
+  const result = out.length > 0 ? out : [term];
+  cache.set(term, result);
+  return result;
 }
 
 /** 纯函数：查询 → 按得分 Top N 结果（含命中摘要）。
@@ -158,7 +170,13 @@ export function search(index: SearchIndex, query: string, limit = 10): SearchRes
     .slice(0, limit)
     .map(([docId, score]) => {
       const doc = index.docs[docId]!;
-      return { path: doc.path, title: doc.title, score, snippet: makeSnippet(doc, [...(termHits.get(docId) ?? [])]) };
+      return {
+        path: doc.path,
+        title: doc.title,
+        score,
+        snippet: makeSnippet(doc, [...(termHits.get(docId) ?? [])]),
+        ...(doc.section ? { section: doc.section } : {}),
+      };
     });
 }
 
@@ -203,17 +221,39 @@ export function readSearchCache(
   }
 }
 
-/** 写入缓存（不可用/超限时静默忽略，与最近搜索同策略） */
+/** localStorage 配额软上限（4MB）。
+ *  索引 JSON 超过此阈值直接跳过写入——避免 setItem 抛 QuotaExceededError 后
+ *  每次会话都重新 fetch + buildIndex（2026-08 审计：截断后仍可能超限的大站点防御）。 */
+const SEARCH_CACHE_BUDGET = 4 * 1024 * 1024;
+let _searchCacheWarned = false;
+
+/** 写入缓存（不可用/超预算/超限时静默忽略，与最近搜索同策略）。
+ *  超预算时一次性 console.warn（便于站点作者感知，不污染后续日志）。 */
 export function writeSearchCache(
   storage: Pick<Storage, "setItem">,
   version: string | undefined,
   docs: SearchDoc[]
-): void {
-  if (!version) return;
+): boolean {
+  if (!version) return false;
+  const payload = JSON.stringify({ docs });
+  if (payload.length > SEARCH_CACHE_BUDGET) {
+    if (!_searchCacheWarned) {
+      _searchCacheWarned = true;
+      // 仅 warn 不 throw：搜索仍可用，只是不落盘（避免重复 fetch 也省一次失败）
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[doclight-search] 索引体积超缓存预算（${(payload.length / 1024 / 1024).toFixed(1)}MB > 4MB），跳过 localStorage 持久化。` +
+          `考虑在 doclight.json 设 build.searchMaxTextLength 截断正文。`
+      );
+    }
+    return false;
+  }
   try {
-    storage.setItem(searchCacheKey(version), JSON.stringify({ docs }));
+    storage.setItem(searchCacheKey(version), payload);
+    return true;
   } catch {
     /* 隐私模式 / 配额满等忽略持久化 */
+    return false;
   }
 }
 
@@ -310,8 +350,8 @@ export function initSearch(options: { indexUrl?: string; toggleSelector?: string
     }
     resultsBox.innerHTML = results
       .map((r, i) => {
-        const doc = index?.docs.find((d) => d.path === r.path);
-        const section = doc?.section ? `<span class="ri-sec">${escapeHtml(doc.section)}</span>` : "";
+        // section 已在 search() 内查好（避免每结果 O(docs) 线性查找）
+        const section = r.section ? `<span class="ri-sec">${escapeHtml(r.section)}</span>` : "";
         const delay = Math.min(i * 24, 288); // 错峰（reduced-motion 下 CSS 全局静止）
         return `<a class="result-item" id="doclight-opt-${i}" role="option" aria-selected="false" href="${bundleMode ? `#/${r.path}` : `${base}/${r.path}`}" data-path="${r.path}" style="animation-delay:${delay}ms">${DOC_ICON}<span class="ri-title">${highlight(r.title, terms)}</span>${section}</a>`;
       })

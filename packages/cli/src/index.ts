@@ -13,6 +13,7 @@
 import { join, resolve } from "node:path";
 import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
+import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
 import { startDevServer } from "./dev-server.ts";
 import { buildSite } from "./build.ts";
@@ -28,6 +29,7 @@ import { embedSite } from "./embed.ts";
 import { loadConfig } from "./config.ts";
 import { configuredPluginWatchFiles, loadConfiguredPlugins, reloadConfiguredPluginsAsync } from "./plugin-loader.ts";
 import { pluginList, pluginNew } from "./plugin-new.ts";
+import { skillInstall, skillList } from "./skill.ts";
 import { loadConfiguredTheme } from "./themes.ts";
 import { buildSlidesHtml, parseSlides } from "./slides.ts";
 
@@ -87,6 +89,8 @@ export interface CliOptions {
   remoteUrl?: string;
   /** dev --mcp：MCP 插件模式（嵌入 dev server，MCP-005） */
   mcp?: boolean;
+  /** dev --mcp-token <token>：MCP-006 写入端 Bearer token（未传 → 自动生成并打印） */
+  mcpToken?: string;
   /** bundle --qr <url>：生成下载二维码（C2，13 §3.2 分发四触点④） */
   qrUrl?: string;
   /** bundle --inline-vendor：内联扩展库（C3，file:// 下扩展可用，体积增大） */
@@ -140,6 +144,7 @@ function printHelp(): void {
   embed     生成嵌入代码（snippet.js + iframe 片段，13 §3.1）
   slides    生成演示（markdown --- 分页 → 自包含单页 HTML，01 §原则二，DEMO-001）
   plugin    插件开发（new 生成脚手架 / list 列出官方插件）
+  skill     安装 Agent 技能到 ~/.claude（install / list，AGENT-001）
 
 选项:
   --port <n>      监听端口（默认 3000）
@@ -158,6 +163,7 @@ function printHelp(): void {
   --root <path>   publish / space 的项目根目录（缺省当前目录）
   --json          publish / space 输出纯 JSON（Agent 直接解析）
   --mcp           dev 模式启用 MCP 插件（同端口 /mcp + /.well-known/mcp）
+  --mcp-token <t> dev --mcp 写入端 Bearer token（未传 → 自动生成并打印到终端，写入 .doclight/mcp-token）
   --qr <url>      bundle 生成下载二维码（bundle-qr.png，13 §3.2）
   --inline-vendor bundle 内联扩展库（Prism/KaTeX + 启用插件 vendor，file:// 下可用；体积增大）
   --themes        build/preview 构建主题画廊（4 套设计语言 × 亮暗对比页，产物 gallery/）
@@ -166,12 +172,15 @@ function printHelp(): void {
   --no-snapshot   publish 关闭发布前自动快照（默认开启，可 rollback 回滚）
   --theme <名>    slides 演示主题（dark / light / warm 或 CSS 文件；缺省 dark）
   --author <名>   slides 封面署名（作者 · 日期）
+  --target <dir>  skill install 目标 Agent 配置根目录（缺省 ~/.claude；skills/ + commands/ 为子目录）
+  --force        skill install 覆盖已存在且内容不同的技能（默认跳过）
+  --dry-run      skill install 只列计划不写入
   --help, -h      显示帮助`);
 }
 
 /** 启动 dev server（供命令与测试复用） */
 export async function runDev(options: Partial<CliOptions> = {}): Promise<{ url: string; port: number; close(): Promise<void> }> {
-  const merged: CliOptions = { port: options.port ?? 3000, dir: options.dir ?? "docs", title: options.title, mcp: options.mcp };
+  const merged: CliOptions = { port: options.port ?? 3000, dir: options.dir ?? "docs", title: options.title, mcp: options.mcp, mcpToken: options.mcpToken };
   // PLUG-009 接线：doclight.json plugins → 构建管线；THEME-002 主题同步；PLUG-011 插件热重载
   // PLUG-014：doclight.json 插件配置注入页面（展示层自动注册 init/onMount）
   const cfg = loadConfig([join(process.cwd(), "doclight.json"), join(resolve(merged.dir), "doclight.json")]);
@@ -305,6 +314,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
         dir: opts["dir"] ?? "docs",
         title: opts["title"],
         mcp: opts["mcp"] === "true",
+        mcpToken: opts["mcp-token"],
       });
       console.log(`\n  DocLight dev server 已启动\n`);
       console.log(`  本地预览:  ${dev.url}`);
@@ -559,8 +569,43 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
         console.error(`未知 plugin 子命令：${sub || "(空)"}（支持 new / list）`);
         process.exit(1);
       }
+    } else if (command === "skill") {
+      // AGENT-001：Agent 技能自动安装（默认装进 Claude Code 用户级 ~/.claude）
+      const sub = rest[0] ?? "";
+      if (sub === "install") {
+        const result = skillInstall({
+          moduleUrl: import.meta.url,
+          targetRoot: opts["target"],
+          force: opts["force"] === "true",
+          dryRun: opts["dry-run"] === "true",
+        });
+        if (opts["json"] === "true") {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log(`\n  DocLight 技能${result.ok ? "安装完成" : "安装未完成"} ${result.ok ? "✓" : "✗"}（${result.sourceRoot} → ${result.targetRoot}）\n`);
+          for (const name of result.installed) console.log(`  安装  ${name}`);
+          for (const s of result.skipped) console.log(`  跳过  ${s.name}（${s.reason}）`);
+          for (const e of result.errors) console.log(`  ✗ ${e.name}（${e.reason}）`);
+          for (const step of result.steps) console.log(`  ${step}`);
+          if (!result.ok) process.exitCode = 1;
+          console.log(`\n  验证: doclight skill list\n`);
+        }
+      } else if (sub === "list") {
+        const list = skillList({ moduleUrl: import.meta.url, targetRoot: opts["target"] });
+        if (opts["json"] === "true") {
+          console.log(JSON.stringify(list, null, 2));
+        } else {
+          const root = opts["target"] ?? join(homedir(), ".claude");
+          console.log(`\n  DocLight Agent 技能（安装目标: ${root}）:\n`);
+          for (const s of list) console.log(`  ${s.installed ? "[已装]" : "[未装]"} ${s.name.padEnd(18)}${s.description}`);
+          console.log(`\n  安装: doclight skill install\n`);
+        }
+      } else {
+        console.error(`未知 skill 子命令：${sub || "(空)"}（支持 install / list）`);
+        process.exit(1);
+      }
     } else {
-      console.error(`未知命令：${command ?? "(空)"}（支持 dev / build / preview / init / bundle / deploy / migrate-docsify / migrate-mkdocs / migrate-gitbook / publish / rollback / space / embed / slides / plugin）`);
+      console.error(`未知命令：${command ?? "(空)"}（支持 dev / build / preview / init / bundle / deploy / migrate-docsify / migrate-mkdocs / migrate-gitbook / publish / rollback / space / embed / slides / plugin / skill）`);
       process.exit(1);
     }
   } catch (err) {

@@ -54,6 +54,8 @@ function initProgressAndTopbar(): void {
   // DP-002 签名时刻候选：读完（100%）时进度条右端光点脉冲一次——「读完的确认感」，
   // 只出现一次、≤300ms、reduced-motion 下降级（宪法 §3.4）
   let completed = false;
+  let rafId: number | null = null;
+
   const update = () => {
     const doc = document.documentElement;
     const pct = progressPercent(doc.scrollTop, doc.scrollHeight, doc.clientHeight);
@@ -73,7 +75,16 @@ function initProgressAndTopbar(): void {
     }
   };
 
-  window.addEventListener("scroll", update, { passive: true });
+  // Phase 4.7 性能修复：使用 requestAnimationFrame 节流，确保每帧最多更新一次
+  const throttledUpdate = () => {
+    if (rafId !== null) return;
+    rafId = requestAnimationFrame(() => {
+      update();
+      rafId = null;
+    });
+  };
+
+  window.addEventListener("scroll", throttledUpdate, { passive: true });
   // SPA 导航后重算（滚动位置复位，进度归零）
   bus.on("doclight:routechange", update);
   update();

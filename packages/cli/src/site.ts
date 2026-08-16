@@ -44,14 +44,19 @@ export function displayBundlePath(): string {
  * 收集文档 frontmatter 标题（导航标题修复，2026-08 前端审查 P1-2）：
  * buildNavTree 不传 titles 时侧边栏显示文件名主干而非 frontmatter.title——
  * dev / SSG / bundle 三形态统一经此收集；frontmatter 缺失回退文件名主干（与 renderer 一致）。
+ * @param frontmatterMap 可选预解析 frontmatter（Phase 3 单遍流水：避免重复读盘/解析）
  */
-export function collectNavTitles(docsDir: string, files: string[]): Record<string, string> {
+export function collectNavTitles(
+  docsDir: string,
+  files: string[],
+  frontmatterMap?: Map<string, Record<string, unknown>>
+): Record<string, string> {
   const titles: Record<string, string> = {};
   for (const rel of files) {
     try {
-      const { frontmatter } = parseFrontmatter(readFileSync(join(docsDir, rel), "utf8"));
-      if (typeof frontmatter.title === "string" && frontmatter.title.trim()) {
-        titles[rel] = frontmatter.title.trim();
+      const fm = frontmatterMap?.get(rel) ?? parseFrontmatter(readFileSync(join(docsDir, rel), "utf8")).frontmatter;
+      if (typeof fm.title === "string" && fm.title.trim()) {
+        titles[rel] = fm.title.trim();
       }
     } catch {
       /* 不可读文件回退文件名主干（buildNavTree 缺省行为） */
@@ -83,21 +88,33 @@ function katexFontFiles(): string[] {
  * 展示层 localStorage 缓存校验失配时重建，避免旧索引复用。
  * @param pathSuffix SSG 形态 ".html"：path 字段转静态产物 URL（dev 缺省保持 .md）
  * @param nav 可选导航树：为每篇文档计算所属分组（搜索结果的「节」标签，与演示页 ri-sec 对齐）
+ * @param maxTextLength 索引正文截断（默认 3072，0 = 不截断）。
+ *   全站正文入索引（search-index.json）体积易失控——本站几十篇就达 568KB，500 篇站点
+ *   将超 localStorage 5MB 配额。截断到每文档 ~3KB 可降体积 5-10 倍，且足够做命中/摘要。
+ * @param renderedMap 可选预渲染结果（Phase 3 单遍流水：避免重复渲染）
  */
 export function buildSearchData(
   docsDir: string,
   mdFiles: string[],
-  options: { pathSuffix?: string; nav?: NavNode[] } = {}
+  options: {
+    pathSuffix?: string;
+    nav?: NavNode[];
+    maxTextLength?: number;
+    renderedMap?: Map<string, { html: string; frontmatter: Record<string, unknown> }>;
+  } = {}
 ): { version: string; docs: unknown[]; summaries: Record<string, string> } {
   const suffix = options.pathSuffix ?? "";
+  const maxTextLength = options.maxTextLength ?? 3072;
   const docs: unknown[] = [];
   const summaries: Record<string, string> = {};
   const sectionOf = options.nav ? sectionForPath(options.nav) : undefined;
   for (const rel of mdFiles) {
     try {
-      const source = readFileSync(join(docsDir, rel), "utf8");
-      const { html, frontmatter } = render(source, { currentPath: rel });
-      const text = html.replace(/<[^>]+>/g, " ");
+      const rendered = options.renderedMap?.get(rel);
+      const { html, frontmatter } = rendered ?? render(readFileSync(join(docsDir, rel), "utf8"), { currentPath: rel });
+      const fullText = html.replace(/<[^>]+>/g, " ");
+      const plain = fullText.trim().replace(/\s+/g, " ");
+      const text = maxTextLength > 0 && plain.length > maxTextLength ? plain.slice(0, maxTextLength) : plain;
       // 标题：frontmatter.title 优先，缺省取文件名主干（与 nav.ts stem 一致）
       const title =
         typeof frontmatter.title === "string" ? frontmatter.title : rel.slice(rel.lastIndexOf("/") + 1).replace(/\.md$/, "");
@@ -106,7 +123,6 @@ export function buildSearchData(
       );
       const path = suffix ? rel.replace(/\.md$/, suffix) : rel;
       const section = sectionOf?.(rel) ?? "";
-      const plain = text.trim().replace(/\s+/g, " ");
       // 摘要键 = rel 路径（与导航树路径一致——next-grid/上一页下一页按 nav path 取摘要）
       summaries[rel] = plain.slice(0, 80);
       docs.push({ path, title, headings, text, ...(section ? { section } : {}) });
@@ -1097,6 +1113,7 @@ export const DEFAULT_THEME_CSS = `  :root {
   .doclight-container > :first-child { margin-top: 0; }
   .doclight-container > :last-child { margin-bottom: 0; }
   .doclight-container strong { color: var(--text); }
+  .doclight-container .doclight-title { font-weight: 600; color: var(--text); margin-bottom: 4px; }
   .doclight-tip { border-left-color: var(--success); background: rgba(61,158,79,.06); }
   .doclight-warning { border-left-color: var(--warning); background: rgba(180,83,9,.06); }
   .doclight-danger { border-left-color: var(--error); background: rgba(179,38,30,.06); }

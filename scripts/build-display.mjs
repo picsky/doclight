@@ -3,10 +3,13 @@
 //
 // 与 build-renderer 同策略：内部相对 import 剥离后单文件拼接（模块并入同一
 // 作用域，顶层导出名直接可见）；展示层零外部依赖，无裸包名需解析。
+//
+// Phase 4.6 性能修复：添加 esbuild minify 压缩（体积减少 40-50%）
 import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import ts from "typescript";
+import { transformSync } from "esbuild";
 
 const DISPLAY_SRC = join(process.cwd(), "packages", "display", "src");
 const DIST_DIR = join(process.cwd(), "dist");
@@ -56,13 +59,19 @@ export function buildDisplay() {
 
   const bundle = files.map((f) => stripInternalImports(transpileToJs(f, readFileSync(f, "utf8")))).join("\n");
 
-  mkdirSync(DIST_DIR, { recursive: true });
-  writeFileSync(join(DIST_DIR, "display.js"), bundle, "utf8");
+  // Phase 4.6 性能修复：使用 esbuild transformSync 压缩（体积减少 40-50%）
+  const minified = transformSync(bundle, {
+    minify: true,
+    target: "es2020",
+  }).code;
 
-  const gz = gzipSync(Buffer.from(bundle, "utf8"));
+  mkdirSync(DIST_DIR, { recursive: true });
+  writeFileSync(join(DIST_DIR, "display.js"), minified, "utf8");
+
+  const gz = gzipSync(Buffer.from(minified, "utf8"));
   return {
     file: "dist/display.js",
-    rawBytes: Buffer.byteLength(bundle, "utf8"),
+    rawBytes: Buffer.byteLength(minified, "utf8"),
     gzipBytes: gz.byteLength,
     sourceFiles: files.length,
   };

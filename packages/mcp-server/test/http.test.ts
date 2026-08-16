@@ -107,3 +107,96 @@ describe("MCP HTTP 传输（MCP-003 + MCP-004 SSE 流式）", () => {
     expect((await fetch(`${handle.url}nope`)).status).toBe(404);
   });
 });
+
+/* ---- 安全（2026-08 审计后）：CORS + 写工具鉴权 ---- */
+describe("MCP HTTP 安全（CORS + Bearer token 写鉴权）", () => {
+  let authHandle: HttpServerHandle;
+  const TOKEN = "test-secret-token-xyz";
+  const ORIGIN = "http://127.0.0.1:9999";
+
+  beforeAll(async () => {
+    authHandle = await startHttpServer(
+      loadSite(siteDir, { writeDir: siteDir }),
+      new McpServer(loadSite(siteDir, { writeDir: siteDir })),
+      { port: 0, authToken: TOKEN, allowedOrigins: [ORIGIN] }
+    );
+  });
+  afterAll(async () => {
+    await authHandle.close();
+  });
+
+  it("写工具无 token → 401（write_doc）", async () => {
+    const res = await fetch(`${authHandle.url}mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: ORIGIN },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "write_doc", arguments: { path: "x.md", content: "# hi" } } }),
+    });
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { code: number; message: string } };
+    expect(body.error.code).toBe(-32000);
+    expect(body.error.message).toContain("Bearer token");
+  });
+
+  it("写工具错误 token → 401", async () => {
+    const res = await fetch(`${authHandle.url}mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: ORIGIN, Authorization: "Bearer wrong" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "delete_doc", arguments: { path: "x.md" } } }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("写工具正确 token → 200（write_doc 真正写入 fixture 临时目录）", async () => {
+    const res = await fetch(`${authHandle.url}mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: ORIGIN, Authorization: `Bearer ${TOKEN}` },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "write_doc", arguments: { path: "auth-test.md", content: "# test" } } }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { result: { content: Array<{ text: string }> } };
+    const parsed = JSON.parse(body.result.content[0]!.text) as { ok: boolean };
+    expect(parsed.ok).toBe(true);
+  });
+
+  it("只读工具无需 token（search_docs 正常返回）", async () => {
+    const res = await fetch(`${authHandle.url}mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: ORIGIN },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "search_docs", arguments: { query: "doclight" } } }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { result: { content: Array<{ text: string }> } };
+    const parsed = JSON.parse(body.result.content[0]!.text) as { results: unknown[] };
+    expect(Array.isArray(parsed.results)).toBe(true);
+  });
+
+  it("CORS：Origin 不在白名单 → 403", async () => {
+    const res = await fetch(`${authHandle.url}mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: "https://evil.example.com" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 5, method: "initialize" }),
+    });
+    expect(res.status).toBe(403);
+    expect(res.headers.get("access-control-allow-origin")).toBeNull();
+  });
+
+  it("CORS：Origin 在白名单 → ACAO 回显 + Vary: Origin", async () => {
+    const res = await fetch(`${authHandle.url}mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: ORIGIN },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 6, method: "tools/list" }),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("access-control-allow-origin")).toBe(ORIGIN);
+    expect(res.headers.get("vary")).toContain("Origin");
+  });
+
+  it("CORS：无 Origin 的本地客户端放行（allowWithoutOrigin 默认 true）", async () => {
+    const res = await fetch(`${authHandle.url}mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 7, method: "tools/list" }),
+    });
+    expect(res.status).toBe(200);
+  });
+});

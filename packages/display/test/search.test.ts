@@ -97,6 +97,29 @@ describe("索引与检索（SRCH-001）", () => {
     expect(results[0]!.path).toBe("engine.md"); // 精确完整词 ×4 > 前缀 ×2
   });
 
+  // 2026-08 性能审计后：前缀展开缓存（同一 term 多次展开只扫词表一次）
+  it("buildIndex 初始化 prefixCache；重复查询复用缓存", () => {
+    const docs: SearchDoc[] = [
+      { path: "engine.md", title: "Engine Guide", headings: [], text: "The engine powers rendering." },
+    ];
+    const index = buildIndex(docs);
+    expect(index.prefixCache).toBeInstanceOf(Map);
+    expect(index.prefixCache!.size).toBe(0); // 构建时缓存为空
+    search(index, "eng");
+    expect(index.prefixCache!.size).toBeGreaterThan(0); // 查询后缓存填充
+    const sizeAfterFirst = index.prefixCache!.size;
+    search(index, "eng"); // 第二次相同查询
+    expect(index.prefixCache!.size).toBe(sizeAfterFirst); // 无新增条目（命中缓存）
+  });
+
+  // 2026-08 性能审计后：search 返回的 result 自带 section（避免 renderResults 反查 O(n)）
+  it("search 结果自带 section（renderResults 无需再查 index.docs）", () => {
+    const docs: SearchDoc[] = [{ path: "a.md", title: "A", headings: [], text: "hello", section: "组一" }];
+    const index = buildIndex(docs);
+    const r = search(index, "hello");
+    expect(r[0]?.section).toBe("组一");
+  });
+
   it("标题命中权重高于正文命中（排序）", () => {
     const index = buildIndex(DOCS);
     const results = search(index, "参考");
@@ -168,5 +191,23 @@ describe("搜索索引持久化（SRCH-001，03 §3.8.5：localStorage + 版本�
     writeSearchCache(storage, "v1", docs);
     expect(readSearchCache(storage, "v1")).toEqual(docs);
     expect(readSearchCache(storage, "v2")).toBeNull(); // 版本变化 → 失配重建
+  });
+
+  // 2026-08 性能审计后：预算超限时跳过写盘（避免 setItem QuotaExceededError）
+  it("writeSearchCache 超 4MB 预算 → 跳过写盘并返回 false", () => {
+    const storage = mockStorage();
+    // 构造一个大文档使 JSON 序列化超过 4MB
+    const bigDocs: SearchDoc[] = [{ path: "big.md", title: "big", headings: [], text: "x".repeat(4.5 * 1024 * 1024) }];
+    const ok = writeSearchCache(storage, "v1", bigDocs);
+    expect(ok).toBe(false);
+    expect(storage.getItem("doclight-search-idx-v1")).toBeNull();
+  });
+
+  it("writeSearchCache 在预算内 → 正常写入并返回 true", () => {
+    const storage = mockStorage();
+    const docs: SearchDoc[] = [{ path: "a.md", title: "A", headings: [], text: "内容" }];
+    const ok = writeSearchCache(storage, "v1", docs);
+    expect(ok).toBe(true);
+    expect(readSearchCache(storage, "v1")).toEqual(docs);
   });
 });

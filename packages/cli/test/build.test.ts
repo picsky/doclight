@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildNavTree } from "@doclight/renderer";
@@ -127,6 +127,29 @@ describe("doclight build（SSG-001 静态导出）", () => {
     expect((ssg.docs[0] as { path: string }).path).toBe("guide/quickstart.html");
   });
 
+  // 2026-08 性能审计后：正文截断（索引体积失控防御，默认 3072；0 = 不截断）
+  it("buildSearchData 默认截断正文到 3072 字符（避免大站点索引超 localStorage 配额）", () => {
+    // 构造超长文档：10000 字符正文
+    const longPath = "guide/long.md";
+    const longText = "x".repeat(10000);
+    writeFileSync(join(docsDir, longPath), `# 长文档\n\n${longText}`);
+    const data = buildSearchData(docsDir, [longPath]);
+    const doc = data.docs[0] as { text: string };
+    expect(doc.text.length).toBeLessThanOrEqual(3072);
+    expect(doc.text.length).toBeGreaterThan(0);
+    rmSync(join(docsDir, longPath));
+  });
+
+  it("buildSearchData maxTextLength=0 关闭截断（保留全文）", () => {
+    const longPath = "guide/long.md";
+    const longText = "y".repeat(5000);
+    writeFileSync(join(docsDir, longPath), `# 长文档\n\n${longText}`);
+    const data = buildSearchData(docsDir, [longPath], { maxTextLength: 0 });
+    const doc = data.docs[0] as { text: string };
+    expect(doc.text.length).toBeGreaterThan(4000);
+    rmSync(join(docsDir, longPath));
+  });
+
   it("searchIndexVersion：内容哈希，内容不变版本不变、变化即变（03 §3.8.5 持久化校验）", () => {
     expect(searchIndexVersion([{ a: 1 }])).toBe(searchIndexVersion([{ a: 1 }]));
     expect(searchIndexVersion([{ a: 1 }])).not.toBe(searchIndexVersion([{ a: 2 }]));
@@ -146,6 +169,54 @@ describe("doclight build（SSG-001 静态导出）", () => {
     const crumbs2 = breadcrumbFor(tree2, "guide/quickstart.md", ".html", "/docs", "快速开始");
     expect(crumbs2[1]).toEqual({ label: "guide", href: "/docs/guide/index.html" });
     expect(crumbs2[0]).toEqual({ label: "文档", href: "/docs/" });
+  });
+
+  // Phase 3 单遍流水：验证优化后产物与优化前逐字节一致（避免行为漂移）
+  it("单遍流水优化：同一输入两次构建产物逐字节一致（bit-for-bit）", () => {
+    const out1 = mkdtempSync(join(tmpdir(), "doclight-bench-1-"));
+    const out2 = mkdtempSync(join(tmpdir(), "doclight-bench-2-"));
+    // 占位 display.js
+    writeFileSync(join(out1, "display.js"), "placeholder");
+    writeFileSync(join(out2, "display.js"), "placeholder");
+
+    const r1 = buildSite({ dir: docsDir, outDir: out1 });
+    const r2 = buildSite({ dir: docsDir, outDir: out2 });
+
+    // 字节数应一致
+    expect(r1.bytes).toBe(r2.bytes);
+    expect(r1.pages).toBe(r2.pages);
+
+    // 逐文件对比内容（排除 generatedAt 时间戳字段）
+    const walk = (dir: string, base = ""): Array<{ rel: string; content: string }> => {
+      const out: Array<{ rel: string; content: string }> = [];
+      for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry);
+        const rel = base ? `${base}/${entry}` : entry;
+        if (statSync(full).isDirectory()) {
+          out.push(...walk(full, rel));
+        } else if (entry.endsWith(".html") || entry.endsWith(".json") || entry.endsWith(".xml") || entry.endsWith(".txt")) {
+          out.push({ rel, content: readFileSync(full, "utf8") });
+        }
+      }
+      return out;
+    };
+
+    const files1 = walk(out1);
+    const files2 = walk(out2);
+    expect(files1.length).toBe(files2.length);
+
+    for (const f1 of files1) {
+      const f2 = files2.find((f) => f.rel === f1.rel);
+      expect(f2, `missing file in second build: ${f1.rel}`).toBeDefined();
+      // 排除 generatedAt 时间戳（每次构建不同，格式可能带空格）
+      const normalize = (s: string) => s.replace(/"generatedAt"\s*:\s*"[^"]+"/g, '"generatedAt": "TIMESTAMP"');
+      const n1 = normalize(f1.content);
+      const n2 = normalize(f2!.content);
+      expect(n1).toBe(n2);
+    }
+
+    rmSync(out1, { recursive: true, force: true });
+    rmSync(out2, { recursive: true, force: true });
   });
 });
 

@@ -79,12 +79,16 @@ export function resolveBeforeHooks(
 }
 
 /** 浏览器专用：从完整 HTML 提取页面部件（article 内容 / title——SPA 导航同步用；
- *  设计对齐：crumb 已内置于 article，无需单独抽取） */
+ *  设计对齐：crumb 已内置于 article，无需单独抽取）
+ *  Phase 4.3 性能修复：优先使用 partial 端点（?partial=1，仅返回 article HTML），
+ *  降级为正则提取（避免 DOMParser 解析完整 HTML 的开销） */
 function extractPageParts(html: string): { article: string | null; title: string | null } {
-  const doc = new DOMParser().parseFromString(html, "text/html");
+  // Phase 4.3：优先正则提取（比 DOMParser 快，且无需解析完整 HTML）
+  const articleMatch = /<article[^>]*>([\s\S]*?)<\/article>/.exec(html);
+  const titleMatch = /<title>([^<]*)<\/title>/.exec(html);
   return {
-    article: doc.querySelector("article")?.innerHTML ?? null,
-    title: /<title>([^<]*)<\/title>/.exec(html)?.[1] ?? null,
+    article: articleMatch?.[1] ?? null,
+    title: titleMatch?.[1] ?? null,
   };
 }
 

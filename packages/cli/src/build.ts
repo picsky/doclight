@@ -22,7 +22,7 @@
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { Resvg } from "@resvg/resvg-js";
-import { analyzeDoc, buildNavTree, render } from "@doclight/renderer";
+import { analyzeDoc, buildNavTree, parseFrontmatter, render } from "@doclight/renderer";
 import { loadConfig, loadLlmsTxtConfig } from "./config.ts";
 import { resolveThemePackage } from "./themes.ts";
 import { buildLlmsFullTxt, buildLlmsTxt, classifyPriority } from "./llms.ts";
@@ -253,8 +253,45 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
   mkdirSync(outDir, { recursive: true });
 
   const mdFiles = walkMd(docsDir);
-  // 导航用 frontmatter 标题（2026-08 前端审查 P1-2：此前显示文件名主干）
-  const titles = collectNavTitles(docsDir, mdFiles);
+
+  // Phase 3 单遍流水：预渲染所有文档（read 1x + render 1x + analyze 1x + parse 1x + plugin pipeline 1x）
+  // 后续 collectNavTitles / buildSearchData / writeDoc 复用此 Map，避免重复读盘/渲染
+  const preparedDocs = new Map<string, {
+    source: string;
+    frontmatter: Record<string, unknown>;
+    html: string;
+    slotContent: Record<string, string>;
+    analysis: { readingTime: number; wordCount: number; hasCode: boolean; headings: Array<{ level: number; id: string; text: string }>; summary: string };
+  }>();
+  for (const rel of mdFiles) {
+    try {
+      const source = readFileSync(join(docsDir, rel), "utf8");
+      const { frontmatter } = parseFrontmatter(source);
+      const title = docTitle(frontmatter, rel);
+      // PLUG-009：构建时钩子管线（ctx 带 base/siteUrl——PLUG-007 pwa 等插件 slot 函数需拼资产绝对路径）
+      const ctx: RenderContext = { path: rel, title, frontmatter, headings: [], isFirstRender: false, base, siteUrl: siteUrl || undefined };
+      const transformedMd = pipeline.runBeforeRender(source, ctx);
+      // PLUG-006 接线：插件 extendMarked 扩展挂载进渲染内核
+      const { html: renderedHtml } = render(transformedMd, {
+        currentPath: rel,
+        linkSuffix: ".html",
+        extraMarkedExtensions: pipeline.collectMarkedExtensions(),
+      });
+      const html = pipeline.runAfterRender(renderedHtml, ctx);
+      const slotContent = pipeline.collectSlotContent(ctx);
+      const analysis = analyzeDoc(source);
+      preparedDocs.set(rel, { source, frontmatter, html, slotContent, analysis });
+    } catch {
+      /* 单文档准备失败跳过（后续流程降级处理） */
+    }
+  }
+
+  // 导航用 frontmatter 标题（Phase 3：复用 preparedDocs 的 frontmatter，避免重复读盘）
+  const frontmatterMap = new Map<string, Record<string, unknown>>();
+  for (const [rel, doc] of preparedDocs) {
+    frontmatterMap.set(rel, doc.frontmatter);
+  }
+  const titles = collectNavTitles(docsDir, mdFiles, frontmatterMap);
   let navTree = buildNavTree(mdFiles, titles);
   // 嵌套目录合成总览页（2026-08 嵌套分区设计 v2）：无 README/index 的嵌套目录 →
   // 合成虚拟 index.md（标题=目录名，正文=子文档卡片列表）；有绑定走真实文件
@@ -267,9 +304,13 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
   }
   const navHtml = renderNav(navTree, ".html", base);
 
-  // 搜索索引预构建（SRCH-001：SSG 形态运行时直接加载；version=内容哈希，展示层持久化校验用）
+  // 搜索索引预构建（Phase 3：复用 preparedDocs 的渲染结果，避免重复渲染）
   // nav 传入：搜索结果「节」标签（设计对齐演示页 ri-sec）；合成总览页不进搜索索引（无源文件）
-  const searchData = buildSearchData(docsDir, mdFiles, { pathSuffix: ".html", nav: navTree });
+  const renderedMap = new Map<string, { html: string; frontmatter: Record<string, unknown> }>();
+  for (const [rel, doc] of preparedDocs) {
+    renderedMap.set(rel, { html: doc.html, frontmatter: doc.frontmatter });
+  }
+  const searchData = buildSearchData(docsDir, mdFiles, { pathSuffix: ".html", nav: navTree, renderedMap });
   const searchVersion = searchData.version;
 
   /** sitemap 数据 + OG 卡收集 */
@@ -277,29 +318,23 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
   /** 语义元数据收集（Phase 4：llms.txt / llms-full.txt / docs.json 共用） */
   const docMetas: DocMeta[] = [];
 
-  /** 渲染单篇文档并写入产物（PLUG-009：beforeRender → render → afterRender → slotContent） */
+  /** 渲染单篇文档并写入产物（Phase 3：复用 preparedDocs，合成总览页除外） */
   function writeDoc(rel: string, outRel: string): void {
+    const prepared = preparedDocs.get(rel);
     // 合成总览页：磁盘无源文件，按形态生成卡片列表 Markdown（内联 HTML 链接已转最终 URL）
-    const source = syntheticSet.has(rel)
-      ? syntheticIndexMarkdown(navTree, rel, searchData.summaries, ".html")
-      : readFileSync(join(docsDir, rel), "utf8");
-    const title = docTitle({}, rel); // 先取默认标题
-    // PLUG-009：构建时钩子管线（ctx 带 base/siteUrl——PLUG-007 pwa 等插件 slot 函数需拼资产绝对路径）
-    const ctx: RenderContext = { path: rel, title, frontmatter: {}, headings: [], isFirstRender: false, base, siteUrl: siteUrl || undefined };
-    const transformedMd = pipeline.runBeforeRender(source, ctx);
-    // PLUG-006 接线：插件 extendMarked 扩展挂载进渲染内核
-    const { html: renderedHtml, frontmatter } = render(transformedMd, {
-      currentPath: rel,
-      linkSuffix: ".html",
-      extraMarkedExtensions: pipeline.collectMarkedExtensions(),
-    });
-    const html = pipeline.runAfterRender(renderedHtml, ctx);
-    const slotContent = pipeline.collectSlotContent(ctx);
+    // 合成页不进 preparedDocs（依赖 searchData.summaries，需延迟渲染）
+    const source = prepared?.source ?? syntheticIndexMarkdown(navTree, rel, searchData.summaries, ".html");
+    const frontmatter = prepared?.frontmatter ?? {};
+    const html = prepared?.html ?? (() => {
+      const ctx: RenderContext = { path: rel, title: docTitle(frontmatter, rel), frontmatter, headings: [], isFirstRender: false, base, siteUrl: siteUrl || undefined };
+      const transformedMd = pipeline.runBeforeRender(source, ctx);
+      const { html: renderedHtml } = render(transformedMd, { currentPath: rel, linkSuffix: ".html", extraMarkedExtensions: pipeline.collectMarkedExtensions() });
+      return pipeline.runAfterRender(renderedHtml, ctx);
+    })();
+    const slotContent = prepared?.slotContent ?? {};
+    const analysis = prepared?.analysis ?? analyzeDoc(source);
     // PLUG-012：插件 CSS（mermaid 等插件样式按需注入页面）
     const pluginCss = pipeline.collectPluginStyles();
-    // Phase 4 语义元数据（FRONT-001 + LLMS-001）：frontmatter 语义字段 + analyzeDoc 自动计算
-    // （提前到 seo 之前：readingTime 供页面头部可见元信息使用，2026-08 精致化）
-    const analysis = analyzeDoc(source);
     // 设计对齐（2026-08-16）：页标题 = frontmatter.title ?? 正文首个 h1 ?? 文件名主干
     // （正文首个 h1 由壳层 h1 承载——防重复标题，stripFirstH1 同规则）
     const finalTitle =
@@ -494,10 +529,13 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
 
   // AEO-001：每页 markdown 版本——.md 源文件原样拷贝进产物（与 .html 同相对路径；
   // 页面 <head> 已输出 link rel="alternate" type="text/markdown" 指向它）。
+  // Phase 3：复用 preparedDocs 的 source，避免重复读盘
   for (const rel of mdFiles) {
+    const prepared = preparedDocs.get(rel);
+    const content = prepared?.source ?? readFileSync(join(docsDir, rel));
     const dest = join(outDir, rel);
     mkdirSync(dirname(dest), { recursive: true });
-    writeFileSync(dest, readFileSync(join(docsDir, rel)));
+    writeFileSync(dest, content);
   }
 
   // 展示层 bundle（渐进式水合所需；缺失则提示先构建）

@@ -8,31 +8,17 @@
  * 安全：路径穿越防护——任何请求路径解析后必须落在文档根目录内，否则 404。
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { mkdtempSync, readFileSync, rmSync, statSync, watch } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, watch, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { randomBytes } from "node:crypto";
 import { basename, dirname, join, resolve, sep } from "node:path";
-import { buildNavTree, render, analyzeDoc } from "@doclight/renderer";
+import { buildNavTree, render, analyzeDoc, parseFrontmatter } from "@doclight/renderer";
 import { loadSite, McpServer, mcpHttpHandler } from "@doclight/mcp-server";
 import { buildSite } from "./build.ts";
 import { buildCapabilityManifest } from "./capabilities.ts";
-import { buildSearchData, collectNavTitles, countWords, displayBundlePath, firstH1Text, mimeFor, nodeModulesBase, render404Page, renderNav, renderPage, VENDOR_FILES, walkMd } from "./site.ts";
+import { buildSearchData, collectNavTitles, countWords, displayBundlePath, firstH1Text, mimeFor, nodeModulesBase, planSyntheticIndexPages, render404Page, renderNav, renderPage, syntheticIndexMarkdown, syntheticIndexTitle, VENDOR_FILES, walkMd } from "./site.ts";
 import { BuildPluginPipeline } from "./plugins.ts";
 import type { PluginDef, RenderContext } from "../../core/src/plugin.ts";
-
-/** 从 Markdown 源提取 frontmatter 数据（轻量版，dev server 用） */
-function extractFrontmatter(md: string): Record<string, unknown> {
-  const m = /^---\r?\n([\s\S]*?)\r?\n?---/.exec(md);
-  if (!m) return {};
-  const fm: Record<string, unknown> = {};
-  for (const line of m[1]!.split(/\r?\n/)) {
-    const idx = line.indexOf(":");
-    if (idx < 0) continue;
-    const key = line.slice(0, idx).trim();
-    if (!key) continue;
-    fm[key] = line.slice(idx + 1).trim().replace(/^["']|["']$/g, "");
-  }
-  return fm;
-}
 
 /** 页面更新时间（与 build.docUpdatedAt 同一规则：frontmatter.date/updated 优先，缺省文件 mtime） */
 function docUpdatedAtDev(frontmatter: Record<string, unknown>, filePath: string): string | undefined {
@@ -56,6 +42,14 @@ export interface DevServerOptions {
   title?: string;
   /** MCP 插件模式（MCP-005）：同端口挂载 /mcp + /.well-known/mcp，开发中的站点可被 Agent 读取 */
   mcp?: boolean;
+  /** MCP-006 写入端 Bearer token（mcp 开启时生效）。
+   *  - 传入 → 使用该 token（写工具强制鉴权）
+   *  - 未传 → 自动生成并写入 .doclight/mcp-token + 打印到终端（避免默认开放写接口）
+   *  未启用 mcp 时此选项无效 */
+  mcpToken?: string;
+  /** MCP token 持久化路径。默认 .doclight/mcp-token（process.cwd() 下）。
+   *  设为 null 禁用写盘（测试用）。 */
+  mcpTokenFile?: string | null;
   /** PLUG-009：构建时插件列表（由 CLI 层从配置解析后注入） */
   buildPlugins?: PluginDef[];
   /** THEME-002：主题 CSS 覆盖层（由 CLI 层从配置解析后注入；缺省空 = 默认主题） */
@@ -154,6 +148,30 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
   const host = options.host ?? "127.0.0.1";
   const siteTitle = options.title ?? "DocLight";
 
+  // MCP-006 写入端鉴权（2026-08 审计后）：mcp 开启时强制要求 Bearer token。
+  // 未显式传入 → 自动生成并持久化到 .doclight/mcp-token，便于 Agent 读取；
+  // 终端打印一次，便于人类复制。
+  let resolvedMcpToken: string | null = null;
+  let mcpTokenFile: string | null = null;
+  if (options.mcp) {
+    if (options.mcpToken) {
+      resolvedMcpToken = options.mcpToken;
+    } else {
+      resolvedMcpToken = randomBytes(24).toString("base64url");
+      // mcpTokenFile 显式 null → 禁用写盘（测试/嵌入式调用用）；未传 → 默认写入 .doclight/
+      if (options.mcpTokenFile !== null) {
+        const target = options.mcpTokenFile ?? join(process.cwd(), ".doclight", "mcp-token");
+        try {
+          mkdirSync(dirname(target), { recursive: true });
+          writeFileSync(target, resolvedMcpToken, "utf8");
+          mcpTokenFile = target;
+        } catch {
+          mcpTokenFile = null;
+        }
+      }
+    }
+  }
+
   // PLUG-009：构建管线（插件由 CLI 层从配置解析后注入）
   const buildPlugins: PluginDef[] = options.buildPlugins ?? [];
   const pipeline = new BuildPluginPipeline(buildPlugins);
@@ -196,16 +214,44 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
     }
   }
 
-  // 首次扫描：收集文档 + 构建导航（frontmatter 标题驱动，2026-08 修复文件名显示）
+  // 首次扫描：收集文档 + 构建导航（frontmatter 标题驱动，2026-08 修复文件名显示；
+  // 嵌套目录合成总览页 v2：无 README/index 的嵌套目录 → 虚拟 index.md 入口）
   let mdFiles = walkMd(docsDir);
   let navTitles = collectNavTitles(docsDir, mdFiles);
   let navTree = buildNavTree(mdFiles, navTitles);
   let navHtml = renderNav(navTree);
+  let synthetic: string[] = [];
+  let mdFilesAll: string[] = mdFiles;
+  let syntheticSet = new Set<string>();
 
-  /** 解析请求路径为文档根目录内的相对路径；越界返回 null */
+  /** 重建导航（初始 + 文件变更）：扫描 → 导航树 → 嵌套目录合成入口注入 */
+  function rebuildNav(): void {
+    mdFiles = walkMd(docsDir);
+    navTitles = collectNavTitles(docsDir, mdFiles);
+    let tree = buildNavTree(mdFiles, navTitles);
+    synthetic = planSyntheticIndexPages(tree);
+    mdFilesAll = synthetic.length ? [...mdFiles, ...synthetic] : mdFiles;
+    syntheticSet = new Set(synthetic);
+    if (synthetic.length) {
+      const titlesAll = { ...navTitles };
+      for (const syn of synthetic) titlesAll[syn] = syntheticIndexTitle(syn);
+      tree = buildNavTree(mdFilesAll, titlesAll);
+    }
+    navTree = tree;
+    navHtml = renderNav(navTree);
+  }
+  rebuildNav();
+
+  /** 解析请求路径为文档根目录内的相对路径；越界 / 非法编码返回 null */
   function safeRelPath(urlPath: string): string | null {
     const withoutQuery = urlPath.split("?")[0]!.split("#")[0]!;
-    const decoded = decodeURIComponent(withoutQuery);
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(withoutQuery);
+    } catch {
+      // 非法 %XX 序列（如 %zz）→ URIError；返回 null 由调用方 404（不 crash，不挂起）
+      return null;
+    }
     const rel = decoded.replace(/^\/+/, "");
     const resolved = resolve(docsDir, rel);
     if (!resolved.startsWith(docsDir + sep) && resolved !== docsDir) return null; // 路径穿越防护
@@ -216,6 +262,8 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
   function resolveDoc(rel: string): string | null {
     const candidates = rel.endsWith(".md") ? [rel] : [`${rel}.md`, `${rel}/README.md`, `${rel}/index.md`];
     for (const c of candidates) {
+      // 嵌套目录合成总览页（磁盘无文件，2026-08 v2）
+      if (syntheticSet.has(c)) return c;
       try {
         if (statSync(join(docsDir, c)).isFile()) return c;
       } catch {
@@ -252,18 +300,37 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
     return loadSite(mcpSiteDir, { writeDir: docsDir });
   }
 
-  /** 文件变更：重建导航 + 搜索索引 + 失效渲染缓存 + 推送 reload +（MCP 模式）置脏快照 */
-  function onFsChange() {
+  /** 文件变更：增量失效缓存（Phase 4.4 性能修复）
+   *  - 编辑已存在文档：仅失效该文档的渲染缓存（导航/搜索仍全量重建，复杂度/收益权衡）
+   *  - 新增/删除文档：全量重建导航 + 搜索索引 + 清空渲染缓存 */
+  function onFsChange(_eventType: string, filename: string | null) {
     try {
-      mdFiles = walkMd(docsDir);
-      navTitles = collectNavTitles(docsDir, mdFiles);
-      navTree = buildNavTree(mdFiles, navTitles);
-      navHtml = renderNav(navTree);
-      searchIndexCache = buildSearchData(docsDir, mdFiles, { nav: navTree });
+      // Phase 4.4：尝试增量失效
+      if (filename && filename.endsWith('.md')) {
+        const relPath = filename.replace(/\\/g, '/'); // Windows 路径归一化
+        const isExisting = mdFiles.includes(relPath);
+
+        if (isExisting) {
+          // 编辑已存在文档：仅失效该文档的渲染缓存
+          renderCache.delete(relPath);
+          // 导航和搜索仍全量重建（增量重建复杂度高，当前站点规模下全量重建可接受）
+          rebuildNav();
+          searchIndexCache = buildSearchData(docsDir, mdFiles, { nav: navTree });
+        } else {
+          // 新增文档：全量重建
+          rebuildNav();
+          searchIndexCache = buildSearchData(docsDir, mdFiles, { nav: navTree });
+          renderCache.clear();
+        }
+      } else {
+        // 非 .md 文件或无法确定文件名：全量重建
+        rebuildNav();
+        searchIndexCache = buildSearchData(docsDir, mdFiles, { nav: navTree });
+        renderCache.clear();
+      }
     } catch {
       /* 扫描失败（目录临时不可读）时保留旧导航 */
     }
-    renderCache.clear(); // WORK-001：变更后缓存整体失效（下次请求只重渲染被请求的文档）
     mcpDirty = true;
     for (const res of sseClients) res.write("data: reload\n\n");
   }
@@ -295,9 +362,9 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
       return;
     }
 
-    // 导航数据端点（展示层 / 后续形态用）
+    // 导航数据端点（展示层 / 后续形态用；navTree 已含嵌套目录合成入口）
     if (urlPath === "/__doclight/docs.json") {
-      sendJson(res, 200, { version: 1, generatedAt: new Date().toISOString(), nav: buildNavTree(mdFiles, navTitles) });
+      sendJson(res, 200, { version: 1, generatedAt: new Date().toISOString(), nav: navTree });
       return;
     }
 
@@ -345,7 +412,17 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
     // MCP 插件模式（MCP-005）：/mcp + /.well-known/mcp + /health 交给 MCP handler（capabilitiesAtRoot=false 不抢站点首页）
     if (options.mcp) {
       const site = getMcpSite();
-      if (await mcpHttpHandler(site, new McpServer(site), { capabilitiesAtRoot: false })(req, res)) return;
+      // CORS 收紧：Origin 白名单限定本机 host:port（127.0.0.1/localhost 各一种，按实际监听端口）
+      const addr = server.address();
+      const listenPort = typeof addr === "object" && addr ? addr.port : (options.port ?? 0);
+      const allowedOrigins = listenPort
+        ? [`http://127.0.0.1:${listenPort}`, `http://localhost:${listenPort}`]
+        : [];
+      if (await mcpHttpHandler(site, new McpServer(site), {
+        capabilitiesAtRoot: false,
+        authToken: resolvedMcpToken ?? undefined,
+        allowedOrigins,
+      })(req, res)) return;
     }
 
     const rel = safeRelPath(urlPath);
@@ -406,18 +483,29 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
 
   function serveDoc(res: ServerResponse, doc: string): void {
     try {
-      // WORK-001 增量渲染：源文件 mtime+字节数 未变 → 缓存直出（只重渲染变更文档）
-      const stat = statSync(join(docsDir, doc));
-      const cacheKey = `${doc}:${stat.mtimeMs}:${stat.size}`;
+      const isSyn = syntheticSet.has(doc);
+      // WORK-001 增量渲染：源文件 mtime+字节数 未变 → 缓存直出；合成总览页无磁盘源
+      // （内容随目录变化，onFsChange 已整体清缓存），固定 key 即可
+      let cacheKey: string;
+      if (isSyn) {
+        cacheKey = `synthetic:${doc}`;
+      } else {
+        const stat = statSync(join(docsDir, doc));
+        cacheKey = `${doc}:${stat.mtimeMs}:${stat.size}`;
+      }
       const cached = renderCache.get(doc);
       if (cached && cached.key === cacheKey) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(cached.html);
         return;
       }
-      const source = readFileSync(join(docsDir, doc), "utf8");
+      // 2026-08 嵌套分区 v2：合成总览页源 = 子文档卡片列表 Markdown（内联链接已转最终 URL）
+      const source = isSyn
+        ? syntheticIndexMarkdown(navTree, doc, searchIndexCache.summaries)
+        : readFileSync(join(docsDir, doc), "utf8");
       const fallbackTitle = doc.replace(/\.md$/, "");
-      const fm = extractFrontmatter(source);
+      // Phase 4.5 性能修复：使用渲染内核的 parseFrontmatter（权威解析器），避免 extractFrontmatter 与 render 内部 parseFrontmatter 行为不一致
+      const { frontmatter: fm } = parseFrontmatter(source);
       const fmTitle = typeof fm.title === "string" && fm.title ? fm.title : undefined;
 
       // PLUG-009：构建时钩子管线（beforeRender → render → afterRender）
@@ -474,6 +562,16 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
   const address = server.address();
   const port = typeof address === "object" && address ? address.port : (options.port ?? 0);
 
+  // MCP-006 写入端鉴权：终端打印一次 token（人类/Agent 首次使用参考）
+  if (options.mcp && resolvedMcpToken) {
+    const hostLabel = host === "127.0.0.1" || host === "::1" || host === "localhost" ? host : `${host}:${port}`;
+    const baseUrl = `http://${hostLabel}:${port}/mcp`;
+    const tokenLoc = mcpTokenFile ? `（已写入 ${mcpTokenFile}）` : "";
+    console.log(`[doclight-mcp] 写入端已启用（Bearer token 鉴权${tokenLoc}）`);
+    console.log(`  Authorization: Bearer ${resolvedMcpToken}`);
+    console.log(`  curl -X POST ${baseUrl} -H "Authorization: Bearer ${resolvedMcpToken}" ...`);
+  }
+
   return {
     url: `http://${host}:${port}/`,
     port,
@@ -485,6 +583,13 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
         if (pluginReloadTimer) clearTimeout(pluginReloadTimer);
         for (const w of pluginWatchers) w.close();
         if (mcpSiteDir) rmSync(mcpSiteDir, { recursive: true, force: true });
+        if (mcpTokenFile) {
+          try {
+            rmSync(mcpTokenFile, { force: true });
+          } catch {
+            /* 清理失败不影响 server 关闭 */
+          }
+        }
         server.close(() => done());
       }),
   };

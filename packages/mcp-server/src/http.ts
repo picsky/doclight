@@ -7,7 +7,13 @@
  *                       只读服务无主动通知，保持心跳注释帧存活）
  * - GET  /.well-known/mcp → 发现端点：能力描述 + 工具列表 + endpoint
  * - GET  / 与 /health  → 人类/Agent 可读的能力页（capabilitiesAtRoot=false 时跳过 /，供 dev server 挂载）
- * 零依赖（node:http）；CORS 放开便于浏览器端 MCP 客户端与 Electron/WebDriver 验收走查。
+ * 零依赖（node:http）。
+ *
+ * 安全（2026-08 审计后）：
+ * - CORS 收紧：ACAO 仅回显 allowedOrigins 白名单内的 Origin（未配置时拒绝所有带 Origin 的请求；
+ *   无 Origin 的非浏览器客户端按 allowWithoutOrigin 放行，默认 true 以兼容 stdio 桥接）。
+ * - 写工具（write_doc/update_doc/delete_doc）强制 Bearer token 鉴权（authToken 配置时生效）；
+ *   只读工具不受影响。配合 dev --mcp 启动自动生成并打印 token，本机进程无法被跨站网页滥用。
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { MCP_SERVER_NAME, MCP_SERVER_VERSION, type JsonRpcMessage, type McpServer } from "./protocol.ts";
@@ -18,6 +24,31 @@ export interface HttpServerHandle {
   url: string;
   port: number;
   close(): Promise<void>;
+}
+
+/** MCP HTTP handler 安全选项（2026-08 审计后） */
+export interface McpHttpAuthOptions {
+  /** 写入工具所需的 Bearer token（未配置 → 写工具拒绝调用，避免默认开放写接口）。
+   *  只读工具不受 token 限制——MCP 客户端 initialize/list/search 无需鉴权。 */
+  authToken?: string;
+  /** CORS Origin 白名单（含协议与端口；如 `http://127.0.0.1:3000`）。
+   *  - 未配置（空数组/undefined）→ 仅放行无 Origin 的请求（本地 stdio 桥接、curl），
+   *    带 Origin 的浏览器请求会被 ACAO 头缺失阻止跨站。
+   *  - 配置后 → 请求 Origin 命中白名单才回显 ACAO。 */
+  allowedOrigins?: string[];
+  /** 允许无 Origin 的浏览器请求（默认 true，便于 curl/本地客户端）。
+   *  设为 false 强制所有浏览器端 POST 必须带白名单内的 Origin。 */
+  allowWithoutOrigin?: boolean;
+}
+
+/** MCP-006 写工具名集合（鉴权作用域精确限定：只读工具不受 token 限制） */
+const WRITE_TOOLS = new Set(["write_doc", "update_doc", "delete_doc"]);
+
+/** 判断一条 JSON-RPC 消息是否在调用写工具（解析前就拦截） */
+function isWriteToolCall(msg: JsonRpcMessage): boolean {
+  if (msg.method !== "tools/call") return false;
+  const p = (msg.params ?? {}) as { name?: unknown };
+  return typeof p.name === "string" && WRITE_TOOLS.has(p.name);
 }
 
 function json(res: ServerResponse, code: number, obj: unknown): void {
@@ -49,17 +80,44 @@ function capabilitiesText(site: SiteData): string {
  * 路径（basePath 为空时）：
  *   GET  /.well-known/mcp · POST /mcp · GET /mcp（SSE 流）· GET /health
  *   GET  /（仅 capabilitiesAtRoot=true，独立服务默认；dev 挂载传 false 避免抢占站点首页）
+ *
+ * 安全（2026-08 审计后）：
+ * - CORS 严格：ACAO 仅回显命中 allowedOrigins 的 Origin；OPTIONS 同规则。
+ * - 写工具（tools/call 且 name ∈ {write_doc, update_doc, delete_doc}）强制
+ *   Authorization: Bearer <authToken>；token 不匹配 → 返回 JSON-RPC -32000 错误。
  */
 export function mcpHttpHandler(
   site: SiteData,
   server: McpServer,
-  options: { capabilitiesAtRoot?: boolean } = {}
+  options: { capabilitiesAtRoot?: boolean } & McpHttpAuthOptions = {}
 ): (req: IncomingMessage, res: ServerResponse) => Promise<boolean> {
   const capabilitiesAtRoot = options.capabilitiesAtRoot !== false;
-  return async (req, res) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
+  const allowWithoutOrigin = options.allowWithoutOrigin !== false;
+  const allowedOrigins = options.allowedOrigins ?? [];
+  const authToken = options.authToken;
+
+  /** 设置 CORS：仅当请求 Origin 命中白名单时才回显 ACAO（阻止跨站网页滥用）。
+   *  未带 Origin 的客户端（stdio 桥接/curl/本地 Node）按 allowWithoutOrigin 放行。 */
+  function setCors(req: IncomingMessage, res: ServerResponse): boolean {
+    const origin = req.headers.origin;
+    if (typeof origin === "string" && origin) {
+      if (!allowedOrigins.includes(origin)) return false; // Origin 不在白名单 → 不回显 ACAO（浏览器会阻止响应）
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+    } else if (!allowWithoutOrigin) {
+      return false;
+    }
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    return true;
+  }
+
+  return async (req, res) => {
+    if (!setCors(req, res)) {
+      res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("Forbidden (Origin not allowed)");
+      return true;
+    }
     if (req.method === "OPTIONS") {
       res.writeHead(204);
       res.end();
@@ -94,9 +152,9 @@ export function mcpHttpHandler(
       return true;
     }
 
-    // JSON-RPC 请求（POST）
+    // JSON-RPC 请求（POST）：写工具强制 token 鉴权
     if (req.method === "POST" && path === "/mcp") {
-      await handlePost(req, res, server, wantsSse);
+      await handlePost(req, res, server, wantsSse, { authToken });
       return true;
     }
 
@@ -117,8 +175,23 @@ export function mcpHttpHandler(
   };
 }
 
-/** 处理 POST JSON-RPC：客户端 Accept 支持 SSE 时以 SSE 帧返回，否则 JSON 单响应 */
-async function handlePost(req: IncomingMessage, res: ServerResponse, server: McpServer, wantsSse: boolean): Promise<void> {
+/** 解析 Authorization 头中的 Bearer token（无 token / 格式错误 → undefined） */
+function bearerToken(req: IncomingMessage): string | undefined {
+  const h = req.headers.authorization;
+  if (typeof h !== "string") return undefined;
+  const m = /^Bearer\s+(.+)$/.exec(h);
+  return m ? m[1] : undefined;
+}
+
+/** 处理 POST JSON-RPC：客户端 Accept 支持 SSE 时以 SSE 帧返回，否则 JSON 单响应。
+ *  写工具（write_doc/update_doc/delete_doc）强制 Bearer token 鉴权。 */
+async function handlePost(
+  req: IncomingMessage,
+  res: ServerResponse,
+  server: McpServer,
+  wantsSse: boolean,
+  auth: { authToken?: string }
+): Promise<void> {
   let body = "";
   for await (const chunk of req) body += chunk.toString("utf8");
   let msg: JsonRpcMessage;
@@ -127,6 +200,22 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, server: Mcp
   } catch {
     json(res, 400, { error: { code: -32700, message: "Invalid JSON" } });
     return;
+  }
+  // 写工具鉴权：未配置 authToken 时默认拒绝写（避免默认开放写接口）
+  if (isWriteToolCall(msg)) {
+    if (!auth.authToken || bearerToken(req) !== auth.authToken) {
+      const id = msg.id;
+      const out: JsonRpcMessage = {
+        jsonrpc: "2.0",
+        ...(id !== undefined ? { id } : {}),
+        error: {
+          code: -32000,
+          message: "写工具需要 Bearer token 鉴权：启动时通过 Authorization: Bearer <token> 携带（MCP-006 写入端鉴权）",
+        },
+      };
+      json(res, 401, out);
+      return;
+    }
   }
   const out = server.handle(msg);
   if (!out) {
@@ -145,9 +234,17 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, server: Mcp
 }
 
 /** 启动 HTTP MCP 服务（独立模式，MCP-003）。port 缺省 0（系统分配，便于测试）；返回后即可请求。 */
-export function startHttpServer(site: SiteData, server: McpServer, options: { port?: number; host?: string } = {}): Promise<HttpServerHandle> {
+export function startHttpServer(
+  site: SiteData,
+  server: McpServer,
+  options: { port?: number; host?: string } & McpHttpAuthOptions = {}
+): Promise<HttpServerHandle> {
   const host = options.host ?? "127.0.0.1";
-  const handler = mcpHttpHandler(site, server);
+  const handler = mcpHttpHandler(site, server, {
+    authToken: options.authToken,
+    allowedOrigins: options.allowedOrigins,
+    allowWithoutOrigin: options.allowWithoutOrigin,
+  });
   const srv: Server = createServer((req, res) => {
     void (async () => {
       if (!(await handler(req, res))) {

@@ -121,6 +121,15 @@ Monorepo（pnpm workspace）：`@doclight/renderer` · `@doclight/core` · `@doc
 | Node 渲染内核 | < 30KB | 27.8KB（含 marked + DOMPurify） |
 | 演示单文件 | ≤ 100KB | ~9KB（4 页示例含壳层） |
 
+## 安全与信任
+
+- **渲染管线全走 DOMPurify 白名单**：dev / SSG / bundle 三形态共用同一套 sanitize，HTML 永远不直接进 DOM。
+- **MCP 写入端鉴权**：`doclight dev --mcp` 启动即自动生成 Bearer token（打印到终端并写入 `.doclight/mcp-token`）；写工具（`write_doc` / `update_doc` / `delete_doc`）强制携带，跨站网页无法通过 CORS 劫持写入（Origin 白名单也做了本地回环限制）。
+- **路径穿越防护**：所有文件写入/读取路径都强制校验——相对路径、无 `..`、解析后必须落在对应根目录内。
+- **`llms-full.txt` 是全站 Markdown 明文导出**：`doclight build` 默认把 docs/ 下所有文档全文打包进产物。草稿、私有内容、未脱敏笔记会被同步发布；请用 `build.llmsTxt.exclude` 排除，或把敏感内容移出 docs/ 目录。
+- **插件信任模型**：构建时插件（`doclight.json` 中的 `plugins`）等同于站点作者代码——ESM/TS 文件按 `import()` 执行，具有构建进程全部权限。请勿引入不可信来源的插件；展示层插件运行时（`init`/`onMount`）同理，运行在用户浏览器。
+- **无 eval / new Function / document.write**：整个代码库禁用这些危险 API，渲染内核用 marked + DOMPurify，发布用 `spawnSync` 数组参数（无 shell 拼接）。
+
 ## 状态
 
 Phase 6（v1.0 收尾）全部主线完成：能力协议（P0）→ 表现层设计系统化 / 预览-确认-发布 /

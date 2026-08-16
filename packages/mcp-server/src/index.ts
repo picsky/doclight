@@ -20,10 +20,12 @@ import { loadSite, parseLlmsFull } from "./site.ts";
 import type { SiteData, SiteDocMeta } from "./site.ts";
 import { McpServer, MCP_PROTOCOL_VERSION, MCP_SERVER_NAME, MCP_SERVER_VERSION } from "./protocol.ts";
 import { runStdio } from "./stdio.ts";
-import { startHttpServer, mcpHttpHandler } from "./http.ts";
+import { startHttpServer, mcpHttpHandler, type McpHttpAuthOptions } from "./http.ts";
 import { TOOLS, findTool, McpError, toolDescriptors } from "./tools.ts";
-import { realpathSync } from "node:fs";
+import { realpathSync, writeFileSync, mkdirSync } from "node:fs";
+import { randomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
+import { join } from "node:path";
 
 export const mcpServerVersion = MCP_SERVER_VERSION;
 
@@ -34,7 +36,7 @@ export function createMcpServer(siteDir: string, options: { writeDir?: string } 
 }
 
 export { loadSite, parseLlmsFull, McpServer, runStdio, startHttpServer, mcpHttpHandler, TOOLS, findTool, McpError, toolDescriptors };
-export type { SiteData, SiteDocMeta };
+export type { McpHttpAuthOptions, SiteData, SiteDocMeta };
 export { MCP_PROTOCOL_VERSION, MCP_SERVER_NAME, MCP_SERVER_VERSION };
 
 /** 解析命令行参数（--key value 或 --key=value） */
@@ -52,7 +54,7 @@ function parseArgs(argv: string[]): Record<string, string> {
   return options;
 }
 
-// 直接运行：node packages/mcp-server/src/index.ts --site <dir> [--port <n>] [--write-dir <dir>]
+// 直接运行：node packages/mcp-server/src/index.ts --site <dir> [--port <n>] [--write-dir <dir>] [--mcp-token <t>]
 // DOCLIGHT_CLI_BUNDLE 守卫：本文件被 esbuild 打包进 doclight CLI（build-cli.mjs）时，
 // 入口检查会误触发（import.meta.url === process.argv[1] 都指向 cli.mjs）——CLI 构建
 // 通过 define 注入 DOCLIGHT_CLI_BUNDLE="1"，此处短路，避免 MCP server 抢占 CLI 端口。
@@ -64,13 +66,34 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
   const server = new McpServer(site);
   const port = Number(opts["port"] ?? "0");
 
+  // MCP-006 写入端鉴权（2026-08 审计后）：写工具强制 Bearer token。
+  // 显式 --mcp-token 优先；否则 HTTP 模式且启用写入端时自动生成并打印。
+  let authToken = opts["mcp-token"];
+  let tokenFile: string | null = null;
+  if (!authToken && port > 0 && site.writeDir) {
+    authToken = randomBytes(24).toString("base64url");
+    try {
+      const dotDoclight = join(process.cwd(), ".doclight");
+      mkdirSync(dotDoclight, { recursive: true });
+      tokenFile = join(dotDoclight, "mcp-token");
+      writeFileSync(tokenFile, authToken, "utf8");
+    } catch {
+      tokenFile = null;
+    }
+  }
+
   if (port > 0) {
-    startHttpServer(site, server, { port }).then((h) => {
+    startHttpServer(site, server, { port, authToken, allowedOrigins: [`http://127.0.0.1:${port}`, `http://localhost:${port}`] }).then((h) => {
       console.log(`doclight-mcp v${MCP_SERVER_VERSION} — HTTP 服务已启动`);
       console.log(`  端点:     ${h.url}mcp（POST JSON-RPC）`);
       console.log(`  发现:     ${h.url}.well-known/mcp`);
       console.log(`  产物站点: ${siteDir}（${site.docs.length} 篇文档）`);
-      if (site.writeDir) console.log(`  写入端:   ${site.writeDir}（write_doc/update_doc/delete_doc，MCP-006）`);
+      if (site.writeDir) {
+        console.log(`  写入端:   ${site.writeDir}（write_doc/update_doc/delete_doc，MCP-006）`);
+        const tokenLoc = tokenFile ? `（已写入 ${tokenFile}）` : "";
+        console.log(`  写工具鉴权（Bearer${tokenLoc}）:`);
+        console.log(`    Authorization: Bearer ${authToken}`);
+      }
       console.log(`  按 Ctrl+C 停止`);
     });
   } else {

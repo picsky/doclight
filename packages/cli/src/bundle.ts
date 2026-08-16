@@ -12,7 +12,7 @@
  */
 import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { buildNavTree, render, analyzeDoc } from "@doclight/renderer";
+import { buildNavTree, parseFrontmatter, render, analyzeDoc } from "@doclight/renderer";
 import { toFile as qrToFile } from "qrcode";
 import { loadConfig } from "./config.ts";
 import { buildCapabilityManifest } from "./capabilities.ts";
@@ -107,8 +107,45 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
   mkdirSync(outDir, { recursive: true });
 
   const mdFiles = walkMd(docsDir);
-  // 导航用 frontmatter 标题（2026-08 前端审查 P1-2：此前显示文件名主干）
-  const navTitles = collectNavTitles(docsDir, mdFiles);
+
+  // Phase 3 单遍流水：预渲染所有文档（read 1x + render 1x + analyze 1x + parse 1x + plugin pipeline 1x）
+  // 后续 collectNavTitles / buildSearchData / 主循环 复用此 Map，避免重复读盘/渲染
+  const preparedDocs = new Map<string, {
+    source: string;
+    frontmatter: Record<string, unknown>;
+    html: string;
+    slotContent: Record<string, string>;
+    analysis: { readingTime: number; wordCount: number; hasCode: boolean; headings: Array<{ level: number; id: string; text: string }>; summary: string };
+  }>();
+  // PLUG-009：构建管线（bundle 形态补齐——beforeRender → render → afterRender，插槽注入壳层）
+  const pipeline = new BuildPluginPipeline(options.buildPlugins ?? []);
+  const extraMarkedExtensions = pipeline.collectMarkedExtensions();
+  for (const rel of mdFiles) {
+    try {
+      const source = readFileSync(join(docsDir, rel), "utf8");
+      const { frontmatter } = parseFrontmatter(source);
+      const fallbackTitle = rel.replace(/\.md$/, "").split("/").pop()!;
+      const ctx: RenderContext = { path: rel, title: fallbackTitle, frontmatter, headings: [], isFirstRender: false };
+      const transformedMd = pipeline.runBeforeRender(source, ctx);
+      const { html: renderedHtml } = render(transformedMd, {
+        currentPath: rel,
+        linkSuffix: ".html",
+        extraMarkedExtensions,
+      });
+      const html = pipeline.runAfterRender(renderedHtml, ctx);
+      ctx.frontmatter = frontmatter;
+      const slotContent = pipeline.collectSlotContent(ctx);
+      const analysis = analyzeDoc(source);
+      preparedDocs.set(rel, { source, frontmatter, html, slotContent, analysis });
+    } catch {
+      /* 单文档准备失败跳过 */
+    }
+  }
+
+  // 导航用 frontmatter 标题（Phase 3：复用 preparedDocs 的 frontmatter）
+  const frontmatterMap = new Map<string, Record<string, unknown>>();
+  for (const [rel, doc] of preparedDocs) frontmatterMap.set(rel, doc.frontmatter);
+  const navTitles = collectNavTitles(docsDir, mdFiles, frontmatterMap);
   let navTree = buildNavTree(mdFiles, navTitles);
   // 嵌套目录合成总览页（2026-08 嵌套分区设计 v2）：无 README/index 的嵌套目录 →
   // 合成虚拟 index.md（标题=目录名，正文=子文档卡片列表）；有绑定走真实文件
@@ -123,13 +160,10 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
   // hash 路由：导航链接 #/xxx（file:// 无法 pushState）
   const navHtml = renderNav(navTree, ".html", "", true);
 
-  // PLUG-009：构建管线（bundle 形态补齐——beforeRender → render → afterRender，插槽注入壳层）
-  const pipeline = new BuildPluginPipeline(options.buildPlugins ?? []);
-  const extraMarkedExtensions = pipeline.collectMarkedExtensions();
-
-  // 内嵌搜索索引（pathSuffix=".html"，展示层直接构建，零网络；nav 传入：结果「节」标签；
-  // 提前构建：逐页文章体（articleBodyHtml）的「下一步」卡片描述需要 summaries）
-  const searchData = buildSearchData(docsDir, mdFiles, { pathSuffix: ".html", nav: navTree });
+  // 内嵌搜索索引（Phase 3：复用 preparedDocs 的渲染结果）
+  const renderedMap = new Map<string, { html: string; frontmatter: Record<string, unknown> }>();
+  for (const [rel, doc] of preparedDocs) renderedMap.set(rel, { html: doc.html, frontmatter: doc.frontmatter });
+  const searchData = buildSearchData(docsDir, mdFiles, { pathSuffix: ".html", nav: navTree, renderedMap });
 
   const pages: Record<string, string> = {};
   const titles: Record<string, string> = {};
@@ -145,26 +179,23 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
   let count = 0;
   for (const rel of mdFilesAll) {
     const outRel = rel === rootHome ? "index.html" : rel.replace(/\.md$/, ".html");
+    const prepared = preparedDocs.get(rel);
     // 合成总览页：磁盘无源文件，按形态（bundle = hash 路由）生成卡片列表 Markdown
-    const source = syntheticSet.has(rel)
-      ? syntheticIndexMarkdown(navTree, rel, searchData.summaries, ".html", true)
-      : readFileSync(join(docsDir, rel), "utf8");
+    const source = prepared?.source ?? syntheticIndexMarkdown(navTree, rel, searchData.summaries, ".html", true);
+    const frontmatter = prepared?.frontmatter ?? {};
+    const html = prepared?.html ?? (() => {
+      const fallbackTitle = rel.replace(/\.md$/, "").split("/").pop()!;
+      const ctx: RenderContext = { path: rel, title: fallbackTitle, frontmatter, headings: [], isFirstRender: false };
+      const transformedMd = pipeline.runBeforeRender(source, ctx);
+      const { html: renderedHtml } = render(transformedMd, { currentPath: rel, linkSuffix: ".html", extraMarkedExtensions });
+      return pipeline.runAfterRender(renderedHtml, ctx);
+    })();
     const fallbackTitle = rel.replace(/\.md$/, "").split("/").pop()!;
-    const ctx: RenderContext = { path: rel, title: fallbackTitle, frontmatter: {}, headings: [], isFirstRender: false };
-    const transformedMd = pipeline.runBeforeRender(source, ctx);
-    const { html: renderedHtml, frontmatter } = render(transformedMd, {
-      currentPath: rel,
-      linkSuffix: ".html",
-      extraMarkedExtensions,
-    });
-    ctx.frontmatter = frontmatter;
-    const html = pipeline.runAfterRender(renderedHtml, ctx);
     // 设计对齐（2026-08-16）：页标题 = frontmatter.title ?? 正文首个 h1 ?? 文件名主干
     const title =
       typeof frontmatter.title === "string" && frontmatter.title
         ? frontmatter.title
         : firstH1Text(html) ?? fallbackTitle;
-    ctx.title = title;
     const key = pageKey(outRel);
     // 设计对齐：每页完整文章体（crumb / eyebrow / h1 / lede / meta / 正文 / 下一步 / 上一页下一页）——
     // SPA 导航后与 dev/SSG 同构（SNAP-001）；插槽为壳层单实例（bundle 形态边界），占位保持一致
@@ -174,7 +205,7 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
         : typeof frontmatter.summary === "string" && frontmatter.summary
           ? frontmatter.summary
           : undefined;
-    const analysis = analyzeDoc(source);
+    const analysis = prepared?.analysis ?? analyzeDoc(source);
     const rawDate = frontmatter.date ?? frontmatter.updated;
     let updatedAt: string | undefined;
     if (typeof rawDate === "string") {
@@ -215,8 +246,8 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
     if (key === "/") {
       homeTitle = title;
       homeContent = html;
-      // 插槽内容注入壳层（单实例：插件静态插槽随壳层常驻，路由切换不重渲染——bundle 形态边界，见插件文档）
-      homeSlotContent = pipeline.collectSlotContent(ctx);
+      // 插槽内容注入壳层（Phase 3：复用 preparedDocs 的 slotContent）
+      homeSlotContent = prepared?.slotContent ?? {};
       homeSeo = pageSeo;
     }
     count++;

@@ -72,6 +72,12 @@ describe("dev server（DEV-001）", () => {
     expect(res.status).toBe(404);
   });
 
+  // 2026-08 安全审计后：非法 %XX 序列（URIError）应优雅返回 404 而非 500 挂起
+  it("非法 URL 编码（%zz）被拒绝（404，不 crash）", async () => {
+    const res = await fetch(`${dev.url}guide/%zz.md`);
+    expect(res.status).toBe(404);
+  });
+
   it("不存在的文档返回 404", async () => {
     const res = await fetch(`${dev.url}nope.md`);
     expect(res.status).toBe(404);
@@ -101,7 +107,8 @@ describe("dev server MCP 插件模式（MCP-005，dev --mcp）", () => {
   let mcpDev: DevServer;
 
   beforeAll(async () => {
-    mcpDev = await startDevServer({ dir: docsDir, port: 0, mcp: true });
+    // mcpToken 固定 + mcpTokenFile null：避免测试写盘到 process.cwd()/.doclight
+    mcpDev = await startDevServer({ dir: docsDir, port: 0, mcp: true, mcpToken: "test-token", mcpTokenFile: null });
   });
 
   afterAll(async () => {

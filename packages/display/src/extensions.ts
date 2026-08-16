@@ -87,6 +87,9 @@ export function tableNeedsFade(scrollLeft: number, scrollWidth: number, clientWi
   return scrollLeft < overflow - 4; // 未滚到底
 }
 
+// Phase 4.1 性能修复：追踪活跃的 ResizeObserver，路由切换时统一 disconnect 避免内存泄漏
+const activeResizeObservers = new Set<ResizeObserver>();
+
 /** 接线：监听 .table-wrap 滚动/尺寸变化，切换 .more-right 类（路由变化后由 enhance 重扫） */
 function addTableScrollHints(scope: HTMLElement): void {
   scope.querySelectorAll<HTMLElement>(".table-wrap").forEach((wrap) => {
@@ -100,7 +103,11 @@ function addTableScrollHints(scope: HTMLElement): void {
     wrap.addEventListener("scroll", update, { passive: true });
     // 内容渲染（KaTeX/高亮）后尺寸变化，滚动事件外兜底重算
     // 2026-08 修复：ResizeObserver 特性守卫（老浏览器/WebView 缺失时此前整条 mount 中断）
-    if (typeof ResizeObserver !== "undefined") new ResizeObserver(update).observe(wrap);
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(update);
+      observer.observe(wrap);
+      activeResizeObservers.add(observer);
+    }
   });
 }
 
@@ -317,7 +324,18 @@ export function initExtensions(root?: HTMLElement): ExtensionsApi {
 
   enhance();
   // 路由变化后重新增强（router 导航成功 → 总线事件 → 新内容已注入 article）
-  bus.on("doclight:routechange", () => enhance());
+  // Phase 4.1 性能修复：路由切换前先 disconnect 所有 ResizeObserver，避免持有旧 DOM 引用泄漏
+  bus.on("doclight:routechange", () => {
+    for (const obs of activeResizeObservers) {
+      try {
+        obs.disconnect();
+      } catch {
+        /* 单 observer 断开失败不影响其他 */
+      }
+    }
+    activeResizeObservers.clear();
+    enhance();
+  });
 
   return { enhance };
 }

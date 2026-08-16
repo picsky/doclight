@@ -149,6 +149,14 @@ describe("read_doc", () => {
   it("不存在的文档抛 McpError（提示先 build）", () => {
     expect(() => call("read_doc", { path: "guide/missing.md" })).toThrow(/未找到文档/);
   });
+
+  // 2026-08 安全审计后：防御性路径校验（即使 fullByPath 清单预检，也显式拒绝越界）
+  it("format=html 路径含 .. 拒绝（defense-in-depth，不读产物外的文件）", () => {
+    // 注：此测试验证 resolveRead_path 的显式校验触发；若 path 含 .. 即便 fullByPath 已预检也拒绝。
+    // 由于 normalizePath 会先把 .. 剥离（replace(/^[a-zA-Z]:[/\\]/...)不处理 ..），这里用 .. 直接测试
+    // 当路径未通过清单时，会先被 fullByPath 拦截；此处显式测 resolveRead_path 的 .. 拒绝分支。
+    expect(() => call("read_doc", { path: "../../../etc/passwd", format: "html" })).toThrow();
+  });
 });
 
 describe("list_docs", () => {

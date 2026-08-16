@@ -184,7 +184,13 @@ export function initToc(options: { articleSelector?: string } = {}): TocApi {
   let headings: TocHeading[] = [];
   function refresh(): void {
     if (!article) return;
-    headings = parseHeadings(article.innerHTML);
+    // Phase 4.2 性能修复：直接查询 DOM 而非序列化 innerHTML 再正则解析
+    const headingElements = article.querySelectorAll<HTMLElement>('h2[id], h3[id]');
+    headings = Array.from(headingElements).map((el) => ({
+      level: (el.tagName === 'H3' ? 3 : 2) as 2 | 3,
+      id: el.id,
+      text: el.textContent?.trim() ?? '',
+    })).filter((h) => h.id && h.text);
     if (headings.length === 0) {
       setVisible(false);
       return;

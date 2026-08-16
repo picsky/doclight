@@ -28,6 +28,12 @@
 - `doclight preview` — 预览构建产物
 - `doclight publish` — 发布（local / git gh-pages / space；人确认后执行）
 
+> **隐私注意**：`/llms-full.txt` 是 docs/ 下**全站 Markdown 明文导出**——草稿、私有内容、未脱敏笔记会被同步发布。
+> 请用 `build.llmsTxt.exclude`（doclight.json）排除，或把敏感内容移出 docs/ 目录。
+
+> **MCP 写入端鉴权**：`doclight dev --mcp` 启动时自动生成 Bearer token（打印到终端，写入 `.doclight/mcp-token`）。
+> Agent 调用 `write_doc` / `update_doc` / `delete_doc` 需携带 `Authorization: Bearer <token>`；未携带会被 401 拒绝。
+
 ## Agent 接口（构建产物）
 
 - /llms.txt
