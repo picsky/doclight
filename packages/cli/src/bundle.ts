@@ -14,7 +14,7 @@ import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:f
 import { join, resolve } from "node:path";
 import { buildNavTree, parseFrontmatter, render, analyzeDoc } from "@doclight/renderer";
 import { toFile as qrToFile } from "qrcode";
-import { loadConfig } from "./config.ts";
+import { loadConfig, loadSearchMaxTextLength } from "./config.ts";
 import { buildCapabilityManifest } from "./capabilities.ts";
 import { resolveThemePackage } from "./themes.ts";
 import { BuildPluginPipeline } from "./plugins.ts";
@@ -93,7 +93,10 @@ export function inlineVendorHtml(extraVendor?: Record<string, { pkg: string; rel
 /** 执行 bundle 构建（供命令与测试复用）。outDir 先清空重建。 */
 export async function bundleSite(options: BundleOptions = {}): Promise<BundleResult> {
   const start = Date.now();
-  const cfg = loadConfig([join(process.cwd(), "doclight.json"), join(resolve(options.dir ?? "docs"), "doclight.json")]);
+  const configFiles = [join(process.cwd(), "doclight.json"), join(resolve(options.dir ?? "docs"), "doclight.json")];
+  const cfg = loadConfig(configFiles);
+  // Phase 2 + M1 修复：搜索索引正文截断长度（宽松读取 build.searchMaxTextLength）
+  const searchMaxTextLength = loadSearchMaxTextLength(configFiles);
   // 设计对齐：站点镀铬（CLI 选项优先，回退 doclight.json）
   const chrome = options.chrome ?? (cfg.version || cfg.github || cfg.footer
     ? { version: cfg.version, github: cfg.github, footerLinks: cfg.footer?.links, statusText: cfg.footer?.status }
@@ -134,6 +137,12 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
       });
       const html = pipeline.runAfterRender(renderedHtml, ctx);
       ctx.frontmatter = frontmatter;
+      // M2 修复（2026-08 code review）：恢复旧契约——collectSlotContent 前把最终标题
+      // （frontmatter.title ?? 正文首个 h1 ?? 文件名主干）写回 ctx，插件插槽拿到真实标题
+      ctx.title =
+        typeof frontmatter.title === "string" && frontmatter.title
+          ? frontmatter.title
+          : firstH1Text(html) ?? fallbackTitle;
       const slotContent = pipeline.collectSlotContent(ctx);
       const analysis = analyzeDoc(source);
       preparedDocs.set(rel, { source, frontmatter, html, slotContent, analysis });
@@ -163,7 +172,7 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
   // 内嵌搜索索引（Phase 3：复用 preparedDocs 的渲染结果）
   const renderedMap = new Map<string, { html: string; frontmatter: Record<string, unknown> }>();
   for (const [rel, doc] of preparedDocs) renderedMap.set(rel, { html: doc.html, frontmatter: doc.frontmatter });
-  const searchData = buildSearchData(docsDir, mdFiles, { pathSuffix: ".html", nav: navTree, renderedMap });
+  const searchData = buildSearchData(docsDir, mdFiles, { pathSuffix: ".html", nav: navTree, renderedMap, maxTextLength: searchMaxTextLength });
 
   const pages: Record<string, string> = {};
   const titles: Record<string, string> = {};
@@ -180,16 +189,33 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
   for (const rel of mdFilesAll) {
     const outRel = rel === rootHome ? "index.html" : rel.replace(/\.md$/, ".html");
     const prepared = preparedDocs.get(rel);
+    const isSynthetic = syntheticSet.has(rel);
     // 合成总览页：磁盘无源文件，按形态（bundle = hash 路由）生成卡片列表 Markdown
-    const source = prepared?.source ?? syntheticIndexMarkdown(navTree, rel, searchData.summaries, ".html", true);
+    // H1 修复（2026-08 code review）：用 syntheticSet 显式区分合成/真实文档
+    const source = isSynthetic
+      ? syntheticIndexMarkdown(navTree, rel, searchData.summaries, ".html", true)
+      : prepared?.source ?? readFileSync(join(docsDir, rel), "utf8");
     const frontmatter = prepared?.frontmatter ?? {};
-    const html = prepared?.html ?? (() => {
+    // M2 修复：合成页 / prepare 失败文档按需渲染时同样收集插槽内容（恢复旧契约），
+    // 插槽内插件能拿到完整 ctx（含 afterRender 后的最终标题）
+    let html: string;
+    let slotContent: Record<string, string>;
+    if (prepared && !isSynthetic) {
+      html = prepared.html;
+      slotContent = prepared.slotContent;
+    } else {
       const fallbackTitle = rel.replace(/\.md$/, "").split("/").pop()!;
       const ctx: RenderContext = { path: rel, title: fallbackTitle, frontmatter, headings: [], isFirstRender: false };
       const transformedMd = pipeline.runBeforeRender(source, ctx);
       const { html: renderedHtml } = render(transformedMd, { currentPath: rel, linkSuffix: ".html", extraMarkedExtensions });
-      return pipeline.runAfterRender(renderedHtml, ctx);
-    })();
+      html = pipeline.runAfterRender(renderedHtml, ctx);
+      ctx.frontmatter = frontmatter;
+      ctx.title =
+        typeof frontmatter.title === "string" && frontmatter.title
+          ? frontmatter.title
+          : firstH1Text(html) ?? fallbackTitle;
+      slotContent = pipeline.collectSlotContent(ctx);
+    }
     const fallbackTitle = rel.replace(/\.md$/, "").split("/").pop()!;
     // 设计对齐（2026-08-16）：页标题 = frontmatter.title ?? 正文首个 h1 ?? 文件名主干
     const title =
@@ -246,8 +272,8 @@ export async function bundleSite(options: BundleOptions = {}): Promise<BundleRes
     if (key === "/") {
       homeTitle = title;
       homeContent = html;
-      // 插槽内容注入壳层（Phase 3：复用 preparedDocs 的 slotContent）
-      homeSlotContent = prepared?.slotContent ?? {};
+      // 插槽内容注入壳层（M2 修复：合成页/prepare 失败文档也已收集 slotContent）
+      homeSlotContent = slotContent;
       homeSeo = pageSeo;
     }
     count++;

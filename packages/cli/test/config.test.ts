@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadConfig, loadLlmsTxtConfig } from "../src/config.ts";
+import { loadConfig, loadLlmsTxtConfig, loadSearchMaxTextLength } from "../src/config.ts";
 import schema from "../../../contracts/doclight.schema.json" with { type: "json" };
 
 const CONTRACT_KEYS = ["title", "description", "docsDir", "theme", "base", "siteUrl", "outputDir", "build", "plugins"] as const;
@@ -56,6 +56,28 @@ describe("doclight.json 契约扩展（A）", () => {
       expect(cfg.priority?.high).toEqual(["README.md"]);
       expect(cfg.priority?.low).toEqual(["api/"]);
       expect(cfg.exclude).toEqual(["internal/"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // M1 修复（2026-08 code review）：build.searchMaxTextLength 配置接线（宽松读取）
+  it("build.searchMaxTextLength 宽松读取（合法数字生效 / 非法值与缺省走 undefined）", () => {
+    const dir = mkdtempSync(join(tmpdir(), "doclight-cfg-srch-"));
+    try {
+      // 合法值
+      writeFileSync(join(dir, "doclight.json"), JSON.stringify({ build: { searchMaxTextLength: 0 } }));
+      expect(loadSearchMaxTextLength([join(dir, "doclight.json")])).toBe(0);
+      writeFileSync(join(dir, "doclight.json"), JSON.stringify({ build: { searchMaxTextLength: 8192 } }));
+      expect(loadSearchMaxTextLength([join(dir, "doclight.json")])).toBe(8192);
+      // 非法值（负数 / 字符串 / NaN）→ undefined（走 buildSearchData 默认 3072）
+      writeFileSync(join(dir, "doclight.json"), JSON.stringify({ build: { searchMaxTextLength: -1 } }));
+      expect(loadSearchMaxTextLength([join(dir, "doclight.json")])).toBeUndefined();
+      writeFileSync(join(dir, "doclight.json"), JSON.stringify({ build: { searchMaxTextLength: "big" } }));
+      expect(loadSearchMaxTextLength([join(dir, "doclight.json")])).toBeUndefined();
+      // 无配置文件 → undefined
+      rmSync(join(dir, "doclight.json"), { force: true });
+      expect(loadSearchMaxTextLength([join(dir, "doclight.json")])).toBeUndefined();
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

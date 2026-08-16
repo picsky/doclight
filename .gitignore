@@ -30,6 +30,9 @@ Thumbs.db
 .vscode/
 *.log
 
+# 本地会话密钥（dev --mcp 自动生成的 Bearer token，M4 修复：防误提交）
+.doclight/
+
 # 本地工具配置（AutoGLM 浏览器 agent 等）
 config/
 

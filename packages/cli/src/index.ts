@@ -26,7 +26,7 @@ import { publishSite, type PublishResult } from "./publish.ts";
 import { listSnapshots, rollbackSnapshot } from "./snapshot.ts";
 import { spaceInit, spaceStatus, spaceSwitch } from "./space.ts";
 import { embedSite } from "./embed.ts";
-import { loadConfig } from "./config.ts";
+import { loadConfig, loadSearchMaxTextLength } from "./config.ts";
 import { configuredPluginWatchFiles, loadConfiguredPlugins, reloadConfiguredPluginsAsync } from "./plugin-loader.ts";
 import { pluginList, pluginNew } from "./plugin-new.ts";
 import { skillInstall, skillList } from "./skill.ts";
@@ -182,8 +182,9 @@ function printHelp(): void {
 export async function runDev(options: Partial<CliOptions> = {}): Promise<{ url: string; port: number; close(): Promise<void> }> {
   const merged: CliOptions = { port: options.port ?? 3000, dir: options.dir ?? "docs", title: options.title, mcp: options.mcp, mcpToken: options.mcpToken };
   // PLUG-009 接线：doclight.json plugins → 构建管线；THEME-002 主题同步；PLUG-011 插件热重载
-  // PLUG-014：doclight.json 插件配置注入页面（展示层自动注册 init/onMount）
-  const cfg = loadConfig([join(process.cwd(), "doclight.json"), join(resolve(merged.dir), "doclight.json")]);
+  // PLUG-014：doclight.json 插件配置注入页面（展示层自动注册）
+  const configFiles = [join(process.cwd(), "doclight.json"), join(resolve(merged.dir), "doclight.json")];
+  const cfg = loadConfig(configFiles);
   const theme = loadConfiguredTheme(merged.dir);
   // 设计对齐（2026-08-16）：站点镀铬（顶栏版本/GitHub、footer 链接与状态）
   const chrome = cfg.version || cfg.github || cfg.footer
@@ -199,6 +200,8 @@ export async function runDev(options: Partial<CliOptions> = {}): Promise<{ url: 
     reloadPlugins: () => reloadConfiguredPluginsAsync(merged.dir),
     pluginConfigs: cfg.plugins,
     chrome,
+    // M1 修复：build.searchMaxTextLength 与 build/bundle 同源（dev 形态索引截断一致生效）
+    searchMaxTextLength: loadSearchMaxTextLength(configFiles),
   });
 }
 

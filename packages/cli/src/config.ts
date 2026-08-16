@@ -94,3 +94,21 @@ export function loadLlmsTxtConfig(candidates: string[]): LlmsTxtConfig {
   }
   return {};
 }
+
+/**
+ * 读取搜索索引正文截断长度（Phase 2 性能修复）：宽松读取 `build.searchMaxTextLength`
+ * （同 build.llmsTxt 先例，不擅改契约文件）。返回 undefined 表示走 buildSearchData 默认 3072。
+ */
+export function loadSearchMaxTextLength(candidates: string[]): number | undefined {
+  for (const file of candidates) {
+    if (!existsSync(file)) continue;
+    try {
+      const raw = JSON.parse(readFileSync(file, "utf8")) as { build?: { searchMaxTextLength?: unknown } };
+      const v = raw.build?.searchMaxTextLength;
+      if (typeof v === "number" && Number.isFinite(v) && v >= 0) return v;
+    } catch {
+      /* 配置损坏时忽略，走默认 */
+    }
+  }
+  return undefined;
+}

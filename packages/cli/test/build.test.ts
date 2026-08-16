@@ -171,8 +171,9 @@ describe("doclight build（SSG-001 静态导出）", () => {
     expect(crumbs2[0]).toEqual({ label: "文档", href: "/docs/" });
   });
 
-  // Phase 3 单遍流水：验证优化后产物与优化前逐字节一致（避免行为漂移）
-  it("单遍流水优化：同一输入两次构建产物逐字节一致（bit-for-bit）", () => {
+  // Phase 3 单遍流水：验证构建确定性（同一输入两次构建产物一致；generatedAt 时间戳除外）。
+  // 注意：本测试不验证「与优化前等价」——那需要旧代码产物对拍；此处防的是优化引入非确定性
+  it("单遍流水：同一输入两次构建产物逐字节一致（确定性）", () => {
     const out1 = mkdtempSync(join(tmpdir(), "doclight-bench-1-"));
     const out2 = mkdtempSync(join(tmpdir(), "doclight-bench-2-"));
     // 占位 display.js

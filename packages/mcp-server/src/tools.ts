@@ -202,7 +202,7 @@ const readDoc: McpTool = {
     } else if (format === "html") {
       // 防御性路径校验（2026-08 审计后）：fullByPath 已预检，但显式拒绝越界（defense-in-depth）
       const htmlRel = path.replace(/\.md$/, ".html");
-      const htmlPath = resolveRead_path(site.siteDir, htmlRel);
+      const htmlPath = resolveReadPath(site.siteDir, htmlRel);
       if (existsSync(htmlPath)) {
         const html = readFileSync(htmlPath, "utf8");
         const m = /<article>([\s\S]*?)<\/article>/.exec(html);
@@ -396,7 +396,7 @@ function resolveWritePath(writeDir: string, raw: string): string {
 
 /** 读取路径防御性校验（2026-08 审计后）：即使调用方已用清单预检，也显式拒绝越界。
  *  覆盖 write_doc 同款规则（非绝对 + 无 .. + 解析后落在 baseDir 内）。 */
-function resolveRead_path(baseDir: string, raw: string): string {
+function resolveReadPath(baseDir: string, raw: string): string {
   if (/^[/\\]/.test(raw) || /^[a-zA-Z]:[/\\]/.test(raw)) throw new McpError(`路径越界：${raw}（只允许相对路径）`);
   const rel = raw.replace(/\\/g, "/").replace(/^\/+/, "");
   if (rel.split("/").includes("..")) throw new McpError(`路径非法：${raw}（不允许 ..）`);

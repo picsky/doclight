@@ -23,7 +23,7 @@ import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync }
 import { dirname, join, resolve, sep } from "node:path";
 import { Resvg } from "@resvg/resvg-js";
 import { analyzeDoc, buildNavTree, parseFrontmatter, render } from "@doclight/renderer";
-import { loadConfig, loadLlmsTxtConfig } from "./config.ts";
+import { loadConfig, loadLlmsTxtConfig, loadSearchMaxTextLength } from "./config.ts";
 import { resolveThemePackage } from "./themes.ts";
 import { buildLlmsFullTxt, buildLlmsTxt, classifyPriority } from "./llms.ts";
 import { buildCapabilityManifest } from "./capabilities.ts";
@@ -236,6 +236,8 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
   const cfg = loadConfig(configFiles);
   // LLMS-001：llms.txt 用户自定义分级/排除（宽松读取 build.llmsTxt，06 §6.2.1）
   const llmsTxt = loadLlmsTxtConfig(configFiles);
+  // Phase 2 + M1 修复：搜索索引正文截断长度（宽松读取 build.searchMaxTextLength）
+  const searchMaxTextLength = loadSearchMaxTextLength(configFiles);
   const docsDir = resolve(options.dir ?? cfg.docsDir ?? "docs");
   const outDir = resolve(options.outDir ?? cfg.outputDir ?? "dist-site");
   const siteTitle = options.title ?? cfg.title ?? "DocLight";
@@ -310,7 +312,7 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
   for (const [rel, doc] of preparedDocs) {
     renderedMap.set(rel, { html: doc.html, frontmatter: doc.frontmatter });
   }
-  const searchData = buildSearchData(docsDir, mdFiles, { pathSuffix: ".html", nav: navTree, renderedMap });
+  const searchData = buildSearchData(docsDir, mdFiles, { pathSuffix: ".html", nav: navTree, renderedMap, maxTextLength: searchMaxTextLength });
   const searchVersion = searchData.version;
 
   /** sitemap 数据 + OG 卡收集 */
@@ -321,17 +323,28 @@ export function buildSite(options: BuildOptions = {}): BuildResult {
   /** 渲染单篇文档并写入产物（Phase 3：复用 preparedDocs，合成总览页除外） */
   function writeDoc(rel: string, outRel: string): void {
     const prepared = preparedDocs.get(rel);
+    const isSynthetic = syntheticSet.has(rel);
     // 合成总览页：磁盘无源文件，按形态生成卡片列表 Markdown（内联 HTML 链接已转最终 URL）
     // 合成页不进 preparedDocs（依赖 searchData.summaries，需延迟渲染）
-    const source = prepared?.source ?? syntheticIndexMarkdown(navTree, rel, searchData.summaries, ".html");
+    // H1 修复（2026-08 code review）：用 syntheticSet 显式区分合成/真实文档，
+    // 避免 prepare 阶段失败的真实文档被错误地按合成页渲染成卡片列表
+    const source = isSynthetic
+      ? syntheticIndexMarkdown(navTree, rel, searchData.summaries, ".html")
+      : prepared?.source ?? readFileSync(join(docsDir, rel), "utf8");
     const frontmatter = prepared?.frontmatter ?? {};
-    const html = prepared?.html ?? (() => {
+    // M2 修复：合成页 / prepare 失败文档按需渲染时同样收集插槽内容（恢复旧契约）
+    let html: string;
+    let slotContent: Record<string, string>;
+    if (prepared && !isSynthetic) {
+      html = prepared.html;
+      slotContent = prepared.slotContent;
+    } else {
       const ctx: RenderContext = { path: rel, title: docTitle(frontmatter, rel), frontmatter, headings: [], isFirstRender: false, base, siteUrl: siteUrl || undefined };
       const transformedMd = pipeline.runBeforeRender(source, ctx);
       const { html: renderedHtml } = render(transformedMd, { currentPath: rel, linkSuffix: ".html", extraMarkedExtensions: pipeline.collectMarkedExtensions() });
-      return pipeline.runAfterRender(renderedHtml, ctx);
-    })();
-    const slotContent = prepared?.slotContent ?? {};
+      html = pipeline.runAfterRender(renderedHtml, ctx);
+      slotContent = pipeline.collectSlotContent(ctx);
+    }
     const analysis = prepared?.analysis ?? analyzeDoc(source);
     // PLUG-012：插件 CSS（mermaid 等插件样式按需注入页面）
     const pluginCss = pipeline.collectPluginStyles();

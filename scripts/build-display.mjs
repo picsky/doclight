@@ -1,10 +1,10 @@
-// 展示层构建（02 §2.3.4：原生 Node.js，不引入 Vite/Rollup/esbuild）
+// 展示层构建（02 §2.3.4：原生 Node.js 转译，不引入 Vite/Rollup）
 // 递归转译 src/**/*.ts → 单文件 dist/display.js，并做 gzip 度量。
 //
 // 与 build-renderer 同策略：内部相对 import 剥离后单文件拼接（模块并入同一
 // 作用域，顶层导出名直接可见）；展示层零外部依赖，无裸包名需解析。
 //
-// Phase 4.6 性能修复：添加 esbuild minify 压缩（体积减少 40-50%）
+// Phase 4.6 性能修复：产物经 esbuild minify 压缩（构建工具链依赖，运行时仍零依赖）
 import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";

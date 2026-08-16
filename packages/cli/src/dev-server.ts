@@ -63,6 +63,8 @@ export interface DevServerOptions {
   reloadPlugins?: () => PluginDef[] | Promise<PluginDef[] | null> | null;
   /** PLUG-014：插件运行时配置（doclight.json plugins，由 CLI 层注入；注入页面供展示层自动注册） */
   pluginConfigs?: Array<{ name: string; config?: Record<string, unknown>; enabled?: boolean }>;
+  /** Phase 2 + M1 修复：搜索索引正文截断长度（宽松读取 doclight.json build.searchMaxTextLength） */
+  searchMaxTextLength?: number;
   /** 设计对齐（2026-08-16）：站点镀铬（顶栏版本按钮 / GitHub 图标 / footer 链接与状态） */
   chrome?: {
     version?: string;
@@ -275,8 +277,10 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
 
   const sseClients = new Set<ServerResponse>();
   /** 搜索索引缓存（启动即建 + 文件变更后重建；version 内联进页面供持久化校验，03 §3.8.5；
-   *  nav 传入：搜索结果「节」标签，设计对齐演示页 ri-sec） */
-  let searchIndexCache: ReturnType<typeof buildSearchData> = buildSearchData(docsDir, mdFiles, { nav: navTree });
+   *  nav 传入：搜索结果「节」标签，设计对齐演示页 ri-sec；
+   *  M1 修复：maxTextLength 来自 doclight.json build.searchMaxTextLength，与 build/bundle 同源） */
+  const searchOptions = () => ({ nav: navTree, maxTextLength: options.searchMaxTextLength });
+  let searchIndexCache: ReturnType<typeof buildSearchData> = buildSearchData(docsDir, mdFiles, searchOptions());
 
   /**
    * WORK-001 增量渲染：页面渲染缓存（路径 + mtime + 字节数 为键）——只重渲染变更文档。
@@ -304,33 +308,35 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
    *  - 编辑已存在文档：仅失效该文档的渲染缓存（导航/搜索仍全量重建，复杂度/收益权衡）
    *  - 新增/删除文档：全量重建导航 + 搜索索引 + 清空渲染缓存 */
   function onFsChange(_eventType: string, filename: string | null) {
-    try {
-      // Phase 4.4：尝试增量失效
-      if (filename && filename.endsWith('.md')) {
-        const relPath = filename.replace(/\\/g, '/'); // Windows 路径归一化
-        const isExisting = mdFiles.includes(relPath);
+    // H2 修复（2026-08 code review）：渲染缓存页内嵌 navHtml 与 searchVersion，
+    // 若任一变化则必须整体失效，否则其他缓存页会显示旧导航/旧搜索版本
+    const prevNavHtml = navHtml;
+    const prevSearchVersion = searchIndexCache.version;
+    const changedFileRel = filename ? filename.replace(/\\/g, "/") : null;
+    const isKnownMd = changedFileRel ? mdFiles.includes(changedFileRel) : false;
 
-        if (isExisting) {
-          // 编辑已存在文档：仅失效该文档的渲染缓存
-          renderCache.delete(relPath);
-          // 导航和搜索仍全量重建（增量重建复杂度高，当前站点规模下全量重建可接受）
-          rebuildNav();
-          searchIndexCache = buildSearchData(docsDir, mdFiles, { nav: navTree });
-        } else {
-          // 新增文档：全量重建
-          rebuildNav();
-          searchIndexCache = buildSearchData(docsDir, mdFiles, { nav: navTree });
-          renderCache.clear();
-        }
-      } else {
-        // 非 .md 文件或无法确定文件名：全量重建
-        rebuildNav();
-        searchIndexCache = buildSearchData(docsDir, mdFiles, { nav: navTree });
-        renderCache.clear();
-      }
+    try {
+      rebuildNav();
+      searchIndexCache = buildSearchData(docsDir, mdFiles, searchOptions());
     } catch {
       /* 扫描失败（目录临时不可读）时保留旧导航 */
     }
+
+    const structureChanged =
+      !changedFileRel ||
+      !changedFileRel.endsWith(".md") ||
+      !isKnownMd ||
+      prevNavHtml !== navHtml ||
+      prevSearchVersion !== searchIndexCache.version;
+
+    if (structureChanged) {
+      // 结构性变化（新增/删除/重命名/导航/搜索版本）：整体失效
+      renderCache.clear();
+    } else {
+      // 仅单篇内容变化：只失效该文档（其他缓存页的 navHtml/searchVersion 仍一致）
+      renderCache.delete(changedFileRel);
+    }
+
     mcpDirty = true;
     for (const res of sseClients) res.write("data: reload\n\n");
   }

@@ -72,4 +72,33 @@ describe("WORK-001 dev 增量渲染缓存", () => {
       renderSpy.mockRestore();
     }
   });
+
+  // H2 回归（2026-08 code review）：编辑文档 frontmatter 标题 → 导航变化 →
+  // 其他文档的缓存页必须失效重渲染，不得残留旧侧边栏标题
+  it("导航标题变更后：其他文档的缓存页同步新导航（不残留旧侧边栏）", async () => {
+    // 准备：b 带旧标题入缓存
+    writeFileSync(join(docsDir, "guide", "b.md"), "---\ntitle: 旧标题B\n---\n\n# B 正文");
+    let body = "";
+    for (let i = 0; i < 30; i++) {
+      body = await (await fetch(`${dev.url}guide/b.md`)).text();
+      if (body.includes("旧标题B")) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(body).toContain("旧标题B"); // 侧边栏直出 frontmatter 标题
+    // 先请求 a 入缓存（此刻导航含「旧标题B」）
+    const aBefore = await (await fetch(`${dev.url}guide/a.md`)).text();
+    expect(aBefore).toContain("旧标题B");
+
+    // 触发：改 b 的 frontmatter 标题（navHtml 变化）
+    writeFileSync(join(docsDir, "guide", "b.md"), "---\ntitle: 新标题B\n---\n\n# B 正文");
+    // 轮询等待 a 的缓存页出现新标题（watch 异步 + 全量失效 + 重渲染）
+    let aAfter = "";
+    for (let i = 0; i < 40; i++) {
+      aAfter = await (await fetch(`${dev.url}guide/a.md`)).text();
+      if (aAfter.includes("新标题B")) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(aAfter).toContain("新标题B"); // 新导航已生效
+    expect(aAfter).not.toContain("旧标题B"); // 旧导航不残留（H2 修复点）
+  });
 });
