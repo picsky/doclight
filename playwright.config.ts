@@ -12,9 +12,11 @@ export default defineConfig({
   // 全局 worker 上限：3 浏览器各 1 并发，降 CPU 争抢引发的超时抖动
   workers: 3,
   forbidOnly: !!process.env.CI,
-  // 无条件重试 2 次：本机 WebKit 在并行负载下偶发超时（chromium/firefox 稳定），
-  // 确定性回归会在 3 次尝试后仍失败（门禁不放过真 bug）；CI 同样适用
-  retries: 2,
+  // 重试策略（2026-08 review 阶段1 flaky 治理）：CI 2 次（CI 抖动无法当场复现）；
+  // 本机 1 次——本机 WebKit 满载偶发超时是实测记录（隔离 4.8s/满载 19.8s），0 次
+  // 会让本地 verify 频繁假红；同时 checks/e2e.mjs 会把 flaky（重试后才过）显式
+  // 列进报告，持续 flaky 不再被静默掩埋。确定性回归 2 次尝试后仍失败（门禁不放过真 bug）
+  retries: process.env.CI ? 2 : 1,
   reporter: [
     ["list"],
     // 反馈层：机器可消费的 JSON 报告（10 §3.1）

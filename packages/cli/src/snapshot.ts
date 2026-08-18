@@ -115,13 +115,14 @@ export function listSnapshots(root: string): SnapshotInfo[] {
   const base = snapshotsDir(root);
   if (!existsSync(base)) return [];
   const out: SnapshotInfo[] = [];
-  for (const entry of readdirSync(base).sort().reverse()) {
+  for (const entry of readdirSync(base)) {
     const full = join(base, entry);
     if (!statSync(full).isDirectory()) continue;
     const manifest = readManifest(full);
     if (manifest) out.push({ ...manifest, id: entry });
   }
-  return out;
+  // 按 createdAt 降序排序（新 → 旧），不依赖 ID 中的哈希值
+  return out.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 /**

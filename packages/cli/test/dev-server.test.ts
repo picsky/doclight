@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { request as httpRequest } from "node:http";
@@ -101,6 +101,33 @@ describe("dev server（DEV-001）", () => {
       req.end();
     });
   });
+
+  // 2026-08 review P0-3：loopback 监听下的 Host 头校验（DNS rebinding 防御）
+  it("Host 头为外部域名（DNS rebinding 形态）→ 403", async () => {
+    await new Promise<void>((done, reject) => {
+      const req = httpRequest(
+        `${dev.url}guide/quickstart.md`,
+        { headers: { Host: "evil.example.com" } },
+        (res) => {
+          expect(res.statusCode).toBe(403);
+          res.resume();
+          done();
+        },
+      );
+      req.on("error", reject);
+      req.end();
+    });
+  });
+
+  // 2026-08 review P0-6：查询串不破坏端点匹配（?v= 缓存穿透场景）
+  it("端点与文档路径带查询串仍正常服务（?v=1）", async () => {
+    const jsonRes = await fetch(`${dev.url}__doclight/docs.json?v=1`);
+    expect(jsonRes.status).toBe(200);
+    const docRes = await fetch(`${dev.url}guide/quickstart.md?v=1`);
+    expect(docRes.status).toBe(200);
+    const vendorRes = await fetch(`${dev.url}__doclight/vendor/prism.min.js?v=1`);
+    expect(vendorRes.status).toBe(200); // node_modules 存在即可命中（CI 已 pnpm install）
+  });
 });
 
 describe("dev server MCP 插件模式（MCP-005，dev --mcp）", () => {
@@ -147,5 +174,37 @@ describe("dev server MCP 插件模式（MCP-005，dev --mcp）", () => {
     const res = await fetch(`${mcpDev.url}health`);
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("doclight-mcp");
+  });
+});
+
+/* ---- 2026-08 review P0-4：MCP 快照惰性构建（普通请求不触发 buildSite/loadSite） ---- */
+describe("dev server MCP 快照惰性构建（P0-4）", () => {
+  let lazyDev: DevServer;
+  const mcpTempDirs = (): Set<string> =>
+    new Set(readdirSync(tmpdir()).filter((d) => d.startsWith("doclight-mcp-dev-")));
+
+  beforeAll(async () => {
+    lazyDev = await startDevServer({ dir: docsDir, port: 0, mcp: true, mcpToken: "t", mcpTokenFile: null });
+  });
+  afterAll(async () => {
+    await lazyDev.close();
+  });
+
+  it("普通文档/静态请求不创建 MCP 快照目录（不触发 buildSite）", async () => {
+    const before = mcpTempDirs();
+    const res = await fetch(`${lazyDev.url}guide/quickstart.md`);
+    expect(res.status).toBe(200);
+    await fetch(`${lazyDev.url}__doclight/docs.json`);
+    expect(mcpTempDirs().size).toBe(before.size); // 无新增快照目录
+  });
+
+  it("首个 MCP 请求才创建快照（目录数 +1），后续 MCP 请求复用（不 +1）", async () => {
+    const before = mcpTempDirs();
+    const r1 = await fetch(`${lazyDev.url}.well-known/mcp`);
+    expect(r1.status).toBe(200);
+    expect(mcpTempDirs().size).toBe(before.size + 1);
+    const r2 = await fetch(`${lazyDev.url}health`);
+    expect(r2.status).toBe(200);
+    expect(mcpTempDirs().size).toBe(before.size + 1); // 复用同一快照
   });
 });

@@ -63,6 +63,27 @@ doclight bundle                # 单文件便携包（file:// 双击即开）
 doclight slides talk.md        # markdown `---` 分页 → 自包含单文件演示
 ```
 
+## 命令速查（全部 16 个）
+
+| 命令 | 用途 |
+|---|---|
+| `doclight init` | 初始化新项目（doclight.json + 示例 docs/ + AGENTS.md） |
+| `doclight dev` | 本地实时预览（SSE 热重载；`--mcp` 同端口挂载 MCP Server） |
+| `doclight build` | SSG 静态导出（SEO 全套 + llms.txt + capabilities.json） |
+| `doclight preview` | 预览构建产物（`--themes` 主题画廊） |
+| `doclight bundle` | 单文件便携包（file:// 离线可用；`--qr` 二维码 / `--inline-vendor` 内联扩展） |
+| `doclight publish` | 发布（local / git gh-pages / space；`--preview` 预览态；发布前自动快照） |
+| `doclight rollback` | 回滚到历史快照（`--list` 列出可回滚 ID） |
+| `doclight space` | 内容空间管理（init / switch / status，`.doclight/space.json`） |
+| `doclight deploy` | 一键部署 gh-pages（自动 `/<repo>/` base + 平台指引） |
+| `doclight embed` | 生成可嵌入片段（snippet.js + iframe，自推导基址） |
+| `doclight slides` | Markdown → 自包含单文件演示（布局指令 + 演讲者备注） |
+| `doclight plugin` | 插件脚手架与管理（new / list） |
+| `doclight skill` | Agent 技能安装（install / list → ~/.claude，随 CLI 分发） |
+| `doclight migrate-docsify` | 从 docsify 迁移 |
+| `doclight migrate-mkdocs` | 从 MkDocs 迁移（mkdocs.yml nav + admonition 转换） |
+| `doclight migrate-gitbook` | 从 GitBook 迁移（SUMMARY.md 解析） |
+
 ## 为什么是「把 Markdown 变成作品」
 
 - **Agent 是第一用户**：内容由 Agent 写，DocLight 保证"同样的 md，经 DocLight 呈现后视觉质量显著更高"
@@ -97,7 +118,7 @@ doclight slides talk.md        # markdown `---` 分页 → 自包含单文件演
 ## 开源与贡献
 
 MIT 许可证（[LICENSE](LICENSE)）。DocLight 是"为 Agent 设计、由 Agent 维护"的开源项目：
-开发者文档面向 Agent 与人类双读（AGENTS.md 是内容写作入口，AGENT.md 是开发指南）。
+开发者文档面向 Agent 与人类双读（AGENTS.md 是唯一入口：内容写作约定 + 开发指南指针）。
 欢迎 [提 issue / PR](https://github.com/picsky/doclight)，贡献前请读 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 架构速览

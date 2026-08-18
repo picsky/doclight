@@ -16,7 +16,7 @@
  *
  * 降级：无 Prism → 纯代码块（可读 + 可复制）。
  */
-import { escapeHtml } from "../core/link.ts";
+import { escapeHtml } from "../../../core/src/utils.ts"; // P0-5 收敛：权威来源
 
 const FILE_ICON =
   '<svg class="fname-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';

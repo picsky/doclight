@@ -176,7 +176,7 @@ specs/
 ## 需求 ID 与追溯（10 §1.4）
 
 - 每个需求项有唯一 ID：`<前缀>-<序号>`（如 `SRCH-001`）
-- 前缀表：`SRCH`(搜索) / `REND`(渲染) / `NAV`(导航) / `TOC` / `THEME` / `SSG` / `MCP` / `PLUG`(插件) / `SPACE`(内容空间) / `CLI` / `SEO`(搜索优化，Phase 3 新增) / `DEV`(dev server，Phase 1 新增) / `LLMS`(llms.txt，Phase 4 新增) / `FRONT`(语义 frontmatter，Phase 4 新增) / `SNAP`(同构快照，Phase 4 补强新增) / `CAP`(能力协议，Phase 6 P0 新增) / `AEO`(Agent 发布优化/发布产物 Agent 友好，Phase 6 P0 新增) / `VIS`(表现层设计系统化，Phase 6 P1 新增) / `WORK`(预览-确认-发布工作流，Phase 6 P1 新增) / `DEMO`(演示形态，Phase 6 P2 新增) — 新增前缀须登记（注：ID 正则限 2-5 大写字母，过长前缀不被 spec:check 识别）
+- 前缀表：`SRCH`(搜索) / `REND`(渲染) / `NAV`(导航) / `TOC` / `THEME` / `SSG` / `MCP` / `PLUG`(插件) / `SPACE`(内容空间) / `CLI` / `SEO`(搜索优化，Phase 3 新增) / `DEV`(dev server，Phase 1 新增) / `LLMS`(llms.txt，Phase 4 新增) / `FRONT`(语义 frontmatter，Phase 4 新增) / `SNAP`(同构快照，Phase 4 补强新增) / `CAP`(能力协议，Phase 6 P0 新增) / `AEO`(Agent 发布优化/发布产物 Agent 友好，Phase 6 P0 新增) / `VIS`(表现层设计系统化，Phase 6 P1 新增) / `WORK`(预览-确认-发布工作流，Phase 6 P1 新增) / `DEMO`(演示形态，Phase 6 P2 新增) / `COLL`(作品集 Collection，Phase 8 新增) — 新增前缀须登记（注：ID 正则限 2-5 大写字母，过长前缀不被 spec:check 识别）
 - Agent 在**提交信息与代码中引用需求 ID**（`feat(SRCH-001): ...`）
 - `npm run spec:check` 校验链路：specs 中的每个 ID 在 `packages/*` 的源码或测试中有引用
 - 只有 `.feature` 与编号 RFC 规格（`NNN-*.md`）承载需求 ID；本 README 中的示例 ID 仅供说明，不计入追溯（spec:check 不扫描约定文档）

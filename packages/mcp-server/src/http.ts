@@ -14,8 +14,11 @@
  *   无 Origin 的非浏览器客户端按 allowWithoutOrigin 放行，默认 true 以兼容 stdio 桥接）。
  * - 写工具（write_doc/update_doc/delete_doc）强制 Bearer token 鉴权（authToken 配置时生效）；
  *   只读工具不受影响。配合 dev --mcp 启动自动生成并打印 token，本机进程无法被跨站网页滥用。
+ * - 2026-08 review P0 加固：token 恒时比较（SHA-256 摘要 + timingSafeEqual）；
+ *   POST 请求体 2MB 上限（超限 413）；loopback 监听时 Host 头白名单校验（DNS rebinding 防御）。
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { MCP_SERVER_NAME, MCP_SERVER_VERSION, type JsonRpcMessage, type McpServer } from "./protocol.ts";
 import { toolDescriptors } from "./tools.ts";
 import type { SiteData } from "./site.ts";
@@ -43,6 +46,45 @@ export interface McpHttpAuthOptions {
 
 /** MCP-006 写工具名集合（鉴权作用域精确限定：只读工具不受 token 限制） */
 const WRITE_TOOLS = new Set(["write_doc", "update_doc", "delete_doc"]);
+
+/** POST /mcp 请求体上限（2026-08 review P0-2：防无上限累积导致内存耗尽；
+ *  2MB 覆盖 write_doc 单篇最大文档场景，超限返回 413） */
+export const MAX_BODY_BYTES = 2 * 1024 * 1024;
+
+/** loopback 监听主机名（Host 头校验白名单的判定基准） */
+const LOOPBACK_LISTEN_HOSTS = new Set(["127.0.0.1", "::1", "localhost"]);
+/** Host 头允许的主机名（DNS rebinding 防御：rebind 域名解析到 127.0.0.1 后
+ *  请求 Host 为攻击者域名 → 拒绝；本机浏览器/客户端 Host 始终命中白名单） */
+const ALLOWED_HOST_HEADER_NAMES = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+
+/** 监听地址是否 loopback（loopback 时启用 Host 头校验；显式 --host 非 loopback 跳过） */
+export function isLoopbackListenHost(host: string): boolean {
+  return LOOPBACK_LISTEN_HOSTS.has(host);
+}
+
+/** 提取 Host 头主机名（去端口；[::1]:3000 → [::1]、127.0.0.1:3000 → 127.0.0.1） */
+function hostnameOfHostHeader(host: string): string {
+  if (host.startsWith("[")) return host.slice(0, host.indexOf("]") + 1);
+  if ((host.match(/:/g) ?? []).length > 1) return host; // 裸 IPv6（如 ::1）
+  return host.split(":")[0]!.toLowerCase();
+}
+
+/** loopback 监听下的 Host 头校验（DNS rebinding 防御，2026-08 review P0-3）。
+ *  无 Host 头的非浏览器客户端（部分 HTTP 库）放行——写工具仍需 Bearer token。 */
+export function hostHeaderAllowed(req: IncomingMessage): boolean {
+  const host = req.headers.host;
+  if (host === undefined || host === "") return true;
+  return ALLOWED_HOST_HEADER_NAMES.has(hostnameOfHostHeader(host));
+}
+
+/** 恒时 token 比较（2026-08 review P0-1）：SHA-256 摘要等长化后 timingSafeEqual，
+ *  规避逐字节短路比较的时序侧信道与长度泄露。 */
+function tokenEquals(provided: string | undefined, expected: string | undefined): boolean {
+  if (typeof provided !== "string" || typeof expected !== "string" || !provided || !expected) return false;
+  const a = createHash("sha256").update(provided).digest();
+  const b = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(a, b);
+}
 
 /** 判断一条 JSON-RPC 消息是否在调用写工具（解析前就拦截） */
 function isWriteToolCall(msg: JsonRpcMessage): boolean {
@@ -175,12 +217,46 @@ export function mcpHttpHandler(
   };
 }
 
-/** 解析 Authorization 头中的 Bearer token（无 token / 格式错误 → undefined） */
+/** 解析 Authorization 头中的 Bearer token（无 token / 格式错误 → undefined）。
+ *  scheme 大小写不敏感（RFC 9110：bearer 与 Bearer 等价）。 */
 function bearerToken(req: IncomingMessage): string | undefined {
   const h = req.headers.authorization;
   if (typeof h !== "string") return undefined;
-  const m = /^Bearer\s+(.+)$/.exec(h);
+  const m = /^Bearer\s+(.+)$/i.exec(h);
   return m ? m[1] : undefined;
+}
+
+/** 读取请求体（上限字节；超限 resolve(null) 并排水剩余数据——不 destroy 请求流，
+ *  保证 413 响应能完整送达客户端）。连接错误同样 resolve(null)（错误响应交给调用方）。 */
+function readBody(req: IncomingMessage, limit: number): Promise<string | null> {
+  return new Promise((resolve) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    let settled = false;
+    req.on("data", (c: Buffer) => {
+      if (settled) return;
+      size += c.length;
+      if (size > limit) {
+        settled = true;
+        chunks.length = 0;
+        resolve(null);
+        return; // 后续 data 事件仅丢弃（连接保持，响应可送达）
+      }
+      chunks.push(c);
+    });
+    req.on("end", () => {
+      if (!settled) {
+        settled = true;
+        resolve(Buffer.concat(chunks).toString("utf8"));
+      }
+    });
+    req.on("error", () => {
+      if (!settled) {
+        settled = true;
+        resolve(null);
+      }
+    });
+  });
 }
 
 /** 处理 POST JSON-RPC：客户端 Accept 支持 SSE 时以 SSE 帧返回，否则 JSON 单响应。
@@ -192,8 +268,11 @@ async function handlePost(
   wantsSse: boolean,
   auth: { authToken?: string }
 ): Promise<void> {
-  let body = "";
-  for await (const chunk of req) body += chunk.toString("utf8");
+  const body = await readBody(req, MAX_BODY_BYTES);
+  if (body === null) {
+    json(res, 413, { error: { code: -32000, message: `请求体超过上限（${MAX_BODY_BYTES / 1024 / 1024}MB，防内存耗尽）` } });
+    return;
+  }
   let msg: JsonRpcMessage;
   try {
     msg = JSON.parse(body) as JsonRpcMessage;
@@ -203,7 +282,7 @@ async function handlePost(
   }
   // 写工具鉴权：未配置 authToken 时默认拒绝写（避免默认开放写接口）
   if (isWriteToolCall(msg)) {
-    if (!auth.authToken || bearerToken(req) !== auth.authToken) {
+    if (!auth.authToken || !tokenEquals(bearerToken(req), auth.authToken)) {
       const id = msg.id;
       const out: JsonRpcMessage = {
         jsonrpc: "2.0",
@@ -240,12 +319,18 @@ export function startHttpServer(
   options: { port?: number; host?: string } & McpHttpAuthOptions = {}
 ): Promise<HttpServerHandle> {
   const host = options.host ?? "127.0.0.1";
+  const enforceHost = isLoopbackListenHost(host); // loopback 监听启用 Host 校验（P0-3）
   const handler = mcpHttpHandler(site, server, {
     authToken: options.authToken,
     allowedOrigins: options.allowedOrigins,
     allowWithoutOrigin: options.allowWithoutOrigin,
   });
   const srv: Server = createServer((req, res) => {
+    if (enforceHost && !hostHeaderAllowed(req)) {
+      res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("Forbidden (Host not allowed)");
+      return;
+    }
     void (async () => {
       if (!(await handler(req, res))) {
         res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });

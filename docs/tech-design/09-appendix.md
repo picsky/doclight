@@ -112,6 +112,7 @@
 | **FOIT** | Flash of Invisible Text | 不可见文本闪烁（Web Font 加载问题） |
 | **LCP** | Largest Contentful Paint | 最大内容绘制，性能指标 |
 | **章节擦洗条** | Chapter Scrubber | 将文章目录抽象为条形/刻度阵列的导航形态（TOC-002）：默认安静驻留、hover 渐进披露，属 Calm Technology 模式 |
+| **作品集** | Collection | 归属聚合单元：一个归属者（人/Agent/品牌）名下多个文档站的上层组织单元（19-collection）。与部署「空间」正交——作品集管组织（归谁、装哪些），空间管发布（发到哪） |
 
 ---
 

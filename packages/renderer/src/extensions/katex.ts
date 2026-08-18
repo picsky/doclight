@@ -12,7 +12,7 @@
  * 降级：未加载 KaTeX 时 TeX 源码直接可见（数学可读性保持）。
  */
 import type { TokenizerAndRendererExtension, Tokens } from "marked";
-import { escapeHtml } from "../core/link.ts";
+import { escapeHtml } from "../../../core/src/utils.ts"; // P0-5 收敛：权威来源
 
 /** 内联公式：$...$（内容无 $、无换行、首尾非空白） */
 export const katexInlineExtension: TokenizerAndRendererExtension = {

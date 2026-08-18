@@ -57,8 +57,15 @@ export function run() {
   const report = JSON.parse(readFileSync(REPORT, "utf8"));
   const tests = collectTests(report.suites ?? []);
   const failures = [];
+  // 2026-08 review 阶段1 flaky 治理：flaky（重试后才过）不判失败，但显式列进报告
+  // ——持续 flaky 从「被静默掩埋」变为「可见的观察基线」（暂不 fail，攒数据后收紧）
+  const flaky = [];
   for (const t of tests) {
-    if (t.status === "expected" || t.status === "flaky" || t.status === "skipped") continue;
+    if (t.status === "flaky") {
+      flaky.push(`${t.projectName} :: ${t.title}`);
+      continue;
+    }
+    if (t.status === "expected" || t.status === "skipped") continue;
     failures.push({
       id: `${t.projectName} :: ${t.title}`,
       message: `e2e 失败（${t.status}）`,
@@ -68,6 +75,10 @@ export function run() {
         .join("\n")
         .slice(0, 500),
     });
+  }
+  if (flaky.length > 0) {
+    console.warn(`[e2e] ${flaky.length} 例 flaky（重试后通过，观察基线——持续出现应修复）：`);
+    for (const f of flaky) console.warn(`  - ${f}`);
   }
   return mkResult("e2e", "展示层端到端（chromium/firefox/webkit）", tests.length, failures);
 }

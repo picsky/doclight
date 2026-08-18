@@ -22,6 +22,8 @@ import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { render, parseFrontmatter, type NavFile, type NavGroup, type NavNode } from "@doclight/renderer";
+import { escapeHtml } from "../../core/src/utils.ts"; // P0-5 收敛：转义权威来源（并向下兼容 re-export）
+export { escapeHtml };
 
 // vendor 依赖定位：从 cli 包自身解析（pnpm workspace 把依赖 symlink 进包级 node_modules，
 // process.cwd() 的根 node_modules 找不到——见 .spike/check-vendor.mjs 实测）
@@ -184,10 +186,6 @@ export function walkMd(dir: string, base = ""): string[] {
   return out;
 }
 
-/** HTML 转义（转义 & < > " '，与 marked 默认 code escape 一致） */
-export function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!);
-}
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",

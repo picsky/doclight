@@ -12,10 +12,19 @@ export default defineConfig({
     maxWorkers: 2,
     testTimeout: 20000,
     // 覆盖率门禁（12 §1.6：整体 ≥ 80%，核心模块 ≥ 90%）
-    // Phase 0 无真实业务代码，暂不设阈值；Phase 1 引入真实代码时开启
+    // 2026-08 review 阶段1落地：范围限定 packages/*/src（scripts/ 与产物不计数）。
+    // thresholds 从实测基线起步（2026-08-16：lines 75.05 / branches 82.49 / functions 83.71，
+    // 取基线-5pt 向下取整到 5 的倍数），只升不降、逐步逼近 12 §1.6 目标。
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary"],
+      include: ["packages/*/src/**/*.ts"],
+      thresholds: {
+        lines: 70,
+        branches: 75,
+        functions: 75,
+        statements: 70,
+      },
     },
   },
 });

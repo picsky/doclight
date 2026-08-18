@@ -6,7 +6,7 @@
   "description": "DocLight —— 服务于人阅读、同时 AI 原生友好的零构建开源文档站引擎",
   "type": "module",
   "engines": {
-    "node": ">=20.0.0",
+    "node": ">=22.18.0",
     "pnpm": ">=9.0.0"
   },
   "packageManager": "pnpm@10.14.0",
@@ -23,7 +23,7 @@
     "spec:check": "node scripts/run-check.mjs spec",
     "build": "node scripts/build.mjs",
     "build:display": "node scripts/build-display.mjs",
-    "review": "node scripts/review.mjs"
+    "review": "node scripts/run-check.mjs review"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

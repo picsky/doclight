@@ -26,6 +26,7 @@
  *   { } 无必填配置（空配置即启用）；theme/securityLevel 等为预留扩展点。
  */
 import type { PluginDef } from "../../../core/src/plugin.ts";
+import { escapeHtml } from "../../../core/src/utils.ts"; // P0-5 收敛：转义权威来源
 
 /**
  * marked 扩展最小形状（CLI 零 marked 依赖——类型本地定义，对象由渲染内核
@@ -40,10 +41,6 @@ export interface MermaidMarkedExtension {
   renderer?(token: { text: string }): string;
 }
 
-/** HTML 文本转义（图表源码注入 <code>，防标签逃逸） */
-function escapeHtml(v: string): string {
-  return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
 
 /**
  * mermaid 围栏 marked 扩展（PLUG-006 收集器形态：extendMarked 返回扩展数组）。
